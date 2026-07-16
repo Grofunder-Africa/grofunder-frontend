@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grofunder — Cooperative Portal Mockup v1.0</title>
+<!--
+  GROFUNDER COOPERATIVE PORTAL — APPROVED DESIGN MOCKUP v1.0 (July 2026)
+  Reference implementation for the development team. Clickable, self-contained.
+
+  Flow: Sign in (repeat: cooperative name/email prefilled from device, password
+  always typed manually, never autofilled) -> or first-time Activation
+  (cooperative name + one-time code from Grofunder onboarding, 14-day expiry)
+  -> Set password -> 6-step setup wizard -> Dashboard.
+
+  NOTES FOR DEVELOPERS
+  - Grofunder staff access is NOT part of this portal. It is initiated from the
+    Grofunder admin portal. When a staff support session is active, this portal
+    must display the disclosure banner (included below, .support-banner) and all
+    actions must be tagged to the ImpersonationSession in the audit log.
+  - "Remembered" cooperative identity is a display convenience only (localStorage
+    of the name/email). It must never skip password entry.
+  - Product rates are defaults with history: each production record stores the
+    rate that applied on its delivery date. Editing a rate must not rewrite
+    historical records. Farmers are paid in full weekly; other payment models
+    are per-cooperative configuration handled by Grofunder.
+  - Clusters are cooperative-managed groupings. Growth Circles are Grofunder
+    lending groups, self-selected by farmers in the farmer app, auto-populated
+    here and read-only for the cooperative.
+  - Brand green: #09AF0F (sampled from logo). Amber is used for warnings and
+    seasonal/secondary badges. Red strictly for danger/arrears.
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<style>
+:root{
+  --g:#09AF0F; --gd:#067A0B; --gt:#E6F7E7;
+  --ink:#1F2A24; --mut:#6B7A70; --bd:#DCE5DE;
+  --sf:#FFFFFF; --pg:#F2F6F2; --sf1:#F6FAF6;
+  --wt:#854F0B; --wb:#FAEEDA; --dt:#A32D2D; --db:#FCEBEB;
+  --st:#0F6E56; --sb:#E1F5EE; --nt:#5F5E5A; --nb:#F1EFE8;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--pg);color:var(--ink);font-size:14px;line-height:1.5}
+.wrap{max-width:920px;margin:24px auto;padding:0 16px}
+.app{background:var(--sf);border:1px solid var(--bd);border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(31,42,36,.06)}
+.brand{color:var(--g);font-weight:600;letter-spacing:-.5px}
+.brand .ti{vertical-align:8px;margin-left:1px}
+h1,h2,h3,p{margin:0}
+label{display:block;font-size:12px;color:var(--mut);margin-bottom:3px}
+input,select{width:100%;font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;background:#fff;color:var(--ink)}
+input:focus,select:focus{outline:none;border-color:var(--g);box-shadow:0 0 0 3px var(--gt)}
+button{font:inherit;font-size:13px;padding:8px 14px;border:1px solid var(--bd);border-radius:8px;background:#fff;color:var(--ink);cursor:pointer}
+button:hover{background:var(--sf1)}
+.btn-p{background:var(--g);border-color:var(--g);color:#fff}
+.btn-p:hover{background:var(--gd)}
+.btn-ghost{border:none;background:transparent;color:var(--mut)}
+.btn-danger{color:var(--dt)}
+.link{text-decoration:underline;cursor:pointer}
+.muted{color:var(--mut);font-size:12px}
+.tiny{color:var(--mut);font-size:11.5px}
+.chip{display:inline-block;font-size:11px;padding:2px 9px;border-radius:9px}
+.chip-g{background:var(--gt);color:var(--gd)} .chip-w{background:var(--wb);color:var(--wt)}
+.chip-d{background:var(--db);color:var(--dt)} .chip-s{background:var(--sb);color:var(--st)}
+.chip-n{background:var(--nb);color:var(--nt)}
+.auth{padding:40px 24px;display:flex;flex-direction:column;align-items:center}
+.auth .box{width:100%;max-width:330px;display:flex;flex-direction:column;gap:12px;margin-top:18px}
+.divider{display:flex;align-items:center;gap:8px;color:var(--mut);font-size:11px}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--bd)}
+.header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--bd);flex-wrap:wrap;gap:8px}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--gt);color:var(--gd);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
+.tabs{display:flex;gap:2px;padding:8px 12px;border-bottom:1px solid var(--bd);flex-wrap:wrap}
+.tab{border:none;border-bottom:2px solid transparent;border-radius:0;background:transparent;padding:7px 11px;color:var(--mut)}
+.tab.on{border-bottom-color:var(--g);color:var(--ink)}
+.pad{padding:18px}
+.grid{display:grid;gap:10px}
+.g-metrics{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.g-form{grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-bottom:10px}
+.g-cards{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.metric{background:var(--sf1);border-radius:10px;padding:13px}
+.metric .n{font-size:23px;font-weight:600;margin:2px 0 0}
+.card{border:1px solid var(--bd);border-radius:10px;padding:13px}
+.callout{border-radius:10px;padding:10px 13px;font-size:12.5px}
+.co-g{background:var(--gt);color:var(--gd)} .co-w{background:var(--wb);color:var(--wt)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+table{width:100%;table-layout:fixed;font-size:12.5px;border-collapse:collapse;margin-top:8px}
+th{color:var(--mut);text-align:left;font-weight:500;padding:6px 8px}
+td{padding:7px 8px;border-top:1px solid var(--bd)}
+.stepper{display:flex;gap:5px;margin:12px 0 16px;flex-wrap:wrap}
+.step-chip{cursor:pointer;font-size:11.5px;padding:4px 11px;border-radius:9px;background:var(--sf1);color:var(--mut)}
+.step-chip.on{background:var(--gt);color:var(--gd)}
+.support-banner{display:none;background:var(--wb);color:var(--wt);padding:7px 18px;font-size:12px}
+.err{display:none;color:var(--dt);font-size:12px;text-align:center}
+.footer-note{max-width:920px;margin:10px auto 40px;padding:0 16px;font-size:11.5px;color:var(--mut)}
+[data-view],[data-step],[data-dtab]{display:none}
+@media (max-width:560px){ .g-form{grid-template-columns:1fr 1fr} }
+</style>
+</head>
+<body>
+<div class="wrap"><div class="app">
+
+<section data-view="login" class="auth">
+  <h1 class="brand" style="font-size:28px">grofunder<i class="ti ti-leaf" style="font-size:18px"></i></h1>
+  <p class="muted">Cooperative portal</p>
+  <div class="box">
+    <div>
+      <label>Cooperative name or email</label>
+      <div style="position:relative">
+        <input id="li-name" value="Orinde Cooperative" style="padding-right:32px">
+        <i class="ti ti-check" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--g)"></i>
+      </div>
+      <p class="tiny">Remembered on this device · <span class="link" onclick="document.getElementById('li-name').value='';document.getElementById('li-name').focus()">not your cooperative?</span></p>
+    </div>
+    <div>
+      <label>Password</label>
+      <input id="li-pass" type="password" placeholder="Enter your password" autocomplete="new-password">
+      <p class="tiny">Always typed manually — never saved or autofilled</p>
+    </div>
+    <button class="btn-p" onclick="goview('dash')">Sign in</button>
+    <div class="divider">first time here?</div>
+    <button onclick="goview('activate')">Activate your cooperative</button>
+    <p class="tiny" style="text-align:center">Forgot password · Contact Grofunder support</p>
+  </div>
+</section>
+
+<section data-view="activate" class="auth">
+  <h1 class="brand" style="font-size:23px">grofunder<i class="ti ti-leaf" style="font-size:15px"></i></h1>
+  <h2 style="font-size:16px;margin-top:14px">Activate your cooperative</h2>
+  <p class="muted" style="max-width:340px;text-align:center;margin-top:4px">Use the cooperative name and activation code given to you by your Grofunder onboarding officer.</p>
+  <div class="box">
+    <div><label>Cooperative name</label><input id="ac-name" placeholder="Orinde Cooperative"></div>
+    <div>
+      <label>Activation code</label>
+      <input id="ac-code" placeholder="GF-ORD-2481" style="letter-spacing:1px">
+      <p class="tiny">One-time code · expires 14 days after onboarding</p>
+    </div>
+    <button class="btn-p" onclick="verifyActivation()">Verify</button>
+    <p id="ac-err" class="err">Enter your cooperative name and code exactly as given.</p>
+    <button class="btn-ghost" onclick="goview('login')">Back to sign in</button>
+  </div>
+</section>
+
+<section data-view="setpass" class="auth">
+  <span class="chip chip-g" style="font-size:12px;padding:5px 14px"><i class="ti ti-check" style="font-size:13px;vertical-align:-2px"></i> Orinde Cooperative verified</span>
+  <h2 style="font-size:16px;margin-top:14px">Set your portal password</h2>
+  <p class="muted" style="max-width:340px;text-align:center;margin-top:4px">This replaces your activation code. Only the cooperative administrator should know it.</p>
+  <div class="box">
+    <div><label>New password</label><input id="sp-1" type="password" placeholder="At least 8 characters" autocomplete="new-password"></div>
+    <div><label>Confirm password</label><input id="sp-2" type="password" placeholder="Repeat password" autocomplete="new-password"></div>
+    <p class="tiny">Use at least 8 characters with a number. You'll also confirm your phone by SMS code.</p>
+    <button class="btn-p" onclick="setPassword()">Set password and continue</button>
+    <p id="sp-err" class="err">Passwords must match and be at least 8 characters.</p>
+  </div>
+</section>
+
+<section data-view="setup" class="pad">
+  <div class="row">
+    <div>
+      <h2 style="font-size:16px">Set up Orinde Cooperative</h2>
+      <p class="muted">Your records power every farmer's credit score. Save and continue any time.</p>
+    </div>
+    <span class="brand" style="font-size:16px">grofunder<i class="ti ti-leaf" style="font-size:11px;vertical-align:6px"></i></span>
+  </div>
+  <div class="stepper" id="stepper">
+    <span class="step-chip on" data-st="1">1 Products</span><span class="step-chip" data-st="2">2 Clusters</span>
+    <span class="step-chip" data-st="3">3 Farmers</span><span class="step-chip" data-st="4">4 Savings</span>
+    <span class="step-chip" data-st="5">5 Production</span><span class="step-chip" data-st="6">6 Review</span>
+  </div>
+
+  <div data-step="1">
+    <h3 style="font-size:13.5px">What do your farmers deliver, and what do you pay per kg?</h3>
+    <p class="muted" style="margin:4px 0 10px">Farmers are paid in full weekly at these rates. Different payment models can be configured for your cooperative by Grofunder.</p>
+    <div id="prodcards" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
+    <div class="grid g-form">
+      <div><label>Product name</label><input id="np-name" placeholder="Coffee cherry"></div>
+      <div><label>Rate (KES per kg)</label><input id="np-rate" type="number" placeholder="28"></div>
+      <div><label>Season</label><select id="np-season"><option>Year-round</option><option>Main season</option><option>Dry season</option></select></div>
+      <div><label>Type</label><select id="np-main"><option>Main product</option><option>Secondary</option></select></div>
+    </div>
+    <button onclick="addProductType()"><i class="ti ti-plus"></i> Add product</button>
+    <p class="tiny" style="margin-top:10px">Rates can be updated later — every production record keeps the rate that applied on its delivery date.</p>
+  </div>
+
+  <div data-step="2">
+    <h3 style="font-size:13.5px">Declare your clusters</h3>
+    <p class="muted" style="margin:4px 0 10px">Clusters are your own groupings of farmers. Declare them once — every farmer you add is then assigned from this list, so records stay clean and consistent.</p>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input id="nc-name" placeholder="e.g. Rachar" style="flex:1;min-width:140px">
+      <button onclick="addCluster()"><i class="ti ti-plus"></i> Add cluster</button>
+    </div>
+    <div id="clustercards" style="display:flex;flex-direction:column;gap:8px"></div>
+    <p class="tiny" style="margin-top:10px">Appoint each cluster head from its own members — the dropdowns fill as you register farmers in the next step. Growth Circles are separate: farmers form those themselves in the app.</p>
+  </div>
+
+  <div data-step="3">
+    <div class="row" style="margin-bottom:8px">
+      <h3 style="font-size:13.5px">Register farmers</h3>
+      <button><i class="ti ti-upload"></i> Import CSV instead</button>
+    </div>
+    <div class="grid g-form">
+      <div><label>Full name</label><input id="nf-name" placeholder="Akinyi Ouma"></div>
+      <div><label>Phone</label><input id="nf-phone" placeholder="0712 345 678"></div>
+      <div><label>ID number</label><input id="nf-id" placeholder="23845691"></div>
+      <div><label>Cluster</label><select id="nf-cluster"></select></div>
+    </div>
+    <button onclick="addFarmer()"><i class="ti ti-plus"></i> Add farmer</button>
+    <table id="setupftable">
+      <tr><th style="width:28%">Name</th><th>Phone</th><th>ID</th><th>Cluster</th><th>Growth Circle</th></tr>
+      <tr><td>Akinyi Ouma</td><td>0712 …678</td><td>2384…91</td><td>Kanyada</td><td class="muted">Auto</td></tr>
+      <tr><td>Otieno Odhiambo</td><td>0733 …090</td><td>1177…04</td><td>Kobuya</td><td class="muted">Auto</td></tr>
+    </table>
+    <p class="tiny" style="margin-top:8px">CSV imports are validated against your declared clusters — unknown cluster names are flagged before anything saves. Need a new cluster? Add it in the previous step.</p>
+    <div class="callout co-g" style="margin-top:10px"><i class="ti ti-info-circle"></i> Growth Circles are Grofunder lending groups that farmers self-select when they join the app. They fill in automatically — you don't assign them.</div>
+  </div>
+
+  <div data-step="4">
+    <div class="row" style="margin-bottom:8px">
+      <h3 style="font-size:13.5px">Farmer savings <span class="tiny" style="font-weight:400">(optional)</span></h3>
+      <div style="display:flex;gap:8px">
+        <button><i class="ti ti-upload"></i> Import savings CSV</button>
+        <button onclick="gostep(5)">Skip this step</button>
+      </div>
+    </div>
+    <p class="muted" style="margin:0 0 10px">Only if your cooperative runs member savings — skip freely otherwise, it never blocks activation. CSV columns: member no., balance (KES), as-of date. Savings strengthen member credit scores but are not required.</p>
+    <div class="grid g-form">
+      <div><label>Farmer</label><select id="sv-farmer"></select></div>
+      <div><label>Savings balance (KES)</label><input id="sv-amt" type="number" placeholder="15000"></div>
+      <div><label>As of date</label><input id="sv-date" type="date" value="2026-07-11"></div>
+    </div>
+    <button onclick="addSaving()"><i class="ti ti-plus"></i> Add savings record</button>
+    <table id="svtable"><tr><th>Farmer</th><th>Balance</th><th>As of</th></tr></table>
+  </div>
+
+  <div data-step="5">
+    <h3 style="font-size:13.5px">Production track record</h3>
+    <p class="muted" style="margin:4px 0 10px">Weekly deliveries per farmer, paid in full at your product rate. Remitted auto-calculates — adjust if the payout differed.</p>
+    <div class="grid g-form">
+      <div><label>Farmer</label><select id="pr-farmer"></select></div>
+      <div><label>Product</label><select id="pr-product" onchange="autocalc('pr')"></select></div>
+      <div><label>Week</label><input id="pr-week" placeholder="W27"></div>
+      <div><label>Date</label><input id="pr-date" type="date" value="2026-07-06"></div>
+      <div><label>Delivered (kg)</label><input id="pr-amt" type="number" placeholder="42" oninput="autocalc('pr')"></div>
+      <div><label>Remitted (KES)</label><input id="pr-price" type="number" placeholder="1176"></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="addProdRecord('pr','prtable',true)"><i class="ti ti-plus"></i> Add record</button>
+      <button><i class="ti ti-upload"></i> Import season CSV</button>
+    </div>
+    <table id="prtable">
+      <tr><th style="width:22%">Farmer</th><th>Product</th><th>Week</th><th>Date</th><th>Kg</th><th>Remitted</th></tr>
+      <tr><td>Akinyi Ouma</td><td>Coffee cherry</td><td>W26</td><td>29 Jun</td><td>38</td><td>KES 1,064</td></tr>
+    </table>
+  </div>
+
+  <div data-step="6">
+    <h3 style="font-size:13.5px;margin-bottom:10px">Review and activate</h3>
+    <div class="grid g-metrics" style="margin-bottom:12px">
+      <div class="metric"><p class="muted">Products</p><p class="n" id="rv-products">2</p></div>
+      <div class="metric"><p class="muted">Farmers</p><p class="n" id="rv-farmers">2</p></div>
+      <div class="metric"><p class="muted">Clusters</p><p class="n" id="rv-clusters">2</p></div>
+      <div class="metric"><p class="muted">Savings</p><p class="n" id="rv-savings">0</p></div>
+      <div class="metric"><p class="muted">Production</p><p class="n" id="rv-prod">1</p></div>
+    </div>
+    <div class="callout co-w" style="margin-bottom:12px">Farmers get an SMS invite to the Grofunder app after activation. Credit scores generate once each farmer verifies their phone and joins a Growth Circle. You can keep adding members and records after activation.</div>
+    <button class="btn-p" onclick="goview('dash')">Activate cooperative <i class="ti ti-arrow-right"></i></button>
+  </div>
+
+  <div class="row" style="margin-top:16px;border-top:1px solid var(--bd);padding-top:12px">
+    <button id="backbtn" onclick="gostep(cur-1)"><i class="ti ti-arrow-left"></i> Back</button>
+    <button id="nextbtn" onclick="gostep(cur+1)">Next <i class="ti ti-arrow-right"></i></button>
+  </div>
+</section>
+
+<section data-view="dash">
+  <div class="support-banner" id="supportbanner"><i class="ti ti-lock"></i> Grofunder support session active — all actions are logged and visible to Orinde Cooperative. <span class="link" onclick="goview('login')">End session</span></div>
+  <div class="header">
+    <div style="display:flex;align-items:baseline;gap:10px">
+      <span class="brand" style="font-size:18px">grofunder<i class="ti ti-leaf" style="font-size:12px;vertical-align:7px"></i></span>
+      <span class="muted" style="font-size:13px">Orinde Cooperative</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="btn-ghost" style="font-size:12px" onclick="goview('login')">Sign out</button>
+      <div class="avatar">JO</div>
+    </div>
+  </div>
+  <div class="tabs" id="navtabs">
+    <button class="tab on" data-tab="d1">Dashboard</button>
+    <button class="tab" data-tab="d2">Farmers</button>
+    <button class="tab" data-tab="d3">Clusters</button>
+    <button class="tab" data-tab="d4">Production</button>
+    <button class="tab" data-tab="d7">Savings</button>
+    <button class="tab" data-tab="d5">Approvals <span class="chip chip-g">2</span></button>
+    <button class="tab" data-tab="d6">Repayments</button>
+  </div>
+
+  <div data-dtab="d1" class="pad">
+    <div class="grid g-metrics" style="margin-bottom:14px">
+      <div class="metric"><p class="muted">Members</p><p class="n">385</p><p class="tiny" style="color:var(--gd)">+11 this month</p></div>
+      <div class="metric"><p class="muted">Active loans</p><p class="n">142</p><p class="tiny">KES 1.63M outstanding</p></div>
+      <div class="metric"><p class="muted">Repayment rate</p><p class="n">95.8%</p><p class="tiny" style="color:var(--gd)">on time, last 30 days</p></div>
+      <div class="metric"><p class="muted">PAR-30</p><p class="n">3.6%</p><p class="tiny" style="color:var(--wt)">target &lt; 5%</p></div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <div class="callout co-g row" style="flex:1;min-width:250px"><span>2 loan applications await approval</span><button onclick="dshow('d5')" style="font-size:12px;padding:4px 10px">Review</button></div>
+      <div class="callout co-w row" style="flex:1;min-width:250px"><span>Week 28 cherry deliveries due for upload</span><button onclick="dshow('d4')" style="font-size:12px;padding:4px 10px">Record</button></div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <div class="row" style="margin-bottom:6px">
+        <h3 style="font-size:13.5px"><i class="ti ti-trophy" style="color:var(--wt)"></i> Week 28 champions</h3>
+        <span class="tiny">computed every Friday 18:00</span>
+      </div>
+      <table style="margin-top:2px">
+        <tr><th style="width:10%">#</th><th>Growth Circle</th><th>On time</th><th>Streak</th></tr>
+        <tr style="background:var(--gt)"><td style="color:var(--gd);font-weight:600">1</td><td style="color:var(--gd);font-weight:600">GC-Bidii</td><td style="color:var(--gd)">100%</td><td style="color:var(--gd)">14 wk</td></tr>
+        <tr><td>2</td><td>GC-Amani</td><td>100%</td><td>9 wk</td></tr>
+        <tr><td>3</td><td>GC-Juhudi</td><td>96%</td><td>4 wk</td></tr>
+      </table>
+      <div class="row" style="margin-top:10px">
+        <span style="font-size:12.5px">Best cluster: <strong>Rachar · 98%</strong> <span class="tiny">(Kanyada 95% · Kobuya 91%)</span></span>
+        <button id="congratsbtn" style="font-size:12px;padding:5px 12px" onclick="sendCongrats()"><i class="ti ti-confetti"></i> Congratulate by SMS</button>
+      </div>
+      <p id="congratsdone" class="tiny" style="display:none;color:var(--gd);margin-top:6px"><i class="ti ti-check"></i> Sent to 19 farmers in GC-Bidii and Rachar cluster — signed by Orinde Cooperative</p>
+      <p class="tiny" style="margin-top:8px">Champions only — circles below the top are never listed publicly. This week's habari za shamba (11 photos, champions, week stats) is live on farmer dashboards and grofunder.co.ke.</p>
+    </div>
+    <h3 style="font-size:13.5px">In arrears</h3>
+    <table>
+      <tr><th>Farmer</th><th>Cluster</th><th>Overdue</th><th>Days late</th></tr>
+      <tr><td>Musa Barasa</td><td>Kanyada</td><td>KES 875</td><td><span class="chip chip-w">6</span></td></tr>
+      <tr><td>Achieng Owino</td><td>Kobuya</td><td>KES 1,750</td><td><span class="chip chip-d">21</span></td></tr>
+    </table>
+    <p class="tiny" style="margin-top:8px">Members behind on payments appear here and in their own circle's private view only — never in public boards.</p>
+  </div>
+
+  <div data-dtab="d2" class="pad">
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <input placeholder="Search name or ID number" style="flex:1;min-width:180px">
+      <button class="btn-p" onclick="toggleNm()"><i class="ti ti-plus"></i> Add member</button>
+      <button><i class="ti ti-upload"></i> Import CSV</button>
+    </div>
+    <div id="nmform" class="card" style="display:none;margin-bottom:12px">
+      <div class="grid g-form">
+        <div><label>Full name</label><input id="dm-name"></div>
+        <div><label>Phone</label><input id="dm-phone"></div>
+        <div><label>ID number</label><input id="dm-id"></div>
+        <div><label>Cluster</label><select id="dm-cluster"></select></div>
+      </div>
+      <button onclick="addMember()" style="font-size:12px;padding:5px 12px">Save member</button>
+    </div>
+    <table id="dmtable">
+      <tr><th style="width:24%">Farmer</th><th>Cluster</th><th>Growth Circle</th><th>Score</th><th>Status</th></tr>
+      <tr><td>Akinyi Ouma</td><td>Kanyada</td><td>GC-Amani</td><td>712</td><td><span class="chip chip-s">Active loan</span></td></tr>
+      <tr><td>Otieno Odhiambo</td><td>Kobuya</td><td>GC-Faida</td><td>655</td><td><span class="chip chip-n">Eligible</span></td></tr>
+      <tr><td>Amina Hassan</td><td>Rachar</td><td class="muted">Not yet selected</td><td>—</td><td><span class="chip chip-w">Invited</span></td></tr>
+    </table>
+  </div>
+
+  <div data-dtab="d3" class="pad">
+    <p class="muted" style="margin-bottom:10px">Your clusters (managed by you) and the Grofunder Growth Circles they map to (self-selected by farmers). Declare a cluster here any time — it appears immediately in the member form dropdown.</p>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <input id="dc-name" placeholder="Declare a new cluster, e.g. Soko" style="flex:1;min-width:180px">
+      <button class="btn-p" onclick="addClusterDash()"><i class="ti ti-plus"></i> Add cluster</button>
+    </div>
+    <div class="grid g-cards" id="dclustergrid">
+      <div class="card"><div class="row"><h3 style="font-size:14px">Kanyada</h3><span class="chip chip-s">Strong</span></div><p class="muted" style="margin-top:6px">121 members · Head: Akinyi O.</p><p class="tiny">Growth Circles: GC-Amani, GC-Neema +4</p></div>
+      <div class="card"><div class="row"><h3 style="font-size:14px">Kobuya</h3><span class="chip chip-w">Watch</span></div><p class="muted" style="margin-top:6px">98 members · Head: Otieno O.</p><p class="tiny">Growth Circles: GC-Faida +3</p></div>
+      <div class="card"><div class="row"><h3 style="font-size:14px">Rachar</h3><span class="chip chip-s">Strong</span></div><p class="muted" style="margin-top:6px">166 members · Head: Chebet K.</p><p class="tiny">Growth Circles: GC-Bidii, GC-Juhudi +5</p></div>
+    </div>
+  </div>
+
+  <div data-dtab="d4" class="pad">
+    <div class="row" style="margin-bottom:10px">
+      <h3 style="font-size:13.5px">Weekly production records</h3>
+      <button><i class="ti ti-upload"></i> Upload week 28 CSV</button>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="grid g-form">
+        <div><label>Farmer</label><select id="dp-farmer"><option>Akinyi Ouma</option><option>Otieno Odhiambo</option><option>Amina Hassan</option></select></div>
+        <div><label>Product</label><select id="dp-product" onchange="autocalc('dp')"></select></div>
+        <div><label>Week</label><input id="dp-week" value="W28"></div>
+        <div><label>Date</label><input id="dp-date" type="date" value="2026-07-11"></div>
+        <div><label>Kg</label><input id="dp-amt" type="number" oninput="autocalc('dp')"></div>
+        <div><label>Remitted (KES)</label><input id="dp-price" type="number"></div>
+      </div>
+      <button onclick="addProdRecord('dp','dptable',false)" style="font-size:12px;padding:5px 12px">Add record</button>
+    </div>
+    <table id="dptable">
+      <tr><th style="width:22%">Farmer</th><th>Product</th><th>Week</th><th>Date</th><th>Kg</th><th>Remitted</th></tr>
+      <tr><td>Akinyi Ouma</td><td>Coffee cherry</td><td>W27</td><td>6 Jul</td><td>44</td><td>KES 1,232</td></tr>
+      <tr><td>Otieno Odhiambo</td><td>Coffee cherry</td><td>W27</td><td>6 Jul</td><td>29</td><td>KES 812</td></tr>
+      <tr><td>Chebet Kiprotich</td><td>Dry beans (mbuni)</td><td>W27</td><td>7 Jul</td><td>18</td><td>KES 1,170</td></tr>
+    </table>
+    <p class="tiny" style="margin-top:10px">Missing week 28 for 34 farmers · deliveries feed directly into credit scores</p>
+  </div>
+
+  <div data-dtab="d7" class="pad">
+    <div class="row" style="margin-bottom:8px">
+      <h3 style="font-size:13.5px">Member savings <span class="tiny" style="font-weight:400">(optional)</span></h3>
+      <button><i class="ti ti-upload"></i> Import savings CSV</button>
+    </div>
+    <div class="callout co-g" style="margin-bottom:12px"><i class="ti ti-info-circle"></i> Only for cooperatives that run member savings — if yours doesn't, leave this empty; it never affects activation. Savings strengthen member credit scores but are not required. CSV columns: member no., balance (KES), as-of date.</div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="grid g-form">
+        <div><label>Farmer</label><select id="ds-farmer"><option>Akinyi Ouma</option><option>Otieno Odhiambo</option><option>Amina Hassan</option><option>Musa Barasa</option></select></div>
+        <div><label>Savings balance (KES)</label><input id="ds-amt" type="number" placeholder="15000"></div>
+        <div><label>As of date</label><input id="ds-date" type="date" value="2026-07-11"></div>
+      </div>
+      <button onclick="addSavingDash()" style="font-size:12px;padding:5px 12px">Add savings record</button>
+    </div>
+    <table id="dstable">
+      <tr><th style="width:30%">Farmer</th><th>Balance</th><th>As of</th></tr>
+      <tr><td>Akinyi Ouma</td><td>KES 15,200</td><td>4 Jul 2026</td></tr>
+      <tr><td>Otieno Odhiambo</td><td>KES 12,400</td><td>4 Jul 2026</td></tr>
+    </table>
+    <p class="tiny" style="margin-top:10px">Balances are point-in-time snapshots — upload a fresh CSV whenever your savings ledger updates. History is kept; nothing is overwritten.</p>
+  </div>
+
+  <div data-dtab="d5" class="pad">
+    <p class="muted" style="margin-bottom:10px">Applications awaiting cooperative approval. Approved loans go to Grofunder for final review.</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="card">
+        <h3 style="font-size:14px">Otieno Odhiambo · KES 8,000</h3>
+        <p class="muted" style="margin-top:2px">Farm inputs · 12 weekly instalments of KES 700 · applied 10 Jul</p>
+        <p class="tiny" style="margin:4px 0 8px">Score 655 · cluster Kobuya · Growth Circle GC-Faida (watch) · avg 31 kg cherry/week · savings KES 12,400 · 1 loan repaid</p>
+        <div style="display:flex;gap:6px"><button style="font-size:12px;padding:4px 10px">Approve</button><button class="btn-danger" style="font-size:12px;padding:4px 10px">Reject</button><button class="btn-ghost" style="font-size:12px;padding:4px 10px">View full profile</button></div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:14px">Wanjiru Ndegwa · KES 5,000</h3>
+        <p class="muted" style="margin-top:2px">Fertiliser · 10 weekly instalments of KES 545 · applied 11 Jul</p>
+        <p class="tiny" style="margin:4px 0 8px">Score 608 · cluster Rachar · Growth Circle GC-Bidii (strong) · avg 26 kg cherry/week · first loan</p>
+        <div style="display:flex;gap:6px"><button style="font-size:12px;padding:4px 10px">Approve</button><button class="btn-danger" style="font-size:12px;padding:4px 10px">Reject</button><button class="btn-ghost" style="font-size:12px;padding:4px 10px">View full profile</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div data-dtab="d6" class="pad">
+    <table>
+      <tr><th style="width:26%">Farmer</th><th>Balance</th><th>Next due</th><th>Status</th></tr>
+      <tr><td>Akinyi Ouma</td><td>KES 7,875</td><td>Fri 17 Jul · KES 1,050</td><td><span class="chip chip-s">On track</span></td></tr>
+      <tr><td>Musa Barasa</td><td>KES 3,500</td><td>Overdue since 5 Jul</td><td><span class="chip chip-w">6 days late</span></td></tr>
+      <tr><td>Achieng Owino</td><td>KES 5,250</td><td>Overdue since 20 Jun</td><td><span class="chip chip-d">21 days late</span></td></tr>
+    </table>
+    <p class="tiny" style="margin-top:10px">Repayments are collected via M-Pesa through the lending partner — this view is read-only monitoring.</p>
+  </div>
+</section>
+
+</div></div>
+<p class="footer-note">Grofunder cooperative portal — approved design mockup v1.0 · July 2026. Staff support access is initiated from the Grofunder admin portal; when active, the disclosure banner at the top of the dashboard is shown to the cooperative and every action is written to the audit log.</p>
+
+<script>
+var products = [
+  {name:'Coffee cherry', rate:28, season:'Main season', main:true},
+  {name:'Dry beans (mbuni)', rate:65, season:'Dry season', main:false}
+];
+var farmers = [
+  {name:'Akinyi Ouma', cluster:'Kanyada'},
+  {name:'Otieno Odhiambo', cluster:'Kobuya'}
+];
+var clusters = ['Kanyada', 'Kobuya', 'Rachar'];
+var savingsCount = 0, prodCount = 1, cur = 1, supportMode = false;
+
+function $(id){ return document.getElementById(id); }
+
+function goview(id){
+  document.querySelectorAll('[data-view]').forEach(function(v){ v.style.display = v.dataset.view === id ? 'block' : 'none'; });
+  if(id === 'dash'){ $('supportbanner').style.display = supportMode ? 'block' : 'none'; fillClusterSelects(); dshow('d1'); }
+  if(id === 'login') supportMode = false;
+  if(id === 'setup') gostep(1);
+}
+
+function verifyActivation(){
+  var ok = $('ac-name').value.trim() && $('ac-code').value.trim();
+  $('ac-err').style.display = ok ? 'none' : 'block';
+  if(ok) goview('setpass');
+}
+
+function setPassword(){
+  var a = $('sp-1').value, b = $('sp-2').value;
+  var ok = a.length >= 8 && a === b;
+  $('sp-err').style.display = ok ? 'none' : 'block';
+  if(ok) goview('setup');
+}
+
+function gostep(n){
+  if(n < 1 || n > 6) return;
+  cur = n;
+  document.querySelectorAll('[data-step]').forEach(function(s){ s.style.display = +s.dataset.step === n ? 'block' : 'none'; });
+  document.querySelectorAll('#stepper .step-chip').forEach(function(c){ c.classList.toggle('on', +c.dataset.st === n); });
+  $('backbtn').style.visibility = n === 1 ? 'hidden' : 'visible';
+  $('nextbtn').style.visibility = n === 6 ? 'hidden' : 'visible';
+  if(n === 1) renderProducts();
+  if(n === 2) renderClusters();
+  if(n === 3) fillClusterSelects();
+  if(n === 4 || n === 5) fillFarmerSelects();
+  if(n === 6) review();
+}
+document.querySelectorAll('#stepper .step-chip').forEach(function(c){ c.addEventListener('click', function(){ gostep(+c.dataset.st); }); });
+
+function renderProducts(){
+  var host = $('prodcards');
+  host.innerHTML = '';
+  products.forEach(function(p){
+    var d = document.createElement('div');
+    d.className = 'card row';
+    d.innerHTML = '<div style="display:flex;align-items:center;gap:8px"><strong style="font-size:13px">'+p.name+'</strong>'
+      + (p.main ? '<span class="chip chip-g">Main product</span>' : '<span class="chip chip-w">Secondary · seasonal</span>')
+      + '</div><span class="muted">KES '+p.rate+' / kg · '+p.season+'</span>';
+    host.appendChild(d);
+  });
+  ['pr-product','dp-product'].forEach(function(id){
+    var s = $(id);
+    if(s) s.innerHTML = products.map(function(p){ return '<option data-rate="'+p.rate+'">'+p.name+'</option>'; }).join('');
+  });
+}
+
+function addProductType(){
+  var n = $('np-name').value.trim(), r = +$('np-rate').value;
+  if(!n || !r) return;
+  products.push({name:n, rate:r, season:$('np-season').value, main:$('np-main').value === 'Main product'});
+  $('np-name').value = ''; $('np-rate').value = '';
+  renderProducts();
+}
+
+function addClusterDash(){
+  var v = $('dc-name').value.trim();
+  if(!v) return;
+  var exists = clusters.some(function(c){ return c.toLowerCase() === v.toLowerCase(); });
+  if(exists){ $('dc-name').value = ''; return; }
+  clusters.push(v);
+  $('dc-name').value = '';
+  fillClusterSelects();
+  var d = document.createElement('div');
+  d.className = 'card';
+  d.innerHTML = '<div class="row"><h3 style="font-size:14px">'+v+'</h3><span class="chip chip-n">New</span></div><p class="muted" style="margin-top:6px">0 members · head appointed once members join</p><p class="tiny">Growth Circles: none yet</p>';
+  $('dclustergrid').appendChild(d);
+}
+
+function addCluster(){
+  var v = $('nc-name').value.trim();
+  if(!v) return;
+  var exists = clusters.some(function(c){ return c.toLowerCase() === v.toLowerCase(); });
+  if(exists){ $('nc-name').value = ''; return; }
+  clusters.push(v);
+  $('nc-name').value = '';
+  renderClusters();
+}
+
+function removeCluster(name){
+  var used = farmers.some(function(f){ return f.cluster === name; });
+  if(used) return;
+  clusters = clusters.filter(function(c){ return c !== name; });
+  renderClusters();
+}
+
+function renderClusters(){
+  var host = $('clustercards');
+  host.innerHTML = '';
+  clusters.forEach(function(cl){
+    var members = farmers.filter(function(f){ return f.cluster === cl; }).map(function(f){ return f.name; });
+    var d = document.createElement('div');
+    d.className = 'card row';
+    var right;
+    if(members.length){
+      var opts = members.map(function(m){ return '<option>'+m+'</option>'; }).join('');
+      right = '<div style="display:flex;align-items:center;gap:6px"><label style="margin:0">Head</label><select style="width:auto;font-size:12px">'+opts+'</select></div>';
+    } else {
+      right = '<div style="display:flex;align-items:center;gap:8px"><span class="tiny">No members yet — head is picked once farmers are added</span><button class="btn-ghost" style="font-size:12px;padding:2px 6px" onclick="removeCluster(\''+cl.replace(/'/g,"\\'")+'\')"><i class="ti ti-trash"></i></button></div>';
+    }
+    d.innerHTML = '<div><strong style="font-size:13px">'+cl+'</strong><p class="tiny">'+(members.length ? members.length+' member'+(members.length>1?'s':'')+': '+members.join(', ') : 'Declared')+'</p></div>' + right;
+    host.appendChild(d);
+  });
+}
+
+function fillClusterSelects(){
+  ['nf-cluster','dm-cluster'].forEach(function(id){
+    var s = $(id);
+    if(s) s.innerHTML = clusters.map(function(c){ return '<option>'+c+'</option>'; }).join('');
+  });
+}
+
+function addFarmer(){
+  var n = $('nf-name').value.trim();
+  var cl = $('nf-cluster').value;
+  if(!n || !cl) return;
+  farmers.push({name:n, cluster:cl});
+  var r = $('setupftable').insertRow(-1);
+  [n, $('nf-phone').value.trim() || '07•• ••• •••', $('nf-id').value.trim() || '—', cl].forEach(function(v){ r.insertCell(-1).textContent = v; });
+  var gc = r.insertCell(-1); gc.className = 'muted'; gc.textContent = 'Auto';
+  ['nf-name','nf-phone','nf-id'].forEach(function(id){ $(id).value = ''; });
+}
+
+function fillFarmerSelects(){
+  ['sv-farmer','pr-farmer'].forEach(function(id){
+    $(id).innerHTML = farmers.map(function(f){ return '<option>'+f.name+'</option>'; }).join('');
+  });
+  renderProducts();
+}
+
+function addSavingDash(){
+  var f = $('ds-farmer').value, a = +$('ds-amt').value;
+  if(!f || !a) return;
+  var r = $('dstable').insertRow(-1);
+  [f, 'KES ' + Math.round(a).toLocaleString(), $('ds-date').value].forEach(function(v){ r.insertCell(-1).textContent = v; });
+  $('ds-amt').value = '';
+}
+
+function addSaving(){
+  var f = $('sv-farmer').value, a = +$('sv-amt').value;
+  if(!f || !a) return;
+  savingsCount++;
+  var r = $('svtable').insertRow(-1);
+  [f, 'KES ' + Math.round(a).toLocaleString(), $('sv-date').value].forEach(function(v){ r.insertCell(-1).textContent = v; });
+  $('sv-amt').value = '';
+}
+
+function autocalc(prefix){
+  var sel = $(prefix + '-product');
+  var opt = sel.selectedOptions[0];
+  var rate = opt ? +opt.dataset.rate : 0;
+  var kg = +$(prefix + '-amt').value;
+  if(rate && kg) $(prefix + '-price').value = Math.round(rate * kg);
+}
+
+function addProdRecord(prefix, tableId, countIt){
+  var a = +$(prefix + '-amt').value;
+  var f = prefix === 'pr' ? $('pr-farmer').value : $('dp-farmer').value;
+  if(!f || !a) return;
+  if(countIt) prodCount++;
+  var r = $(tableId).insertRow(-1);
+  [f, $(prefix + '-product').value, $(prefix + '-week').value || 'W27', $(prefix + '-date').value,
+   Math.round(a).toLocaleString(), 'KES ' + Math.round(+$(prefix + '-price').value).toLocaleString()
+  ].forEach(function(v){ r.insertCell(-1).textContent = v; });
+  $(prefix + '-amt').value = ''; $(prefix + '-price').value = '';
+}
+
+function review(){
+  $('rv-products').textContent = products.length;
+  $('rv-farmers').textContent = farmers.length;
+  $('rv-clusters').textContent = clusters.length;
+  $('rv-savings').textContent = savingsCount;
+  $('rv-prod').textContent = prodCount;
+}
+
+function sendCongrats(){
+  document.getElementById('congratsbtn').style.display = 'none';
+  document.getElementById('congratsdone').style.display = 'block';
+}
+
+function dshow(id){
+  document.querySelectorAll('[data-dtab]').forEach(function(s){ s.style.display = s.dataset.dtab === id ? 'block' : 'none'; });
+  document.querySelectorAll('#navtabs .tab').forEach(function(t){ t.classList.toggle('on', t.dataset.tab === id); });
+}
+document.querySelectorAll('#navtabs .tab').forEach(function(t){ t.addEventListener('click', function(){ dshow(t.dataset.tab); }); });
+
+function toggleNm(){
+  var f = $('nmform');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+
+function addMember(){
+  var n = $('dm-name').value.trim();
+  if(!n) return;
+  var r = $('dmtable').insertRow(-1);
+  r.insertCell(-1).textContent = n;
+  r.insertCell(-1).textContent = $('dm-cluster').value;
+  var c3 = r.insertCell(-1); c3.className = 'muted'; c3.textContent = 'Not yet selected';
+  r.insertCell(-1).textContent = '—';
+  r.insertCell(-1).innerHTML = '<span class="chip chip-w">Invited</span>';
+  ['dm-name','dm-phone','dm-id'].forEach(function(id){ $(id).value = ''; });
+  toggleNm();
+}
+
+renderProducts();
+goview('login');
+</script>
+</body>
+</html>

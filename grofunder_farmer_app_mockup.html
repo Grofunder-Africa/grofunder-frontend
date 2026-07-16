@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grofunder — Farmer App Mockup v1.0</title>
+<!--
+  GROFUNDER FARMER APP — APPROVED DESIGN MOCKUP v1.0 (July 2026)
+  Mobile-first reference implementation. Open on a phone-sized viewport.
+
+  FLOW: SMS invite -> phone+ID -> OTP -> Gro guided onboarding (3 explainer
+  cards, record confirmation with mismatch flag, about-you chips, home
+  location) -> PIN -> Growth Circle mutual vouching -> main app.
+
+  PRICING & DEFAULT POLICY (all backend-configurable per cooperative):
+  - Rate 4.5% per month, terms 8/12/16 weeks (max 16) in this demo.
+  - Missed payment: circle notified on due day; 5-day circle window to follow
+    up or cover; day 7 = flat 2% late fee + escalation to cooperative; new
+    loans frozen for the circle (optionally extending to cluster per contract)
+    until settled. All figures are LoanPolicy config values, not hardcoded.
+
+  DASHBOARD STATES: entering from onboarding (enterApp) renders the NEW-FARMER
+  home — no score yet, first limit KES 5,000 gated on circle ACTIVE, no loan
+  journey, no payment history, apply disabled until circle confirms. Returning
+  sign-in (signIn) renders the full demo state. Backend: same screen, data-driven.
+
+  MAIN APP TABS: Home (tree, vine, streak, loan), Habari (weekly community
+  report + photo share), Gro (chat with demand quick-asks), Alerts
+  (habit-loop notifications), Circle.
+
+  KEY RULES FOR DEVELOPERS (full detail in the Addendum PDF):
+  - Gro is scripted, not AI. Every line is a message key with per-language
+    variants (EN/SW mix default; dialect columns added later). Three moods
+    only: happy, celebrating, encouraging. Never shaming.
+  - Circle: founder picks roster from cluster dropdown; every member
+    confirms every member (pre-ticked, untick to dissent). States:
+    DRAFT -> PENDING_CONFIRMATIONS -> CONTESTED -> ACTIVE. Loans require
+    ACTIVE. Head removing contested members re-activates instantly if
+    >= 5 members remain. Who-unticked-whom is never shown in UI.
+  - Record mismatch flag -> RecordDiscrepancy -> loans PENDING_RECORD_MATCH.
+  - Home location: display-only distance bands to peers; raw coords never
+    exposed via farmer-facing APIs; EXIF/GPS stripped from photo uploads.
+  - Notifications are audience-scoped server-side: member_behind goes to
+    the member's circle ONLY. Champions are public; there is no public
+    bottom of any leaderboard. The word "default" never appears in
+    farmer-facing copy.
+  - Photos: per-photo consent tiers (private / circle / website), group
+    photos need group consent, moderation before publishing.
+  - Demand quick-asks log FarmerRequest rows; "leaving cooperative" is a
+    tracked category; fulfilled categories trigger Gro loop-closing.
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<style>
+:root{--g:#09AF0F;--gd:#067A0B;--gt:#E6F7E7;--ink:#1F2A24;--mut:#6B7A70;--bd:#DCE5DE;--sf:#fff;--sf1:#F6FAF6;--pg:#F2F6F2;--wt:#854F0B;--wb:#FAEEDA;--dt:#A32D2D;--db:#FCEBEB;--st:#0F6E56;--sb:#E1F5EE}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--pg);color:var(--ink);font-size:14px;line-height:1.45}
+.phone{max-width:400px;margin:16px auto;background:var(--sf);border:1px solid var(--bd);border-radius:22px;overflow:hidden;min-height:640px;display:flex;flex-direction:column}
+.body{flex:1;padding:16px 18px 18px}
+h1,h2,h3,p{margin:0}
+label{display:block;font-size:12px;color:var(--mut);margin-bottom:3px}
+input,select{width:100%;font:inherit;font-size:13.5px;padding:9px 11px;border:1px solid var(--bd);border-radius:9px;background:#fff;color:var(--ink)}
+input:focus,select:focus{outline:none;border-color:var(--g);box-shadow:0 0 0 3px var(--gt)}
+button{font:inherit;font-size:13px;padding:9px 14px;border:1px solid var(--bd);border-radius:9px;background:#fff;color:var(--ink);cursor:pointer}
+.btn-p{width:100%;background:var(--g);border-color:var(--g);color:#fff;font-size:14px;padding:11px}
+.btn-ghost{border:none;background:transparent;color:var(--mut)}
+.brand{color:var(--g);font-weight:600;letter-spacing:-.5px}
+.muted{color:var(--mut);font-size:12px}
+.tiny{color:var(--mut);font-size:11px}
+.chip{display:inline-block;font-size:11px;padding:2px 9px;border-radius:9px}
+.chip-g{background:var(--gt);color:var(--gd)}.chip-w{background:var(--wb);color:var(--wt)}.chip-d{background:var(--db);color:var(--dt)}.chip-s{background:var(--sb);color:var(--st)}
+.card{border:1px solid var(--bd);border-radius:14px;padding:12px}
+.pill{font-size:12.5px;padding:7px 13px;border-radius:16px}
+.pill.on{background:var(--gt);color:var(--gd);border-color:var(--g)}
+.bubble{background:var(--sf1);border-radius:2px 14px 14px 14px;padding:10px 12px}
+.bubble-me{background:var(--gt);border-radius:14px 2px 14px 14px;padding:9px 12px;color:var(--gd);align-self:flex-end;max-width:85%}
+.co-g{background:var(--gt);color:var(--gd);border-radius:12px;padding:9px 12px;font-size:12px}
+.co-w{background:var(--wb);color:var(--wt);border-radius:12px;padding:9px 12px;font-size:12px}
+.nav{border-top:1px solid var(--bd);display:flex;justify-content:space-around;padding:6px 4px}
+.nav button{border:none;background:transparent;font-size:10.5px;color:var(--mut);display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 8px}
+.nav button.on{color:var(--gd)}
+.nav i{font-size:19px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+[data-v],[data-t]{display:none}
+.dots{display:flex;gap:5px;justify-content:center;margin-top:14px}
+.dots span{width:7px;height:7px;border-radius:50%;background:var(--bd)}
+.dots span.on{background:var(--g)}
+.grofc{flex-shrink:0}
+.gro-wave-arm{transform-origin:46px 42px;animation:growave 1.6s ease-in-out infinite}
+@keyframes growave{0%,100%{transform:rotate(0deg)}30%{transform:rotate(-22deg)}60%{transform:rotate(8deg)}}
+@media (prefers-reduced-motion: reduce){.gro-wave-arm{animation:none}}
+</style>
+</head>
+<body>
+<div class="phone">
+<div class="body" id="appbody">
+
+<section data-v="welcome" style="text-align:center;padding-top:12px">
+  <p class="brand" style="font-size:26px">grofunder<i class="ti ti-leaf" style="font-size:16px;vertical-align:8px"></i></p>
+  <div class="card" style="background:var(--sf1);border:none;text-align:left;margin:16px 0">
+    <p class="tiny">SMS · GROFUNDER</p>
+    <p style="font-size:12.5px;margin-top:3px">Orinde Cooperative has registered you on Grofunder. Open the link to grow your farm credit.</p>
+  </div>
+  <p style="font-size:14px;margin-bottom:12px">Karibu! Confirm who you are</p>
+  <div style="display:flex;flex-direction:column;gap:10px;text-align:left">
+    <div><label>Phone number</label><input value="0712 345 678"></div>
+    <div><label>National ID number</label><input placeholder="23845691"></div>
+    <button class="btn-p" onclick="go('otp')">Continue</button>
+    <button style="width:100%" onclick="go('signin')">Already registered? Sign in</button>
+    <p class="tiny" style="text-align:center">EN · <span style="text-decoration:underline">SW</span> · more languages coming</p>
+  </div>
+</section>
+
+<section data-v="signin" style="padding-top:8px">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+    <button class="btn-ghost" style="padding:4px" onclick="go('welcome')" aria-label="Back"><i class="ti ti-arrow-left" style="font-size:18px"></i></button>
+    <h2 style="font-size:16px;font-weight:500">Karibu tena, Akinyi</h2>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div>
+      <label>Phone number</label>
+      <input value="0712 345 678">
+      <p class="tiny" style="margin-top:3px">Remembered on this device · <span style="text-decoration:underline">not you?</span></p>
+    </div>
+    <div><label>Your PIN</label><input type="password" placeholder="••••" maxlength="4" style="text-align:center;font-size:18px;letter-spacing:8px"></div>
+    <button class="btn-p" onclick="signIn()">Sign in</button>
+    <p class="tiny" style="text-align:center">Forgot PIN? We'll verify you by SMS</p>
+  </div>
+</section>
+
+<section data-v="otp" style="text-align:center;padding-top:8px">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;text-align:left">
+    <button class="btn-ghost" style="padding:4px" onclick="go('welcome')" aria-label="Back"><i class="ti ti-arrow-left" style="font-size:18px"></i></button>
+    <h2 style="font-size:16px;font-weight:500">Enter the SMS code</h2>
+  </div>
+  <p class="muted" style="margin:4px 0 16px">Sent to 0712 345 678</p>
+  <div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px">
+    <input value="4" style="width:46px;text-align:center;font-size:18px"><input value="9" style="width:46px;text-align:center;font-size:18px"><input value="2" style="width:46px;text-align:center;font-size:18px"><input value="7" style="width:46px;text-align:center;font-size:18px">
+  </div>
+  <button class="btn-p" onclick="go('guide');gstep(0)">Verify</button>
+  <p class="tiny" style="margin-top:10px">Resend code (0:42)</p>
+</section>
+
+<section data-v="guide">
+  <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px">
+    <svg class="grofc" viewBox="0 0 100 100" width="50" height="50" role="img" aria-label="Gro">
+      <path d="M12 88 C8 48 40 14 90 10 C90 52 60 84 12 88 Z" fill="#09AF0F"/>
+      <path d="M20 80 C44 66 68 40 84 18" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.9"/>
+      <g id="gro-h" transform="rotate(-10 49 57)"><circle cx="38" cy="52" r="3.5" fill="#04342C"/><circle cx="60" cy="52" r="3.5" fill="#04342C"/><path d="M40 62 Q49 70 58 62" stroke="#04342C" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="30" cy="60" r="2.6" fill="#5DCAA5"/><circle cx="67" cy="58" r="2.6" fill="#5DCAA5"/></g>
+      <g id="gro-c" transform="rotate(-10 49 57)" style="display:none"><path d="M34 52 Q38 47 42 52" stroke="#04342C" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M56 52 Q60 47 64 52" stroke="#04342C" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M38 61 Q49 73 60 61" stroke="#04342C" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="30" cy="60" r="2.6" fill="#5DCAA5"/><circle cx="67" cy="58" r="2.6" fill="#5DCAA5"/></g>
+    </svg>
+    <div class="bubble" style="flex:1"><p style="font-size:12px;font-weight:500;color:var(--gd)">Gro</p><p id="gsay" style="font-size:13px;margin-top:2px"></p></div>
+  </div>
+
+  <div data-g="0"><button class="btn-p" onclick="gstep(1)">Twende — tell me</button></div>
+  <div data-g="1">
+    <div class="card" style="text-align:center;margin-bottom:10px"><i class="ti ti-coins" style="font-size:30px;color:var(--g)"></i><p style="font-size:13px;margin-top:8px">Your hard work becomes credit. Your deliveries, your savings, your people — that's your collateral. No title deeds, no bank queues.</p></div>
+    <button class="btn-p" onclick="gstep(2)">Endelea</button>
+  </div>
+  <div data-g="2">
+    <div class="card" style="text-align:center;margin-bottom:10px">
+      <svg viewBox="0 0 200 110" width="170" height="94" aria-hidden="true"><ellipse cx="100" cy="100" rx="52" ry="7" fill="#D3D1C7"/><path d="M100 98 L100 32" stroke="#067A0B" stroke-width="4" stroke-linecap="round"/><path d="M100 80 L76 66 M100 80 L124 66 M100 58 L80 46 M100 58 L120 46" stroke="#067A0B" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="72" cy="64" rx="12" ry="6" fill="#09AF0F" transform="rotate(-25 72 64)"/><ellipse cx="128" cy="64" rx="12" ry="6" fill="#09AF0F" transform="rotate(25 128 64)"/><ellipse cx="76" cy="43" rx="11" ry="5.5" fill="#09AF0F" transform="rotate(-30 76 43)"/><ellipse cx="124" cy="43" rx="11" ry="5.5" fill="#09AF0F" transform="rotate(30 124 43)"/><ellipse cx="100" cy="27" rx="10" ry="6" fill="#5DCAA5"/><circle cx="86" cy="60" r="4" fill="#E24B4A"/><circle cx="114" cy="58" r="4" fill="#E24B4A"/><circle cx="100" cy="40" r="4" fill="#E24B4A"/></svg>
+      <p style="font-size:13px;margin-top:8px">Your progress lives in a tree. Pay on time — it grows. Finish loans — it bears cherries, and your limit grows with it.</p>
+    </div>
+    <button class="btn-p" onclick="gstep(3)">Endelea</button>
+  </div>
+  <div data-g="3">
+    <div class="card" style="text-align:center;margin-bottom:10px"><i class="ti ti-circles" style="font-size:30px;color:var(--g)"></i><p style="font-size:13px;margin-top:8px">A Growth Circle is like a chama — 5 to 10 farmers who stand for each other. You choose them, and they choose you. Every member's word counts.</p></div>
+    <button class="btn-p" onclick="gstep(4)">Nimeelewa — I understand</button>
+  </div>
+  <div data-g="4">
+    <div class="card" style="margin-bottom:10px">
+      <table style="width:100%;font-size:12.5px;border-collapse:collapse">
+        <tr><td class="muted" style="padding:3px 0">Name</td><td style="text-align:right;font-weight:500">Akinyi Ouma</td></tr>
+        <tr><td class="muted" style="padding:3px 0">Cluster</td><td style="text-align:right">Kanyada · head Wanjiku K.</td></tr>
+        <tr><td class="muted" style="padding:3px 0">Deliveries on record</td><td style="text-align:right">38 weeks of coffee</td></tr>
+      </table>
+      <button id="flagbtn" style="width:100%;font-size:11.5px;padding:6px;margin-top:8px;color:var(--mut)" onclick="flagRecord()">Something here is wrong</button>
+      <div id="flagged" class="co-w" style="display:none;margin-top:8px;font-size:11.5px">Sent to Orinde Cooperative to fix. You can continue — but loan applications will wait until your records match.</div>
+    </div>
+    <button class="btn-p" onclick="gstep(5)">Ndiyo, that's me</button>
+  </div>
+  <div data-g="5">
+    <div class="card" style="margin-bottom:10px">
+      <div class="row" style="margin-bottom:8px"><p style="font-size:13px;font-weight:500">Where do you live?</p><span class="chip chip-g"><i class="ti ti-current-location" style="font-size:11px;vertical-align:-1px"></i> From GPS</span></div>
+      <div style="background:var(--sf1);border-radius:8px;height:76px;display:flex;align-items:center;justify-content:center;position:relative;margin-bottom:8px"><i class="ti ti-home" style="font-size:24px;color:var(--g)"></i><span class="tiny" style="position:absolute;bottom:6px;right:8px">Homa Bay county</span></div>
+      <input value="Kanyada East, near Rachar market">
+      <p class="tiny" style="margin-top:5px">Move the pin to your home if it missed. Your exact location stays private — circle members only ever see rough distance, never your pin.</p>
+    </div>
+    <button class="btn-p" onclick="gstep(6)">Confirm</button>
+  </div>
+  <div data-g="6">
+    <div class="pills" id="grows" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+      <button class="pill on">Coffee <i class="ti ti-lock" style="font-size:11px"></i></button>
+      <button class="pill mp">Maize</button><button class="pill mp">Vegetables</button><button class="pill mp">Bananas</button><button class="pill mp">Beans</button><button class="pill mp">Dairy cows</button><button class="pill mp">Poultry</button>
+    </div>
+    <button class="btn-p" onclick="gstep(7)">Endelea</button>
+  </div>
+  <div data-g="7">
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+      <button class="pill mp">Small shop</button><button class="pill mp">Boda boda</button><button class="pill mp">Casual work</button><button class="pill mp">Tailoring</button><button class="pill mp">Mama mboga</button><button class="pill mp">Nothing else</button>
+    </div>
+    <button class="btn-p" onclick="gstep(8)">Endelea</button>
+  </div>
+  <div data-g="8">
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+      <button class="pill sp">Daily</button><button class="pill sp on">Weekly</button><button class="pill sp">Monthly</button><button class="pill sp">Seasonal</button>
+    </div>
+    <button class="btn-p" onclick="gstep(9)">Maliza — finish</button>
+  </div>
+  <div data-g="9" style="text-align:center">
+    <div class="co-g" style="margin-bottom:10px;font-size:13px">Your seed is planted. From here we grow together — mimi na wewe, kila wiki.</div>
+    <button class="btn-p" onclick="go('pin')">Set my PIN</button>
+    <p class="tiny" style="margin-top:8px">You can update these answers any time. Gro will ask again when you apply for a loan.</p>
+  </div>
+  <div class="dots" id="gdots"></div>
+</section>
+
+<section data-v="pin" style="text-align:center;padding-top:24px">
+  <h2 style="font-size:16px;font-weight:500">Create your PIN</h2>
+  <p class="muted" style="margin:4px 0 16px">4 digits · you'll use it every time you open the app</p>
+  <div style="display:flex;flex-direction:column;gap:10px;text-align:left">
+    <input type="password" placeholder="••••" maxlength="4" style="text-align:center;font-size:18px;letter-spacing:8px">
+    <input type="password" placeholder="Repeat PIN" maxlength="4" style="text-align:center">
+    <button class="btn-p" onclick="go('vouch')">Save PIN</button>
+  </div>
+</section>
+
+<section data-v="vouch">
+  <h2 style="font-size:16px;font-weight:500;margin-bottom:4px">Confirm your circle</h2>
+  <div class="card" style="margin-bottom:10px;padding:0;overflow:hidden">
+    <button style="width:100%;border:none;text-align:left;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;font-size:12.5px;font-weight:500" onclick="togAcc('circfaq',this)"><span><i class="ti ti-help-circle" style="font-size:14px;color:var(--g);vertical-align:-2px"></i> What do I need to know about Growth Circles?</span><i class="ti ti-chevron-down"></i></button>
+    <div id="circfaq" style="display:none;padding:0 12px 12px;font-size:12px;color:var(--mut)">
+      <p style="margin-bottom:6px"><strong style="color:var(--ink)">You choose each other.</strong> 5–10 farmers from your cluster. Every member confirms every member — no one is in a circle they didn't choose, and no one joins yours without your yes.</p>
+      <p style="margin-bottom:6px"><strong style="color:var(--ink)">The circle opens the door.</strong> Loans only start once your circle is fully confirmed and active. Your first limit unlocks with it.</p>
+      <p style="margin-bottom:6px"><strong style="color:var(--ink)">You stand together.</strong> If a member misses a payment, the circle is told that day and has 5 days to help follow up or cover it. From the 7th day a 2% late fee applies and your cooperative steps in. While it stays unpaid, no one in the circle can take a new Grofunder loan — per your cooperative's contract this can extend to the cluster — until it is settled.</p>
+      <p><strong style="color:var(--ink)">You grow together too.</strong> Strong circles earn champion recognition every Friday, and every member's tree grows faster.</p>
+    </div>
+  </div>
+  <p class="muted" style="margin-bottom:12px">Wanjiku K. named you in GC-Amani. If any member repays late, it affects everyone. Untick anyone you don't stand with.</p>
+  <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">
+    <button class="pill vk on row">Wanjiku Kamau · head <i class="ti ti-check"></i></button>
+    <button class="pill vk on row">Baraka Njoroge <i class="ti ti-check"></i></button>
+    <button class="pill vk on row" data-name="musa">Musa Barasa <i class="ti ti-check"></i></button>
+    <button class="pill vk on row">Neema Wafula <i class="ti ti-check"></i></button>
+  </div>
+  <button class="btn-p" onclick="confirmVouch()">I stand with these members</button>
+  <p class="tiny" style="text-align:center;margin-top:8px">3 of 5 members have confirmed so far · <span style="text-decoration:underline">start a new circle instead</span></p>
+  <div id="contested" class="co-w" style="display:none;margin-top:10px;font-size:11.5px"><i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-2px"></i> Some members have not accepted everyone. Talk as a group — loans open when every member has confirmed every member. If the head removes unconfirmed members (and 5 or more remain), the circle proceeds.</div>
+  <button id="vnext" class="btn-ghost" style="display:none;width:100%;margin-top:6px;text-decoration:underline;font-size:12.5px" onclick="enterApp()">Continue to app</button>
+</section>
+
+<section data-v="home">
+  <div class="row" style="margin-bottom:10px">
+    <div><p class="tiny">Habari, Akinyi</p><p style="font-size:14px;font-weight:500">Your shamba is growing</p></div>
+    <span class="chip chip-g ret" style="padding:3px 10px"><i class="ti ti-flame" style="font-size:12px;vertical-align:-1px"></i> 8-week streak</span>
+  </div>
+  <div class="card" style="margin-bottom:10px;padding:8px 12px;display:flex;align-items:center;gap:10px;background:var(--sf1);border:none">
+    <svg viewBox="0 0 150 78" width="126" height="66" role="img" aria-label="Gro waving beside a tiny seedling in the farm" style="flex-shrink:0">
+      <ellipse cx="75" cy="70" rx="70" ry="7" fill="#A9744B"/>
+      <path d="M18 68 q10 -4 20 0 M112 68 q10 -4 20 0" stroke="#8A5A38" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <path d="M104 66 L104 50" stroke="#067A0B" stroke-width="2.5" stroke-linecap="round"/>
+      <ellipse cx="96" cy="49" rx="8" ry="4" fill="#09AF0F" transform="rotate(-28 96 49)"/>
+      <ellipse cx="112" cy="49" rx="8" ry="4" fill="#09AF0F" transform="rotate(28 112 49)"/>
+      <g class="gro-wave-arm">
+        <path d="M46 42 Q37 34 30 27" stroke="#067A0B" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <circle cx="29" cy="24.5" r="4.5" fill="#09AF0F"/>
+        <circle cx="25" cy="21.5" r="1.9" fill="#09AF0F"/>
+        <circle cx="28.6" cy="19.4" r="1.9" fill="#09AF0F"/>
+        <circle cx="32.3" cy="20.6" r="1.9" fill="#09AF0F"/>
+      </g>
+      <g transform="translate(30 16) scale(0.52)">
+        <path d="M12 88 C8 48 40 14 90 10 C90 52 60 84 12 88 Z" fill="#09AF0F"/>
+        <path d="M20 80 C44 66 68 40 84 18" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.9"/>
+        <g transform="rotate(-10 49 57)"><circle cx="38" cy="52" r="4" fill="#04342C"/><circle cx="60" cy="52" r="4" fill="#04342C"/><path d="M38 61 Q49 71 60 61" stroke="#04342C" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="30" cy="60" r="3" fill="#5DCAA5"/><circle cx="67" cy="58" r="3" fill="#5DCAA5"/></g>
+      </g>
+    </svg>
+    <div class="bubble" style="padding:8px 11px"><p style="font-size:12.5px">Twende tukue pamoja — let's grow together!</p></div>
+  </div>
+  <div class="card ret" style="margin-bottom:10px;text-align:center;background:var(--g);border-color:var(--g);color:#fff">
+    <div class="row">
+      <div style="text-align:left"><p style="font-size:11.5px;color:#D6F5D6">Credit score</p><p style="font-size:26px;font-weight:500">712</p><p style="font-size:11.5px;color:#D6F5D6">Good · rising</p></div>
+      <div style="text-align:right"><p style="font-size:11.5px;color:#D6F5D6">You can borrow up to</p><p style="font-size:19px;font-weight:500">KES 12,000</p><p style="font-size:11px;color:#D6F5D6">tree: stage 4 of 5</p></div>
+    </div>
+  </div>
+  <div class="card ret" style="margin-bottom:10px">
+    <div class="row" style="margin-bottom:4px"><p style="font-size:13px;font-weight:500">Loan journey · KES 8,000</p><p class="tiny">8 of 12 paid</p></div>
+    <svg viewBox="0 0 300 60" width="100%" role="img" aria-label="Loan progress vine, 8 of 12 leaves grown">
+      <path d="M10 38 C60 24 110 48 150 36 C190 24 240 46 290 32" stroke="#D3D1C7" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <path d="M10 38 C60 24 110 48 150 36 C170 31 185 34 200 38" stroke="#067A0B" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <g><ellipse cx="18" cy="32" rx="7" ry="4" fill="#09AF0F" transform="rotate(-30 18 32)"/><ellipse cx="42" cy="28" rx="7" ry="4" fill="#09AF0F" transform="rotate(-20 42 28)"/><ellipse cx="66" cy="30" rx="7" ry="4" fill="#09AF0F" transform="rotate(-35 66 30)"/><ellipse cx="90" cy="36" rx="7" ry="4" fill="#09AF0F" transform="rotate(-15 90 36)"/><ellipse cx="114" cy="40" rx="7" ry="4" fill="#09AF0F" transform="rotate(-30 114 40)"/><ellipse cx="138" cy="38" rx="7" ry="4" fill="#09AF0F" transform="rotate(-20 138 38)"/><ellipse cx="162" cy="32" rx="7" ry="4" fill="#09AF0F" transform="rotate(-32 162 32)"/><ellipse cx="186" cy="32" rx="7" ry="4" fill="#09AF0F" transform="rotate(-18 186 32)"/></g>
+      <circle cx="200" cy="38" r="7" fill="#E6F7E7" stroke="#09AF0F" stroke-width="2.5"/>
+      <text x="200" y="56" text-anchor="middle" font-size="9" fill="#067A0B" font-family="sans-serif">Fri 17</text>
+      <g opacity="0.45"><ellipse cx="224" cy="40" rx="7" ry="4" fill="none" stroke="#888780" stroke-width="1.5" transform="rotate(-25 224 40)"/><ellipse cx="248" cy="38" rx="7" ry="4" fill="none" stroke="#888780" stroke-width="1.5" transform="rotate(-18 248 38)"/><ellipse cx="270" cy="34" rx="7" ry="4" fill="none" stroke="#888780" stroke-width="1.5" transform="rotate(-30 270 34)"/></g>
+      <circle cx="290" cy="28" r="4" fill="#E24B4A"/><circle cx="283" cy="22" r="4" fill="#E24B4A"/><circle cx="292" cy="19" r="4" fill="#E24B4A"/>
+    </svg>
+    <p class="tiny" style="margin-top:5px">4 leaves to the cherries — finish on time and your limit grows to <b style="color:var(--ink)">KES 20,000</b></p>
+  </div>
+  <div class="card row ret" style="margin-bottom:10px;padding:11px 12px">
+    <div><p style="font-size:12.5px;font-weight:500">Next: KES 700 · Fri 17 Jul</p><p class="tiny">Gro will remind you Thursday, 6 pm</p></div>
+    <button style="font-size:12px;padding:6px 12px;background:var(--g);color:#fff;border-color:var(--g)" onclick="go('pay');nav('home')">Pay now</button>
+  </div>
+  <button class="ret" style="width:100%;margin-bottom:8px" onclick="go('apply');nav('home')">Apply for a new loan</button>
+
+  <div class="nw card" style="display:none;margin-bottom:10px;text-align:center;background:var(--g);border-color:var(--g);color:#fff">
+    <div class="row">
+      <div style="text-align:left"><p style="font-size:11.5px;color:#D6F5D6">Credit score</p><p style="font-size:26px;font-weight:500">—</p><p style="font-size:11.5px;color:#D6F5D6">grows with your first loan</p></div>
+      <div style="text-align:right"><p style="font-size:11.5px;color:#D6F5D6">Your first limit</p><p style="font-size:19px;font-weight:500">KES 5,000</p><p style="font-size:11px;color:#D6F5D6">tree: seed planted</p></div>
+    </div>
+  </div>
+  <div class="nw card" style="display:none;margin-bottom:10px">
+    <p style="font-size:13px;font-weight:500;margin-bottom:4px">Hongera, Akinyi — your seed is planted <i class="ti ti-seeding" style="color:var(--g);font-size:14px;vertical-align:-2px"></i></p>
+    <p class="muted" style="font-size:12px">GC-Amani is confirming: 3 of 5 members so far. Your first loan of up to KES 5,000 opens the moment every member has confirmed every member.</p>
+    <button style="width:100%;font-size:12.5px;margin-top:8px" onclick="go('circle');nav('circle')">View my circle</button>
+  </div>
+  <div class="nw" style="display:none">
+    <button style="width:100%;margin-bottom:8px;color:var(--mut)" disabled>Apply for a loan · unlocks with your circle</button>
+  </div>
+</section>
+
+<section data-v="apply">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+    <button class="btn-ghost" style="padding:4px" onclick="go('home');nav('home')" aria-label="Back"><i class="ti ti-arrow-left" style="font-size:18px"></i></button>
+    <h2 style="font-size:16px;font-weight:500">Apply for a loan</h2>
+  </div>
+  <p class="muted" style="margin-bottom:12px">Your limit is KES 12,000</p>
+  <div class="card" style="margin-bottom:10px;padding:0;overflow:hidden">
+    <button style="width:100%;border:none;text-align:left;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;font-size:12.5px;font-weight:500" onclick="togAcc('loanfaq',this)"><span><i class="ti ti-help-circle" style="font-size:14px;color:var(--g);vertical-align:-2px"></i> What do I need to know before I apply?</span><i class="ti ti-chevron-down"></i></button>
+    <div id="loanfaq" style="display:none;padding:0 12px 12px;font-size:12px;color:var(--mut)">
+      <p style="margin-bottom:6px"><strong style="color:var(--ink)">Your circle stands with you.</strong> Loans need an active Growth Circle. Your repayment record affects your circle, and your circle's record affects your cluster's standing.</p>
+      <p style="margin-bottom:6px"><strong style="color:var(--ink)">The cost.</strong> 4.5% per month, up to 16 weeks, all costs shown before you agree — nothing hidden. Terms are set with your cooperative's programme and may differ elsewhere.</p>
+      <p style="margin-bottom:6px"><strong style="color:var(--ink)">If a payment is missed.</strong> Your circle is told on the repayment day and has 5 days to help follow up or cover it. From the 7th day a flat 2% late fee applies and the matter goes to your cooperative. While it stays unpaid, no one in the circle can take a new Grofunder loan — and per your cooperative's contract this can extend to the cluster — until it is settled.</p>
+      <p><strong style="color:var(--ink)">Your records.</strong> If you flagged a record problem, your application waits until Orinde's records match yours.</p>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:10px;padding:10px 12px">
+    <p style="font-size:12.5px;font-weight:500;margin-bottom:6px">Still true?</p>
+    <p class="muted" style="margin-bottom:8px">You earn from: coffee, poultry, small shop · money comes in weekly</p>
+    <div style="display:flex;gap:6px"><button class="pill" style="flex:1" onclick="this.classList.add('on')">Yes, still true</button><button class="pill" style="flex:1;color:var(--mut)">Update it</button></div>
+  </div>
+  <div class="card" style="margin-bottom:10px;padding:10px 12px">
+    <p style="font-size:12.5px;font-weight:500;margin-bottom:8px">Do you have a loan anywhere else right now?</p>
+    <div style="display:flex;gap:6px"><button class="pill ol" style="flex:1">No</button><button class="pill ol" style="flex:1">Yes</button></div>
+    <div id="olyes" style="display:none;margin-top:8px"><label>About how much do you pay per month?</label><input type="number" placeholder="KES"><p class="tiny" style="margin-top:4px">Being honest here protects you from a loan you can't carry.</p></div>
+  </div>
+  <p style="font-size:13px;font-weight:500;margin-bottom:6px">How much would you like from Grofunder?</p>
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+    <input type="range" id="amt" min="1000" max="12000" step="500" value="8000" style="flex:1;padding:0">
+    <span id="amtout" style="font-size:15px;font-weight:500;min-width:84px;text-align:right">KES 8,000</span>
+  </div>
+  <p style="font-size:12.5px;font-weight:500;margin-bottom:6px">Over how many weeks?</p>
+  <div style="display:flex;gap:6px;margin-bottom:10px" id="termpills">
+    <button class="pill tp" data-w="8" style="flex:1">8</button>
+    <button class="pill tp on" data-w="12" style="flex:1">12</button>
+    <button class="pill tp" data-w="16" style="flex:1">16</button>
+  </div>
+  <div style="margin-bottom:10px"><label>What is it for?</label><select><option>Farm inputs (fertiliser, seedlings)</option><option>Labour for picking</option><option>School fees</option><option>Emergency</option></select></div>
+  <div class="card" style="background:var(--sf1);border:none;margin-bottom:10px">
+    <p class="muted">You will pay weekly for <span id="wkn">12</span> weeks</p>
+    <p style="font-size:17px;font-weight:500;margin-top:2px"><span id="wk">KES 700</span> <span class="muted" style="font-weight:400">every Friday</span></p>
+    <p class="tiny" style="margin-top:2px">Total to repay: <span id="tot">KES 8,400</span> · at 4.5% per month · all costs included, nothing hidden</p>
+  </div>
+  <label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--mut);margin-bottom:10px"><input type="checkbox" style="width:auto;margin-top:2px"> I agree to the loan terms and weekly repayment</label>
+  <button class="btn-p" onclick="go('status');nav('home')">Send application</button>
+</section>
+
+<section data-v="status">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+    <button class="btn-ghost" style="padding:4px" onclick="go('home');nav('home')" aria-label="Back"><i class="ti ti-arrow-left" style="font-size:18px"></i></button>
+    <h2 style="font-size:16px;font-weight:500">Your application</h2>
+  </div>
+  <div style="display:flex;gap:10px"><div style="display:flex;flex-direction:column;align-items:center"><i class="ti ti-circle-check" style="font-size:18px;color:var(--g)"></i><div style="width:2px;flex:1;background:var(--g)"></div></div><div style="padding-bottom:14px"><p style="font-size:13px;font-weight:500">Sent</p><p class="tiny">Today, 10:04</p></div></div>
+  <div style="display:flex;gap:10px"><div style="display:flex;flex-direction:column;align-items:center"><i class="ti ti-clock" style="font-size:18px;color:var(--wt)"></i><div style="width:2px;flex:1;background:var(--bd)"></div></div><div style="padding-bottom:14px"><p style="font-size:13px;font-weight:500">Orinde Cooperative is reviewing</p><p class="tiny">Usually within 2 days</p></div></div>
+  <div style="display:flex;gap:10px"><div style="display:flex;flex-direction:column;align-items:center"><i class="ti ti-circle" style="font-size:18px;color:var(--mut)"></i><div style="width:2px;flex:1;background:var(--bd)"></div></div><div style="padding-bottom:14px"><p style="font-size:13px;color:var(--mut)">Grofunder review</p></div></div>
+  <div style="display:flex;gap:10px"><div style="display:flex;flex-direction:column;align-items:center"><i class="ti ti-circle" style="font-size:18px;color:var(--mut)"></i></div><div><p style="font-size:13px;color:var(--mut)">Money sent to your M-Pesa</p></div></div>
+  <p class="tiny" style="margin-top:12px">We'll SMS you at every step.</p>
+</section>
+
+<section data-v="pay">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+    <button class="btn-ghost" style="padding:4px" onclick="go('home');nav('home')" aria-label="Back"><i class="ti ti-arrow-left" style="font-size:18px"></i></button>
+    <h2 style="font-size:16px;font-weight:500">Pay your instalment</h2>
+  </div>
+  <p class="muted" style="margin-bottom:12px">Due Fri 17 Jul</p>
+  <div class="card" style="background:var(--sf1);border:none;text-align:center;margin-bottom:10px">
+    <p class="muted">Amount</p>
+    <input id="payamt" type="number" value="1050" style="width:140px;text-align:center;font-size:20px;font-weight:500;margin-top:4px">
+    <p class="tiny" style="margin-top:4px">Pay more to finish earlier — it helps your score</p>
+  </div>
+  <button class="btn-p" id="stkbtn" onclick="stk()">Send M-Pesa request</button>
+  <div id="stkwait" class="co-w" style="display:none;margin-top:10px;text-align:center;font-size:12.5px">Check your phone — enter your M-Pesa PIN on the prompt</div>
+  <div id="stkdone" class="co-g" style="display:none;margin-top:10px;text-align:center;font-size:12.5px"><i class="ti ti-circle-check" style="font-size:14px;vertical-align:-2px"></i> Payment received · receipt SGK7XP21 · balance KES 6,825</div>
+  <p style="font-size:12.5px;font-weight:500;margin:12px 0 4px">Payment history</p>
+  <table style="width:100%;table-layout:fixed;font-size:11.5px;border-collapse:collapse" id="paytable">
+    <tr class="muted" style="text-align:left"><th style="padding:4px 6px;font-weight:500">Date</th><th style="padding:4px 6px;font-weight:500">Amount</th><th style="padding:4px 6px;font-weight:500">Receipt</th></tr>
+    <tr style="border-top:1px solid var(--bd)"><td style="padding:4px 6px">10 Jul</td><td style="padding:4px 6px">KES 1,050</td><td style="padding:4px 6px">SGJ4KM88</td></tr>
+    <tr style="border-top:1px solid var(--bd)"><td style="padding:4px 6px">3 Jul</td><td style="padding:4px 6px">KES 1,050</td><td style="padding:4px 6px">SGH9QL02</td></tr>
+  </table>
+</section>
+
+<section data-v="habari">
+  <div class="row" style="margin-bottom:12px">
+    <div><p style="font-size:15px;font-weight:500">Habari za shamba</p><p class="tiny">Wiki 28 · Orinde Cooperative</p></div>
+    <button style="font-size:12px;padding:7px 12px;background:var(--g);color:#fff;border-color:var(--g);border-radius:16px" onclick="go('compose');nav('habari')"><i class="ti ti-camera" style="font-size:14px;vertical-align:-2px"></i> Share</button>
+  </div>
+  <div class="co-g" style="margin-bottom:12px;font-size:11.5px">This week: 34 leaves grew · GC-Bidii champions again · 11 photos shared with the world</div>
+  <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px">
+    <div class="card" style="padding:0;overflow:hidden"><div style="height:88px;background:var(--wb);display:flex;align-items:center;justify-content:center"><i class="ti ti-users-group" style="font-size:32px;color:#BA7517"></i></div><div style="padding:9px 12px"><p style="font-size:12.5px;font-weight:500">GC-Bidii of Rachar cluster · meeting</p><p class="tiny">Shared by Chebet K. · Tuesday · <i class="ti ti-heart" style="font-size:11px;vertical-align:-1px"></i> 26</p></div></div>
+    <div class="card" style="padding:0;overflow:hidden"><div style="height:88px;background:var(--gt);display:flex;align-items:center;justify-content:center"><i class="ti ti-basket" style="font-size:32px;color:var(--gd)"></i></div><div style="padding:9px 12px"><p style="font-size:12.5px;font-weight:500">Soko cluster · harvesting</p><p class="tiny">Shared by Neema W. · Thursday · <i class="ti ti-heart" style="font-size:11px;vertical-align:-1px"></i> 41 · picha ya wiki <i class="ti ti-star" style="font-size:11px;color:#BA7517;vertical-align:-1px"></i></p></div></div>
+    <div class="card" style="padding:0;overflow:hidden"><div style="height:88px;background:var(--sb);display:flex;align-items:center;justify-content:center"><i class="ti ti-plant-2" style="font-size:32px;color:var(--st)"></i></div><div style="padding:9px 12px"><p style="font-size:12.5px;font-weight:500">Kanyada cluster · planting seedlings</p><p class="tiny">Shared by Wanjiku K. · Friday · <i class="ti ti-heart" style="font-size:11px;vertical-align:-1px"></i> 18</p></div></div>
+  </div>
+  <div style="border:1px dashed var(--bd);border-radius:14px;padding:12px;text-align:center;margin-bottom:8px">
+    <p class="muted" style="margin-bottom:8px">Your shamba belongs in this story, Akinyi.</p>
+    <button onclick="go('compose');nav('habari')">Ongeza picha yako</button>
+  </div>
+  <p class="tiny" style="text-align:center">This report also goes to grofunder.co.ke — the world sees Orinde growing.</p>
+</section>
+
+<section data-v="compose">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    <button class="btn-ghost" style="padding:4px" onclick="go('habari');nav('habari')" aria-label="Back"><i class="ti ti-arrow-left" style="font-size:18px"></i></button>
+    <p style="font-size:14px;font-weight:500">Share a photo</p>
+  </div>
+  <button style="width:100%;border:1px dashed var(--bd);border-radius:14px;padding:20px;background:var(--sf1);margin-bottom:10px"><i class="ti ti-camera" style="font-size:24px;color:var(--g)"></i><p class="muted" style="margin-top:5px">Piga picha au chagua kutoka simu</p></button>
+  <p style="font-size:12px;font-weight:500;margin-bottom:6px">What's happening?</p>
+  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+    <button class="pill ac on" data-t="harvesting">Harvesting</button><button class="pill ac" data-t="planting">Planting</button><button class="pill ac" data-t="crop growing">Crop growing</button><button class="pill ac" data-t="drying">Drying</button><button class="pill ac" data-t="meeting" data-group="1">Circle meeting</button>
+  </div>
+  <div class="card" style="background:var(--sf1);border:none;padding:8px 11px;margin-bottom:10px"><p class="tiny">Your tag, ready-made:</p><p id="autotag" style="font-size:12.5px;font-weight:500;color:var(--gd);margin-top:2px">GC-Amani of Kanyada cluster · harvesting</p></div>
+  <p style="font-size:12px;font-weight:500;margin-bottom:6px">Who can see it?</p>
+  <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">
+    <label class="card" style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;font-size:12px"><input type="radio" name="cons" style="width:auto;margin-top:2px"> <span><b style="font-weight:500">Only me</b><br><span class="tiny">Private, in your app only</span></span></label>
+    <label class="card" style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;font-size:12px"><input type="radio" name="cons" checked style="width:auto;margin-top:2px"> <span><b style="font-weight:500">My circle</b><br><span class="tiny">GC-Amani members see it in the circle feed</span></span></label>
+    <label class="card" style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;font-size:12px"><input type="radio" name="cons" style="width:auto;margin-top:2px"> <span><b style="font-weight:500">Grofunder website album</b><br><span class="tiny">Shown to the world as "Akinyi O., Orinde Cooperative". You can remove it any time.</span></span></label>
+  </div>
+  <label id="grpconsent" style="display:none;gap:8px;align-items:flex-start;font-size:11.5px;color:var(--mut);margin-bottom:8px"><input type="checkbox" style="width:auto;margin-top:2px"> Everyone in this photo agrees to share it</label>
+  <button class="btn-p" onclick="document.getElementById('cdone').style.display='block'">Tuma</button>
+  <p id="cdone" class="tiny" style="display:none;color:var(--gd);text-align:center;margin-top:8px">Asante Akinyi! After a quick check, your picture may appear in next week's habari — nitakuambia.</p>
+</section>
+
+<section data-v="gro">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    <svg viewBox="0 0 100 100" width="26" height="26" aria-hidden="true"><path d="M12 88 C8 48 40 14 90 10 C90 52 60 84 12 88 Z" fill="#09AF0F"/><g transform="rotate(-10 49 57)"><circle cx="38" cy="52" r="5" fill="#04342C"/><circle cx="60" cy="52" r="5" fill="#04342C"/><path d="M40 62 Q49 70 58 62" stroke="#04342C" stroke-width="5" fill="none" stroke-linecap="round"/></g></svg>
+    <p style="font-size:14px;font-weight:500">Gro</p>
+  </div>
+  <div id="chatlog" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;min-height:110px">
+    <div class="bubble" style="max-width:85%"><p style="font-size:12.5px">Niambie, Akinyi — what do you need?</p></div>
+  </div>
+  <div id="quickasks" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+    <button class="pill qa" data-q="inputs">Input loan badala ya pesa?</button>
+    <button class="pill qa" data-q="agro">I need an agronomist</button>
+    <button class="pill qa" data-q="money">How do I manage my money?</button>
+    <button class="pill qa" data-q="insure">Insurance ya mazao?</button>
+    <button class="pill qa" data-q="leave">What happens when I leave the cooperative?</button>
+    <button class="pill qa" data-q="defaultq">What happens if a member defaults?</button>
+  </div>
+  <div style="display:flex;gap:6px">
+    <input id="freetext" placeholder="Andika kitu kingine…" style="flex:1">
+    <button style="background:var(--g);color:#fff;border-color:var(--g)" onclick="sendFree()" aria-label="Send"><i class="ti ti-send" style="font-size:15px"></i></button>
+  </div>
+</section>
+
+<section data-v="alerts">
+  <p style="font-size:15px;font-weight:500;margin-bottom:12px">Notifications</p>
+  <div class="card" style="border-color:var(--g);background:var(--gt);margin-bottom:10px">
+    <p style="font-size:12.5px;font-weight:500;color:var(--gd);margin-bottom:6px"><i class="ti ti-trophy" style="font-size:13px;vertical-align:-2px"></i> Matokeo ya wiki 28 · Friday results</p>
+    <p style="font-size:12.5px;color:var(--gd);margin-bottom:8px">GC-Amani finished 9 of 9 — kila mtu alilipa! Your vine grew a golden leaf.</p>
+    <div style="background:var(--sf);border-radius:10px;padding:8px 10px;font-size:11.5px">
+      <div class="row" style="padding:2px 0"><span>Best circle in Orinde</span><b style="font-weight:500">GC-Bidii · 14 weeks perfect</b></div>
+      <div class="row" style="padding:2px 0"><span>Best cluster</span><b style="font-weight:500">Rachar · 98% on time</b></div>
+      <div class="row" style="padding:2px 0"><span>Your circle GC-Amani</span><b style="font-weight:500;color:var(--gd)">2nd of 12 — so close!</b></div>
+    </div>
+  </div>
+  <p class="tiny" style="margin-bottom:6px">TODAY</p>
+  <div class="card" style="margin-bottom:8px;display:flex;gap:9px;padding:10px 12px"><i class="ti ti-leaf" style="font-size:16px;color:var(--g);margin-top:1px"></i><div><p style="font-size:12.5px">Wanjiku paid — GC-Amani is 4 of 9 this week</p><p class="tiny">10:12 · 5 leaves to a perfect week</p></div></div>
+  <div class="card" style="margin-bottom:8px;display:flex;gap:9px;padding:10px 12px"><i class="ti ti-heart-handshake" style="font-size:16px;color:var(--wt);margin-top:1px"></i><div style="flex:1"><p style="font-size:12.5px">Musa is behind this week. A call from a friend helps more than a reminder from us.</p><p class="tiny" style="margin-bottom:6px">Only your circle sees this</p><button id="callbtn" style="font-size:11.5px;padding:4px 12px" onclick="called(this)"><i class="ti ti-phone" style="font-size:12px;vertical-align:-1px"></i> Mpigie simu</button></div></div>
+  <p class="tiny" style="margin:6px 0">THURSDAY</p>
+  <div class="card" style="display:flex;gap:9px;padding:10px 12px"><i class="ti ti-bell" style="font-size:16px;color:var(--mut);margin-top:1px"></i><div><p style="font-size:12.5px">Kesho ni Friday — KES 700. Pay first when the coffee money lands, then the rest is truly yours.</p><p class="tiny">6:00 pm · your 9th week — streak inaendelea!</p></div></div>
+</section>
+
+<section data-v="circle">
+  <div class="row" style="margin-bottom:4px"><p style="font-size:16px;font-weight:500">GC-Amani</p><span class="chip chip-g">Strong</span></div>
+  <p class="muted" style="margin-bottom:12px">9 members · Kanyada cluster · everyone pays on time, everyone's limit grows</p>
+  <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
+    <div class="row" style="font-size:13px"><span>Wanjiku K. <span class="chip chip-w" style="font-size:10.5px;padding:0 6px">Head</span></span><i class="ti ti-circle-check" style="color:var(--g);font-size:15px"></i></div>
+    <div class="row" style="font-size:13px"><span>Akinyi O. (you)</span><i class="ti ti-circle-check" style="color:var(--g);font-size:15px"></i></div>
+    <div class="row" style="font-size:13px"><span>Baraka N.</span><i class="ti ti-circle-check" style="color:var(--g);font-size:15px"></i></div>
+    <div class="row" style="font-size:13px"><span>Musa B.</span><i class="ti ti-clock" style="color:var(--wt);font-size:15px"></i></div>
+    <div class="row" style="font-size:13px"><span>Neema W.</span><i class="ti ti-circle-check" style="color:var(--g);font-size:15px"></i></div>
+  </div>
+  <p class="tiny">Ticks show who is up to date — amounts stay private. One unpaid loan pauses new loans for the whole circle (and can extend to the cluster, per your cooperative's contract) until it is settled. Invite code: AMANI-38</p>
+</section>
+
+</div>
+
+<div class="nav" id="mainnav" style="display:none">
+  <button data-n="home" class="on"><i class="ti ti-home"></i>Home</button>
+  <button data-n="habari"><i class="ti ti-photo"></i>Habari</button>
+  <button data-n="gro"><i class="ti ti-leaf"></i>Gro</button>
+  <button data-n="alerts"><i class="ti ti-bell"></i>Alerts</button>
+  <button data-n="circle"><i class="ti ti-circles"></i>Circle</button>
+</div>
+</div>
+
+<script>
+function $(id){ return document.getElementById(id); }
+var authed = ['home','habari','gro','alerts','circle','apply','status','pay','compose'];
+
+function go(v){
+  document.querySelectorAll('[data-v]').forEach(function(s){ s.style.display = s.dataset.v === v ? 'block' : 'none'; });
+  $('mainnav').style.display = authed.indexOf(v) >= 0 ? 'flex' : 'none';
+}
+function nav(n){
+  document.querySelectorAll('#mainnav [data-n]').forEach(function(b){ b.classList.toggle('on', b.dataset.n === n); });
+}
+document.querySelectorAll('#mainnav [data-n]').forEach(function(b){
+  b.addEventListener('click', function(){ go(b.dataset.n); nav(b.dataset.n); });
+});
+go('welcome');
+
+var gsteps = [
+  'Sasa, I\u2019m Gro \u2014 I\u2019ll walk with you. Kwanza, let me tell you what Grofunder is. Ready?',
+  'Grofunder ni nini? Simple:',
+  'And this is how you\u2019ll see your progress \u2014',
+  'One more thing \u2014 the most important one.',
+  'Vizuri! Here\u2019s what Orinde told us about you. Is this you?',
+  'Hongera Akinyi! Karibu. Now \u2014 where is home? This helps me know your community. Your circle only ever sees rough distance.',
+  'Asante! Sasa, tell me about yourself. What do you grow? Coffee I already know from Orinde.',
+  'Do you earn from anything else? Kila kitu counts.',
+  'And money \u2014 how does it usually come in?',
+  'Hongera Akinyi! Tuko pamoja \u2014 we\u2019re in this together. Whenever it\u2019s hard, tell me, and we\u2019ll find a way.'
+];
+var g = 0;
+function gstep(n){
+  g = n;
+  document.querySelectorAll('[data-g]').forEach(function(s){ s.style.display = +s.dataset.g === n ? 'block' : 'none'; });
+  $('gsay').textContent = gsteps[n];
+  var cheer = n === 9 || n === 6;
+  $('gro-h').style.display = cheer ? 'none' : 'block';
+  $('gro-c').style.display = cheer ? 'block' : 'none';
+  var d = $('gdots'); d.innerHTML = '';
+  for(var i = 0; i < gsteps.length; i++){
+    var dot = document.createElement('span');
+    if(i <= n) dot.className = 'on';
+    d.appendChild(dot);
+  }
+}
+function flagRecord(){
+  $('flagbtn').style.display = 'none';
+  $('flagged').style.display = 'block';
+}
+
+document.querySelectorAll('.mp').forEach(function(c){ c.addEventListener('click', function(){ c.classList.toggle('on'); }); });
+document.querySelectorAll('.sp').forEach(function(c){ c.addEventListener('click', function(){
+  document.querySelectorAll('.sp').forEach(function(x){ x.classList.remove('on'); });
+  c.classList.add('on');
+}); });
+
+document.querySelectorAll('.vk').forEach(function(b){ b.addEventListener('click', function(){
+  b.classList.toggle('on');
+  b.querySelector('i').className = b.classList.contains('on') ? 'ti ti-check' : 'ti ti-plus';
+}); });
+function confirmVouch(){
+  var musa = document.querySelector('.vk[data-name="musa"]');
+  var contested = musa && !musa.classList.contains('on');
+  if(contested){
+    $('contested').style.display = 'block';
+    $('vnext').style.display = 'block';
+  } else {
+    enterApp();
+  }
+}
+var isNew = false;
+function refreshHome(){
+  document.querySelectorAll('.ret').forEach(function(e){ e.style.display = isNew ? 'none' : ''; });
+  document.querySelectorAll('.nw').forEach(function(e){ e.style.display = isNew ? 'block' : 'none'; });
+}
+function enterApp(){ isNew = true; refreshHome(); go('home'); nav('home'); }
+function signIn(){ isNew = false; refreshHome(); go('home'); nav('home'); }
+
+var amt = $('amt');
+function togAcc(id, btn){
+  var el = document.getElementById(id);
+  var open = el.style.display === 'none' || el.style.display === '';
+  el.style.display = open ? 'block' : 'none';
+  var ic = btn.querySelector('.ti-chevron-down, .ti-chevron-up');
+  if(ic) ic.className = open ? 'ti ti-chevron-up' : 'ti ti-chevron-down';
+}
+
+var loanWeeks = 12;
+var RATE_PM = 0.045;
+function calc(){
+  var a = +$('amt').value;
+  var months = loanWeeks / 4;
+  var total = Math.round(a * (1 + RATE_PM * months));
+  var wk = Math.round(total / loanWeeks);
+  $('amtout').textContent = 'KES ' + a.toLocaleString();
+  $('wk').textContent = 'KES ' + wk.toLocaleString();
+  $('tot').textContent = 'KES ' + total.toLocaleString();
+  $('wkn').textContent = loanWeeks;
+}
+document.querySelectorAll('.tp').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.tp').forEach(function(x){ x.classList.remove('on'); });
+    b.classList.add('on');
+    loanWeeks = +b.dataset.w;
+    calc();
+  });
+});
+amt.addEventListener('input', calc); calc();
+
+document.querySelectorAll('.ol').forEach(function(b){ b.addEventListener('click', function(){
+  document.querySelectorAll('.ol').forEach(function(x){ x.classList.remove('on'); });
+  b.classList.add('on');
+  $('olyes').style.display = b.textContent === 'Yes' ? 'block' : 'none';
+}); });
+
+function stk(){
+  $('stkwait').style.display = 'block';
+  $('stkdone').style.display = 'none';
+  setTimeout(function(){
+    $('stkwait').style.display = 'none';
+    $('stkdone').style.display = 'block';
+    var r = $('paytable').insertRow(1);
+    r.style.borderTop = '1px solid var(--bd)';
+    ['Today', 'KES ' + Math.round(+$('payamt').value).toLocaleString(), 'SGK7XP21'].forEach(function(v){
+      var c = r.insertCell(-1); c.style.padding = '4px 6px'; c.textContent = v;
+    });
+  }, 1500);
+}
+
+document.querySelectorAll('.ac').forEach(function(c){ c.addEventListener('click', function(){
+  document.querySelectorAll('.ac').forEach(function(x){ x.classList.remove('on'); });
+  c.classList.add('on');
+  $('autotag').textContent = 'GC-Amani of Kanyada cluster \u00b7 ' + c.dataset.t;
+  $('grpconsent').style.display = c.dataset.group ? 'flex' : 'none';
+}); });
+
+var replies = {
+  inputs: 'Good question! Right now loans come as M-Pesa, but many farmers are asking for fertiliser and seedlings directly. Nimeambia Grofunder \u2014 you are one of 23 asking this month. Nitakujulisha when it\u2019s ready.',
+  agro: 'We don\u2019t have an agronomist yet \u2014 lakini nimepeleka ombi lako to Grofunder. When one joins for Homa Bay, you\u2019ll be first to know. Asante for telling me.',
+  money: 'Rahisi: when coffee money comes Friday, pay your instalment kwanza \u2014 then the rest is truly yours. Farmers who pay first thing never fall behind. Your streak proves it: 8 weeks strong!',
+  defaultq: 'Niambie ukweli \u2014 here is how it works. On the repayment day the circle is told and has 5 days to help: a call, a visit, or covering it together. From the 7th day a flat 2% late fee applies and Orinde Cooperative steps in to follow up. While it stays unpaid, no one in the circle can take a new loan \u2014 and per the contract this can reach the cluster \u2014 until it is settled. Ndiyo maana you choose your circle carefully. Tuko pamoja.',
+  insure: 'Crop insurance si bado \u2014 but Grofunder is listening. I\u2019ve added your voice. The more farmers ask, the faster it comes.',
+  leave: 'Sikiliza, Akinyi \u2014 your track record is YOURS. Every payment, every leaf on your tree \u2014 it follows you, not the cooperative. New loans would pause until we connect your work in a new way \u2014 Grofunder is building that path, na utakuwa wa kwanza kujua. Na mimi? Naenda popote unapoenda. Tuko pamoja \u2014 always.'
+};
+var logged = {inputs:1, agro:1, insure:1, leave:1};
+function bubble(text, mine, receipt){
+  var log = $('chatlog');
+  var d = document.createElement('div');
+  if(mine){
+    d.className = 'bubble-me';
+    d.innerHTML = '<p style="font-size:12.5px">' + text + '</p>';
+  } else {
+    d.className = 'bubble';
+    d.style.maxWidth = '90%';
+    d.innerHTML = '<p style="font-size:12.5px">' + text + '</p>' + (receipt ? '<p class="tiny" style="margin-top:5px"><i class="ti ti-check" style="font-size:11px;vertical-align:-1px"></i> Request sent to Grofunder</p>' : '');
+  }
+  log.appendChild(d);
+}
+document.querySelectorAll('.qa').forEach(function(b){ b.addEventListener('click', function(){
+  bubble(b.textContent, true, false);
+  setTimeout(function(){ bubble(replies[b.dataset.q], false, !!logged[b.dataset.q]); }, 400);
+  b.style.display = 'none';
+}); });
+function sendFree(){
+  var t = $('freetext').value.trim();
+  if(!t) return;
+  bubble(t, true, false);
+  setTimeout(function(){ bubble('Nimepokea \u2014 I\u2019ve passed your message to Grofunder. Asante for telling me, Akinyi. Tuko pamoja.', false, true); }, 400);
+  $('freetext').value = '';
+}
+function called(b){
+  b.outerHTML = '<span class="tiny" style="color:var(--gd)"><i class="ti ti-check" style="font-size:12px;vertical-align:-1px"></i> Asante \u2014 Gro told the circle you reached out</span>';
+}
+</script>
+</body>
+</html>

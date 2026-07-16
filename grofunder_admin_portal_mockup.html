@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grofunder — Admin Portal Mockup v2.0</title>
+<!--
+  GROFUNDER ADMIN PORTAL — APPROVED DESIGN MOCKUP v2.0 (July 2026)
+  Internal staff console. Seven tabs:
+
+  1 Dashboard      portfolio, PAR, demand + photo pulse metrics, data-quality
+                   watch (per-cooperative record mismatch rate feeding the
+                   credit engine as a confidence discount)
+  2 Cooperatives   full lifecycle: onboard -> activation code (one-time,
+                   hashed at rest, 14-day expiry, reissuable) -> awaiting
+                   activation -> active/suspended; per-coop mismatch rate
+  3 Approvals      Grofunder final approval + disburse (Idempotency-Key);
+                   holds shown for open record flags (PENDING_RECORD_MATCH)
+  4 Reconciliation daily partner statement matching + exception queue;
+                   every line ends matched or resolved
+  5 Demand         FarmerRequest aggregation from Gro by category/region/crop;
+                   "Mark fulfilled" fires Gro loop-closing notification to the
+                   category waitlist; free-text inbox; leaving_cooperative is
+                   a tracked retention-watch category
+  6 Community      weekly cycle status (Friday job: champions, habari
+                   publication), photo moderation queue (EXIF stripped,
+                   consent verified, group photos flagged for minors check),
+                   picha ya wiki selection
+  7 Rules+Support  versioned credit rules (weights, ladder, mismatch
+                   discount); audited support-access sessions (reason
+                   required, banner shown on the cooperative portal)
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<style>
+:root{--g:#09AF0F;--gd:#067A0B;--gt:#E6F7E7;--ink:#1F2A24;--mut:#6B7A70;--bd:#DCE5DE;--sf:#fff;--sf1:#F6FAF6;--pg:#F2F6F2;--wt:#854F0B;--wb:#FAEEDA;--dt:#A32D2D;--db:#FCEBEB;--st:#0F6E56;--sb:#E1F5EE;--nt:#5F5E5A;--nb:#F1EFE8}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--pg);color:var(--ink);font-size:14px;line-height:1.5}
+.wrap{max-width:960px;margin:24px auto;padding:0 16px}
+.app{background:var(--sf);border:1px solid var(--bd);border-radius:14px;overflow:hidden}
+h1,h2,h3,p{margin:0}
+label{display:block;font-size:11.5px;color:var(--mut);margin-bottom:3px}
+input,select{width:100%;font:inherit;font-size:12.5px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;background:#fff;color:var(--ink)}
+input:focus,select:focus{outline:none;border-color:var(--g);box-shadow:0 0 0 3px var(--gt)}
+button{font:inherit;font-size:12.5px;padding:7px 13px;border:1px solid var(--bd);border-radius:8px;background:#fff;color:var(--ink);cursor:pointer}
+button:hover{background:var(--sf1)}
+.btn-p{background:var(--g);border-color:var(--g);color:#fff}
+.btn-p:hover{background:var(--gd)}
+.brand{color:var(--g);font-weight:600;letter-spacing:-.4px}
+.muted{color:var(--mut);font-size:12px}
+.tiny{color:var(--mut);font-size:11px}
+.chip{display:inline-block;font-size:11px;padding:2px 9px;border-radius:9px}
+.chip-g{background:var(--gt);color:var(--gd)}.chip-w{background:var(--wb);color:var(--wt)}.chip-d{background:var(--db);color:var(--dt)}.chip-s{background:var(--sb);color:var(--st)}.chip-n{background:var(--nb);color:var(--nt)}
+.header{display:flex;justify-content:space-between;align-items:center;padding:13px 18px;border-bottom:1px solid var(--bd)}
+.tabs{display:flex;gap:2px;padding:8px 12px;border-bottom:1px solid var(--bd);flex-wrap:wrap}
+.tab{border:none;border-bottom:2px solid transparent;border-radius:0;background:transparent;padding:7px 10px;color:var(--mut);font-size:12.5px}
+.tab.on{border-bottom-color:var(--g);color:var(--ink)}
+.pad{padding:18px}
+.grid{display:grid;gap:10px}
+.g4{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.gform{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:8px}
+.metric{background:var(--sf1);border-radius:10px;padding:12px}
+.metric .n{font-size:22px;font-weight:600;margin:2px 0 0}
+.card{border:1px solid var(--bd);border-radius:10px;padding:12px}
+.callout{border-radius:10px;padding:10px 12px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.co-g{background:var(--gt);color:var(--gd)}.co-w{background:var(--wb);color:var(--wt)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+table{width:100%;table-layout:fixed;font-size:12px;border-collapse:collapse;margin-top:6px}
+th{color:var(--mut);text-align:left;font-weight:500;padding:5px 8px}
+td{padding:6px 8px;border-top:1px solid var(--bd)}
+[data-ps]{display:none}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="app">
+
+<div class="header">
+  <div style="display:flex;align-items:baseline;gap:10px">
+    <span class="brand" style="font-size:18px">grofunder<i class="ti ti-leaf" style="font-size:12px;vertical-align:7px"></i></span>
+    <span class="chip chip-n">Admin</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <span class="tiny">j.mwangi@grofunder.co.ke</span>
+    <div style="width:30px;height:30px;border-radius:50%;background:var(--gt);color:var(--gd);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">JM</div>
+  </div>
+</div>
+
+<div class="tabs" id="ptabs">
+  <button class="tab on" data-pt="p1">Dashboard</button>
+  <button class="tab" data-pt="p2">Cooperatives</button>
+  <button class="tab" data-pt="p3">Approvals <span class="chip chip-g">3</span></button>
+  <button class="tab" data-pt="p4">Reconciliation <span class="chip chip-w">2</span></button>
+  <button class="tab" data-pt="p5">Demand</button>
+  <button class="tab" data-pt="p6">Community <span class="chip chip-w">2</span></button>
+  <button class="tab" data-pt="p7">Rules &amp; Support</button>
+</div>
+
+<div data-ps="p1" class="pad">
+  <div class="grid g4" style="margin-bottom:14px">
+    <div class="metric"><p class="muted">Portfolio</p><p class="n">KES 8.7M</p><p class="tiny">6 cooperatives · 743 loans</p></div>
+    <div class="metric"><p class="muted">PAR-30</p><p class="n">2.9%</p><p class="tiny" style="color:var(--gd)">target &lt; 5%</p></div>
+    <div class="metric"><p class="muted">Requests to Gro</p><p class="n">83</p><p class="tiny">this month · 5 categories</p></div>
+    <div class="metric"><p class="muted">Photos published</p><p class="n">47</p><p class="tiny">wiki 28 habari live</p></div>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+    <div class="callout co-g" style="flex:1;min-width:240px"><span>23 farmers asked Gro for input loans</span><button data-goto="p5" style="font-size:12px;padding:4px 10px">Demand</button></div>
+    <div class="callout co-w" style="flex:1;min-width:240px"><span>2 photos await moderation for the album</span><button data-goto="p6" style="font-size:12px;padding:4px 10px">Review</button></div>
+  </div>
+  <p style="font-size:13px;font-weight:500;margin-bottom:2px">Data quality watch — record mismatch rate</p>
+  <p class="tiny" style="margin-bottom:4px">Farmer-flagged record discrepancies per cooperative. Above 5% the credit engine applies a confidence discount to that cooperative's data.</p>
+  <table>
+    <tr><th>Cooperative</th><th>Open flags</th><th>Mismatch rate</th><th>Score effect</th></tr>
+    <tr><td>Orinde Cooperative</td><td>2</td><td>1.1%</td><td><span class="chip chip-s">None</span></td></tr>
+    <tr><td>Kianjege Dairy</td><td>1</td><td>0.4%</td><td><span class="chip chip-s">None</span></td></tr>
+    <tr><td>Nyamira Tea Growers</td><td>14</td><td>7.8%</td><td><span class="chip chip-w">Confidence discount</span></td></tr>
+  </table>
+</div>
+
+<div data-ps="p2" class="pad">
+  <div class="row" style="margin-bottom:10px">
+    <p style="font-size:13px;font-weight:500">6 cooperatives</p>
+    <button class="btn-p" onclick="toggleOb()"><i class="ti ti-plus" style="font-size:14px;vertical-align:-2px"></i> Onboard cooperative</button>
+  </div>
+  <div id="obform" class="card" style="display:none;margin-bottom:12px">
+    <div class="grid gform">
+      <div><label>Cooperative name</label><input id="ob-name" placeholder="Nyansiongo Coffee FCS"></div>
+      <div><label>Registration no.</label><input placeholder="CS/1234"></div>
+      <div><label>County</label><input placeholder="Nyamira"></div>
+      <div><label>Admin email</label><input placeholder="chair@nyansiongo.co.ke"></div>
+    </div>
+    <button onclick="genCode()">Create and generate activation code</button>
+    <div id="codeout" class="callout co-g" style="display:none;margin-top:8px">
+      <span style="font-size:12px">Activation code: <b id="codeval" style="font-family:monospace;letter-spacing:1px">GF-NYA-8Q3K</b> · expires in 14 days · share with the cooperative administrator only. Reissue from the row menu if it expires unused.</span>
+    </div>
+  </div>
+  <table id="cooptable">
+    <tr><th style="width:26%">Cooperative</th><th>Members</th><th>Portfolio</th><th>PAR-30</th><th>Mismatch</th><th>Status</th></tr>
+    <tr><td>Orinde Cooperative</td><td>385</td><td>KES 1.63M</td><td>3.6%</td><td>1.1%</td><td><span class="chip chip-s">Active</span></td></tr>
+    <tr><td>Kianjege Dairy</td><td>412</td><td>KES 1.94M</td><td>3.2%</td><td>0.4%</td><td><span class="chip chip-s">Active</span></td></tr>
+    <tr><td>Nyamira Tea Growers</td><td>204</td><td>KES 0.86M</td><td>6.1%</td><td>7.8%</td><td><span class="chip chip-w">Watch</span></td></tr>
+    <tr><td>Mumias Cane Outgrowers</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="chip chip-n">Awaiting activation</span></td></tr>
+  </table>
+  <p class="tiny" style="margin-top:8px">Click a cooperative for detail: clusters, circles, open record flags, code reissue, suspend/reactivate. Suspension blocks new loans, never repayments.</p>
+</div>
+
+<div data-ps="p3" class="pad">
+  <p class="muted" style="margin-bottom:10px">Cooperative-approved applications awaiting Grofunder final approval and disbursement (idempotency-keyed, ACTIVE only on partner webhook confirmation).</p>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div class="card row">
+      <div><p style="font-size:13.5px;font-weight:500">Otieno Odhiambo · KES 8,000 · Orinde</p><p class="tiny">Score 655 · circle GC-Faida active · coop approved 11 Jul by J. Owuor · no open record flags · rules check passed</p></div>
+      <div style="display:flex;gap:6px"><button class="btn-p apok" style="font-size:12px;padding:4px 10px">Approve and disburse</button><button style="font-size:12px;padding:4px 10px;color:var(--dt)">Reject</button></div>
+    </div>
+    <div class="card row">
+      <div><p style="font-size:13.5px;font-weight:500">Wanjiru Ndegwa · KES 5,000 · Orinde</p><p class="tiny">Score 608 · first loan · circle GC-Bidii active · rules check passed</p></div>
+      <div style="display:flex;gap:6px"><button class="btn-p apok" style="font-size:12px;padding:4px 10px">Approve and disburse</button><button style="font-size:12px;padding:4px 10px;color:var(--dt)">Reject</button></div>
+    </div>
+    <div class="card" style="background:var(--sf1)">
+      <p style="font-size:13.5px;font-weight:500">Kemunto Nyaboke · KES 12,000 · Nyamira Tea</p>
+      <p class="tiny" style="color:var(--wt)"><i class="ti ti-clock" style="font-size:12px;vertical-align:-2px"></i> Held: open record flag (cluster head mismatch) — PENDING_RECORD_MATCH until the cooperative resolves</p>
+    </div>
+  </div>
+</div>
+
+<div data-ps="p4" class="pad">
+  <div class="row" style="margin-bottom:8px"><p style="font-size:13px;font-weight:500">Statement of 10 Jul · partner: 291 lines</p><span class="chip chip-s">289 auto-matched</span></div>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <div class="card row">
+      <div><p style="font-size:12.5px;font-weight:500">Collection KES 1,050 · receipt SGJ9QQ17 · no matching loan reference</p><p class="tiny">Payer 07•• ••• 442 · likely wrong account number keyed at paybill</p></div>
+      <div style="display:flex;gap:6px"><button class="rxok" style="font-size:12px;padding:4px 10px">Match to loan…</button><button style="font-size:12px;padding:4px 10px;color:var(--mut)">Refund</button></div>
+    </div>
+    <div class="card row">
+      <div><p style="font-size:12.5px;font-weight:500">Disbursement KES 5,000 · in ledger, missing from partner statement</p><p class="tiny">Loan GF-2841 · partner txn accepted 10 Jul 16:44 · no confirmation webhook received</p></div>
+      <div style="display:flex;gap:6px"><button class="rxok" style="font-size:12px;padding:4px 10px">Query partner</button><button style="font-size:12px;padding:4px 10px;color:var(--mut)">Annotate</button></div>
+    </div>
+  </div>
+  <p class="tiny" style="margin-top:10px">Every statement line must end matched or resolved — nothing unaccounted for.</p>
+</div>
+
+<div data-ps="p5" class="pad">
+  <p class="muted" style="margin-bottom:10px">What farmers ask Gro — your roadmap, ranked by real demand. Fulfilling a category triggers Gro to notify every farmer on its waitlist.</p>
+  <table style="margin-bottom:12px">
+    <tr><th style="width:24%">Category</th><th>This month</th><th style="width:26%">Top region</th><th style="width:28%">Action</th></tr>
+    <tr><td>Input loans</td><td>23 <span style="color:var(--gd);font-size:10.5px">&#9650; 9</span></td><td>Homa Bay · coffee</td><td><button class="ff" data-n="23" style="font-size:11.5px;padding:3px 9px">Mark fulfilled</button></td></tr>
+    <tr><td>Agronomist</td><td>14 <span style="color:var(--gd);font-size:10.5px">&#9650; 5</span></td><td>Homa Bay · coffee</td><td><button class="ff" data-n="14" style="font-size:11.5px;padding:3px 9px">Mark fulfilled</button></td></tr>
+    <tr><td>Crop insurance</td><td>9</td><td>Nyamira · tea</td><td><span class="tiny">Seeking partner</span></td></tr>
+    <tr style="background:var(--wb)"><td style="color:var(--wt)">Leaving cooperative</td><td style="color:var(--wt)">6</td><td style="color:var(--wt)">Orinde · 4 are top scorers</td><td><span class="tiny" style="color:var(--wt)">Retention watch · Phase 2 waitlist</span></td></tr>
+    <tr><td>Money advice</td><td>31</td><td>All regions</td><td><span class="tiny" style="color:var(--gd)">Gro self-serves</span></td></tr>
+  </table>
+  <p style="font-size:12.5px;font-weight:500;margin-bottom:6px">Free-text inbox · latest</p>
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <div class="card" style="padding:8px 11px"><p style="font-size:12px">"Naomba mnisaidie na mbegu za kahawa za grafted" — J.O., Orinde · Kanyada</p></div>
+    <div class="card" style="padding:8px 11px"><p style="font-size:12px">"Can the circle borrow together for a water tank?" — C.K., Orinde · Rachar</p></div>
+  </div>
+</div>
+
+<div data-ps="p6" class="pad">
+  <div class="callout co-g" style="margin-bottom:12px">
+    <span><i class="ti ti-check" style="font-size:13px;vertical-align:-2px"></i> Wiki 28 cycle closed Friday 18:00 — champions computed, habari published to 6 cooperatives + grofunder.co.ke</span>
+    <span class="tiny" style="color:var(--gd)">next cycle: Fri 17 Jul</span>
+  </div>
+  <p style="font-size:12.5px;font-weight:500;margin-bottom:6px">Photo moderation queue <span class="tiny">(EXIF and GPS stripped on upload)</span></p>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+    <div class="card" style="display:flex;gap:10px">
+      <div style="width:52px;height:52px;border-radius:8px;background:var(--gt);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-plant-2" style="font-size:22px;color:var(--g)"></i></div>
+      <div style="flex:1">
+        <p style="font-size:12.5px;font-weight:500">Kanyada cluster · planting seedlings</p>
+        <p class="tiny" style="margin:1px 0 6px">Wanjiku K. · public consent · no minors detected</p>
+        <div style="display:flex;gap:6px"><button class="pmok" style="font-size:11.5px;padding:3px 10px">Publish</button><button style="font-size:11.5px;padding:3px 10px;color:var(--mut)">Decline</button><button style="font-size:11.5px;padding:3px 10px;color:#BA7517"><i class="ti ti-star" style="font-size:11px;vertical-align:-1px"></i> Picha ya wiki</button></div>
+      </div>
+    </div>
+    <div class="card" style="display:flex;gap:10px">
+      <div style="width:52px;height:52px;border-radius:8px;background:var(--wb);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-users-group" style="font-size:22px;color:var(--wt)"></i></div>
+      <div style="flex:1">
+        <p style="font-size:12.5px;font-weight:500">GC-Bidii of Rachar cluster · meeting</p>
+        <p class="tiny" style="margin:1px 0 6px;color:var(--wt)">Group photo — uploader confirmed all agree · verify no minors before publishing</p>
+        <div style="display:flex;gap:6px"><button class="pmok" style="font-size:11.5px;padding:3px 10px">Publish</button><button style="font-size:11.5px;padding:3px 10px;color:var(--mut)">Decline</button></div>
+      </div>
+    </div>
+  </div>
+  <div class="card row" style="background:var(--sf1);border:none;padding:9px 12px">
+    <span style="font-size:12px">Habari wiki 28: 11 photos · champions GC-Bidii + Rachar · 4,182 dashboard views</span>
+    <button style="font-size:11.5px;padding:3px 10px">Preview public page</button>
+  </div>
+</div>
+
+<div data-ps="p7" class="pad">
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">
+    <div class="card">
+      <p style="font-size:12.5px;font-weight:500;margin-bottom:6px">Credit rules v3 · active</p>
+      <p class="muted">Repayment 40% · deliveries 30% · circle 20% · tenure &amp; savings 10%. Declared economic profile: cross-check only, 0% weight. Cooperative mismatch rate above 5% applies a confidence discount. Circle dispersion recorded, analytics only. Ladder: 5k → 8k (1 loan closed) → 12k (2 loans, 640+) → 20k (3 loans, 700+). Step 1 unlocks on circle ACTIVE.</p>
+      <button style="font-size:11.5px;padding:4px 10px;margin-top:8px">Edit as new version</button>
+    </div>
+    <div class="card">
+      <p style="font-size:12.5px;font-weight:500;margin-bottom:6px">Support access</p>
+      <p class="muted" style="margin-bottom:8px">Sessions are time-limited, reason-required, fully logged, and show a banner on the cooperative's portal.</p>
+      <div class="grid gform">
+        <div><label>Cooperative</label><select id="sa-coop"><option>Orinde Cooperative</option><option>Kianjege Dairy</option><option>Nyamira Tea Growers</option></select></div>
+        <div><label>Reason (visible to cooperative)</label><input id="sa-reason" placeholder="Assist with week 28 CSV upload"></div>
+      </div>
+      <button class="btn-p" style="font-size:12px;padding:5px 12px" onclick="startSession()">Start session</button>
+      <p id="sa-err" class="tiny" style="display:none;color:var(--dt);margin-top:6px">A reason is required — it appears in the audit log and to the cooperative.</p>
+      <table id="salog">
+        <tr><th>Staff</th><th style="width:28%">Cooperative</th><th>Reason</th><th>When</th></tr>
+        <tr><td>A. Kilonzo</td><td>Kianjege Dairy</td><td>Fix duplicate member import</td><td>9 Jul · 41 min</td></tr>
+        <tr><td>J. Mwangi</td><td>Nyamira Tea</td><td>Approvals training</td><td>7 Jul · 1 h 12 min</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+</div></div>
+<p style="max-width:960px;margin:10px auto 40px;padding:0 16px;font-size:11.5px;color:var(--mut)">Grofunder admin portal — approved design mockup v2.0 · July 2026 · read together with the MVP Build Specification, API Contract, and Design Addendum.</p>
+
+<script>
+function $(id){ return document.getElementById(id); }
+function pshow(id){
+  document.querySelectorAll('[data-ps]').forEach(function(s){ s.style.display = s.dataset.ps === id ? 'block' : 'none'; });
+  document.querySelectorAll('#ptabs .tab').forEach(function(t){ t.classList.toggle('on', t.dataset.pt === id); });
+}
+document.querySelectorAll('#ptabs .tab').forEach(function(t){ t.addEventListener('click', function(){ pshow(t.dataset.pt); }); });
+document.querySelectorAll('[data-goto]').forEach(function(b){ b.addEventListener('click', function(){ pshow(b.dataset.goto); }); });
+pshow('p1');
+
+function toggleOb(){
+  var f = $('obform');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+function genCode(){
+  var chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  var c = '';
+  for(var i = 0; i < 4; i++) c += chars[Math.floor(Math.random() * chars.length)];
+  var name = ($('ob-name').value.trim() || 'NEW').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'NEW';
+  $('codeval').textContent = 'GF-' + name + '-' + c;
+  $('codeout').style.display = 'flex';
+  var t = $('cooptable');
+  var r = t.insertRow(-1);
+  var vals = [($('ob-name').value.trim() || 'New cooperative'), '—', '—', '—', '—'];
+  vals.forEach(function(v){ r.insertCell(-1).textContent = v; });
+  r.insertCell(-1).innerHTML = '<span class="chip chip-n">Awaiting activation</span>';
+}
+document.querySelectorAll('.apok').forEach(function(b){ b.addEventListener('click', function(){
+  b.parentElement.innerHTML = '<span class="chip chip-s" style="padding:3px 10px">Disbursing via partner — awaiting confirmation</span>';
+}); });
+document.querySelectorAll('.rxok').forEach(function(b){ b.addEventListener('click', function(){
+  b.parentElement.innerHTML = '<span class="chip chip-s" style="padding:3px 10px">Resolved — logged</span>';
+}); });
+document.querySelectorAll('.ff').forEach(function(b){ b.addEventListener('click', function(){
+  b.outerHTML = '<span class="chip chip-s" style="padding:3px 9px">Gro notifying ' + b.dataset.n + ' farmers</span>';
+}); });
+function startSession(){
+  var r = $('sa-reason').value.trim();
+  if(!r){ $('sa-err').style.display = 'block'; return; }
+  $('sa-err').style.display = 'none';
+  var t = $('salog');
+  var row = t.insertRow(1);
+  ['J. Mwangi', $('sa-coop').value, r, 'Now · active'].forEach(function(v){ row.insertCell(-1).textContent = v; });
+  $('sa-reason').value = '';
+}
+</script>
+</body>
+</html>

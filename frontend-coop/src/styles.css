@@ -1,0 +1,94 @@
+:root {
+  --g: #09AF0F; --g-dark: #067A0B; --g-tint: #E6F7E7;
+  --amber: #E8A33D; --amber-dark: #854F0B;
+  --ink: #1F2A24; --mut: #5C6B61; --line: #DCE5DE; --bg: #F6FAF6;
+  --card: #FFFFFF; --radius: 12px; --shadow: 0 1px 3px rgba(31,42,36,0.07), 0 4px 14px rgba(31,42,36,0.04);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased; line-height: 1.45; }
+
+/* app shell: sidebar + main */
+.shell { display: flex; min-height: 100%; }
+.sidebar { width: 232px; background: #fff; border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; padding: 20px 14px; position: sticky; top: 0; height: 100vh; }
+.brand { font-weight: 800; font-size: 20px; color: var(--g); letter-spacing: -0.02em; padding: 0 8px 18px; }
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav button { display: flex; align-items: center; gap: 10px; border: none; background: none;
+  font-family: inherit; font-size: 14px; color: var(--mut); padding: 10px 12px; border-radius: 10px;
+  cursor: pointer; text-align: left; width: 100%; transition: all 0.12s ease; }
+.nav button:hover { background: var(--bg); color: var(--ink); }
+.nav button.active { background: var(--g-tint); color: var(--g-dark); font-weight: 600; }
+.nav .ico { width: 18px; text-align: center; }
+.sidebar-foot { margin-top: auto; padding: 12px 8px 0; border-top: 1px solid var(--line); }
+.sidebar-foot .who { font-size: 12px; color: var(--mut); margin-bottom: 8px; }
+.main { flex: 1; padding: 28px 34px; max-width: 1100px; }
+
+/* header */
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 22px; }
+.h1 { font-size: 25px; font-weight: 700; letter-spacing: -0.02em; }
+.sub { color: var(--mut); font-size: 14px; margin-top: 2px; }
+
+/* cards + stats */
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+.stat { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+.stat .n { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+.stat .l { font-size: 12px; color: var(--mut); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+.card { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 18px; }
+.card-head { padding: 16px 18px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
+.card-head h3 { font-size: 15px; font-weight: 600; }
+.card-body { padding: 18px; }
+
+/* tables */
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--mut); padding: 10px 18px; border-bottom: 1px solid var(--line); font-weight: 600; }
+td { padding: 12px 18px; border-bottom: 1px solid var(--line); font-size: 14px; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #FAFDFA; }
+
+/* buttons */
+.btn { border: none; border-radius: 10px; padding: 10px 16px; font-size: 14px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: opacity 0.15s ease; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: var(--g); color: #fff; }
+.btn-ghost { background: var(--g-tint); color: var(--g-dark); }
+.btn-amber { background: var(--amber); color: #fff; }
+.btn-danger { background: #FCEBEA; color: #B3261E; }
+.btn-sm { padding: 6px 12px; font-size: 13px; }
+
+/* forms */
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+.input { width: 100%; border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px;
+  font-size: 14px; font-family: inherit; background: #fff; }
+.input:focus { outline: none; border-color: var(--g); }
+.row { display: flex; gap: 10px; align-items: center; }
+.inline-form { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.inline-form .field { margin-bottom: 0; }
+
+/* misc */
+.chip { display: inline-block; border-radius: 20px; padding: 3px 10px; font-size: 12px; font-weight: 600; }
+.chip-green { background: var(--g-tint); color: var(--g-dark); }
+.chip-amber { background: #FCF0DC; color: var(--amber-dark); }
+.chip-grey { background: #EEF2EF; color: var(--mut); }
+.chip-red { background: #FCEBEA; color: #B3261E; }
+.muted { color: var(--mut); }
+.err { background: #FCEBEA; color: #B3261E; border-radius: 10px; padding: 11px 14px; font-size: 13.5px; margin-bottom: 14px; }
+.ok { background: var(--g-tint); color: var(--g-dark); border-radius: 10px; padding: 11px 14px; font-size: 13.5px; margin-bottom: 14px; }
+.empty { text-align: center; padding: 40px 20px; color: var(--mut); font-size: 14px; }
+.spin { display: inline-block; width: 18px; height: 18px; border: 2.5px solid var(--g-tint);
+  border-top-color: var(--g); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* activation / login centered */
+.auth-wrap { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
+.auth-card { width: 100%; max-width: 400px; background: #fff; border: 1px solid var(--line);
+  border-radius: 16px; box-shadow: var(--shadow); padding: 30px; }
+.auth-card .brand { padding: 0 0 4px; }
+.tabs { display: flex; gap: 6px; margin-bottom: 20px; background: var(--bg); padding: 4px; border-radius: 10px; }
+.tabs button { flex: 1; border: none; background: none; font-family: inherit; font-size: 13.5px;
+  padding: 8px; border-radius: 8px; cursor: pointer; color: var(--mut); font-weight: 500; }
+.tabs button.active { background: #fff; color: var(--g-dark); font-weight: 600; box-shadow: var(--shadow); }
+@media (max-width: 720px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } .sidebar { width: 64px; } .nav button span:last-child, .brand span, .sidebar-foot .who { display: none; } }
