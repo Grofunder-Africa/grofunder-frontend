@@ -146,6 +146,20 @@ function Cooperatives() {
     catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not delete'); }
   }
 
+  async function toggleLending(c: Cooperative) {
+    setErr('');
+    try {
+      if (c.lending_suspended) {
+        await adminApi.resume('cooperative', c.id);
+      } else {
+        const reason = prompt(`Pause new loans for "${c.name}". Enter a message farmers will see (optional):`, 'Lending is temporarily paused for your cooperative while we complete a review.');
+        if (reason === null) return; // cancelled
+        await adminApi.suspend('cooperative', c.id, reason);
+      }
+      load();
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not update lending'); }
+  }
+
   return (
     <>
       <div className="page-head"><div className="h1">Cooperatives</div><div className="sub">Onboard cooperatives and issue their activation codes</div></div>
@@ -174,14 +188,18 @@ function Cooperatives() {
           <div className="empty">No cooperatives yet. Onboard your first one above.</div>
         ) : (
           <table>
-            <thead><tr><th>Name</th><th>County</th><th>Status</th><th style={{ textAlign: 'right' }}>Actions</th></tr></thead>
+            <thead><tr><th>Name</th><th>County</th><th>Status</th><th>Lending</th><th style={{ textAlign: 'right' }}>Actions</th></tr></thead>
             <tbody>{coops.map((c) => (
               <tr key={c.id}><td style={{ fontWeight: 600 }}>{c.name}</td><td className="muted">{c.county ?? '—'}</td>
                 <td><span className={`chip ${c.status === 'ACTIVE' ? 'chip-green' : c.status === 'AWAITING_ACTIVATION' ? 'chip-amber' : 'chip-grey'}`}>{c.status}</span></td>
-                <td style={{ textAlign: 'right' }}>
-                  {c.status !== 'ACTIVE'
-                    ? <button className="btn btn-danger btn-sm" onClick={() => remove(c.id, c.name)}>Delete</button>
-                    : <span className="muted" style={{ fontSize: 12 }}>—</span>}
+                <td>{c.lending_suspended ? <span className="chip chip-red">Paused</span> : <span className="chip chip-green">Open</span>}</td>
+                <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  {c.status === 'ACTIVE' && (
+                    <button className={`btn btn-sm ${c.lending_suspended ? 'btn-ghost' : 'btn-amber'}`} onClick={() => toggleLending(c)}>
+                      {c.lending_suspended ? 'Resume lending' : 'Pause lending'}
+                    </button>
+                  )}
+                  {c.status !== 'ACTIVE' && <button className="btn btn-danger btn-sm" onClick={() => remove(c.id, c.name)}>Delete</button>}
                 </td></tr>
             ))}</tbody>
           </table>
