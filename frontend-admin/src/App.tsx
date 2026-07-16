@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { adminApi, setToken, getToken, kes, ApiError } from './api';
-import type { Cooperative, Rules, Weights, ReconRow, Exception, Loan, LoanFlow } from './api';
+import type { Cooperative, Rules, Weights, ReconRow, Exception, Loan, LoanFlow, AdminMe, AdminUser } from './api';
 
-type Tab = 'overview' | 'cooperatives' | 'loans' | 'credit' | 'reconciliation';
+type Tab = 'overview' | 'cooperatives' | 'loans' | 'credit' | 'reconciliation' | 'account';
 
 export default function App() {
   const [authed, setAuthed] = useState(!!getToken());
@@ -45,6 +45,7 @@ function Portal({ onSignOut }: { onSignOut: () => void }) {
     ['loans', '💵', 'Loans'],
     ['credit', '⚖', 'Credit model'],
     ['reconciliation', '🔗', 'Reconciliation'],
+    ['account', '⚙', 'Account'],
   ];
   return (
     <div className="shell">
@@ -68,6 +69,7 @@ function Portal({ onSignOut }: { onSignOut: () => void }) {
         {tab === 'loans' && <Loans />}
         {tab === 'credit' && <CreditModel />}
         {tab === 'reconciliation' && <Reconciliation />}
+        {tab === 'account' && <Account />}
       </main>
     </div>
   );
@@ -466,5 +468,165 @@ function FlowModal({ loanId, onClose }: { loanId: string; onClose: () => void })
         </div>
       </div>
     </div>
+  );
+}
+
+/* ---------- Account settings ---------- */
+const LEVEL_LABELS: Record<string, string> = {
+  OWNER: 'Owner', FULL: 'Full admin', OPERATIONS: 'Operations', VIEW_ONLY: 'View only',
+};
+const LEVEL_DESC: Record<string, string> = {
+  OWNER: 'Full power, including managing admins',
+  FULL: 'All operations, but cannot manage admins',
+  OPERATIONS: 'Day-to-day loan work; no model edits or deletes',
+  VIEW_ONLY: 'Can see everything, change nothing',
+};
+
+function Account() {
+  const [me, setMe] = useState<AdminMe | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    adminApi.me().then(setMe).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="empty"><span className="spin" /></div>;
+  const isOwner = me?.admin_level === 'OWNER';
+
+  return (
+    <>
+      <div className="page-head"><div className="h1">Account</div><div className="sub">Your login details{isOwner ? ' and your Grofunder admin team' : ''}</div></div>
+      <MyAccount me={me} onEmailChange={(e) => setMe((m) => m ? { ...m, email: e } : m)} />
+      {isOwner && <AdminTeam />}
+    </>
+  );
+}
+
+function MyAccount({ me, onEmailChange }: { me: AdminMe | null; onEmailChange: (e: string) => void }) {
+  const [email, setEmail] = useState(me?.email ?? '');
+  const [cur, setCur] = useState(''); const [nw, setNw] = useState(''); const [nw2, setNw2] = useState('');
+  const [msg, setMsg] = useState(''); const [err, setErr] = useState('');
+
+  async function saveEmail() {
+    setMsg(''); setErr('');
+    try { await adminApi.changeEmail(email.trim()); onEmailChange(email.trim()); setMsg('Email updated'); }
+    catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not update email'); }
+  }
+  async function savePassword() {
+    setMsg(''); setErr('');
+    if (nw !== nw2) { setErr('New passwords do not match'); return; }
+    try { await adminApi.changePassword(cur, nw); setCur(''); setNw(''); setNw2(''); setMsg('Password changed'); }
+    catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not change password'); }
+  }
+
+  return (
+    <div className="card">
+      <div className="card-head"><h3>My login</h3>{me && <span className="chip chip-green">{LEVEL_LABELS[me.admin_level] ?? me.admin_level}</span>}</div>
+      <div className="card-body">
+        {msg && <div className="ok">{msg}</div>}{err && <div className="err">{err}</div>}
+        <div className="field" style={{ maxWidth: 420 }}>
+          <label>Email</label>
+          <div className="row" style={{ gap: 10 }}>
+            <input className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <button className="btn btn-ghost" disabled={!email.trim() || email.trim() === me?.email} onClick={saveEmail}>Save</button>
+          </div>
+        </div>
+        <div style={{ height: 1, background: 'var(--line)', margin: '18px 0' }} />
+        <div style={{ maxWidth: 420 }}>
+          <div className="field"><label>Current password</label><input className="input" type="password" value={cur} onChange={(e) => setCur(e.target.value)} /></div>
+          <div className="field"><label>New password</label><input className="input" type="password" value={nw} onChange={(e) => setNw(e.target.value)} placeholder="at least 8 characters" /></div>
+          <div className="field"><label>Confirm new password</label><input className="input" type="password" value={nw2} onChange={(e) => setNw2(e.target.value)} /></div>
+          <button className="btn btn-primary" disabled={!cur || !nw || !nw2} onClick={savePassword}>Change password</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminTeam() {
+  const [admins, setAdmins] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState(''); const [err, setErr] = useState('');
+  const [form, setForm] = useState({ email: '', fullName: '', level: 'OPERATIONS', tempPassword: '' });
+  const [invited, setInvited] = useState<{ email: string; temp: string } | null>(null);
+
+  const load = useCallback(() => {
+    adminApi.listAdmins().then((r) => setAdmins(r.data)).catch((e) => setErr(e instanceof ApiError ? e.message : 'Load failed')).finally(() => setLoading(false));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function invite() {
+    setMsg(''); setErr('');
+    try {
+      await adminApi.inviteAdmin(form.email.trim(), form.fullName.trim(), form.level, form.tempPassword);
+      setInvited({ email: form.email.trim(), temp: form.tempPassword });
+      setForm({ email: '', fullName: '', level: 'OPERATIONS', tempPassword: '' });
+      load();
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not invite'); }
+  }
+  async function setLevel(id: string, level: string) {
+    setMsg(''); setErr('');
+    try { await adminApi.changeAdminLevel(id, level); setMsg('Level updated'); load(); }
+    catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not change level'); }
+  }
+  async function revoke(id: string, email: string) {
+    if (!confirm(`Revoke access for ${email}? They will no longer be able to sign in.`)) return;
+    setMsg(''); setErr('');
+    try { await adminApi.revokeAdmin(id); setMsg('Access revoked'); load(); }
+    catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not revoke'); }
+  }
+
+  return (
+    <>
+      <div className="card">
+        <div className="card-head"><h3>Invite an admin</h3></div>
+        <div className="card-body">
+          {err && <div className="err">{err}</div>}
+          {invited && (
+            <div className="ok" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span><strong>{invited.email}</strong> invited. Share this temporary password: <span className="code">{invited.temp}</span> — they'll be asked to change it.</span>
+              <button className="btn btn-ghost btn-sm" onClick={() => setInvited(null)}>Got it</button>
+            </div>
+          )}
+          <div className="inline-form">
+            <div className="field"><label>Email</label><input className="input" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="colleague@grofunder.com" /></div>
+            <div className="field"><label>Full name</label><input className="input" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} placeholder="Jane Doe" /></div>
+            <div className="field"><label>Permission level</label>
+              <select className="input" value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value })}>
+                {['FULL', 'OPERATIONS', 'VIEW_ONLY', 'OWNER'].map((l) => <option key={l} value={l}>{LEVEL_LABELS[l]}</option>)}
+              </select>
+            </div>
+            <div className="field"><label>Temporary password</label><input className="input" value={form.tempPassword} onChange={(e) => setForm({ ...form, tempPassword: e.target.value })} placeholder="at least 8 characters" /></div>
+            <button className="btn btn-primary" disabled={!form.email.trim() || form.tempPassword.length < 8} onClick={invite}>Invite</button>
+          </div>
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>{LEVEL_DESC[form.level]}</p>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-head"><h3>Admin team</h3></div>
+        {msg && <div className="ok" style={{ margin: '0 20px' }}>{msg}</div>}
+        {loading ? <div className="empty"><span className="spin" /></div> : (
+          <table>
+            <thead><tr><th>Email</th><th>Name</th><th>Level</th><th>Status</th><th style={{ textAlign: 'right' }}>Actions</th></tr></thead>
+            <tbody>{admins.map((a) => (
+              <tr key={a.id}>
+                <td style={{ fontWeight: 600 }}>{a.email}</td>
+                <td className="muted">{a.full_name ?? '—'}</td>
+                <td>
+                  <select className="input" style={{ padding: '5px 8px', fontSize: 13, width: 'auto' }} value={a.admin_level} onChange={(e) => setLevel(a.id, e.target.value)}>
+                    {['OWNER', 'FULL', 'OPERATIONS', 'VIEW_ONLY'].map((l) => <option key={l} value={l}>{LEVEL_LABELS[l]}</option>)}
+                  </select>
+                </td>
+                <td><span className={`chip ${a.status === 'ACTIVE' ? 'chip-green' : 'chip-grey'}`}>{a.status}</span></td>
+                <td style={{ textAlign: 'right' }}>
+                  {a.status === 'ACTIVE' && <button className="btn btn-danger btn-sm" onClick={() => revoke(a.id, a.email)}>Revoke</button>}
+                </td>
+              </tr>
+            ))}</tbody>
+          </table>
+        )}
+      </div>
+    </>
   );
 }

@@ -32,6 +32,8 @@ export const api = {
 
 export interface Cooperative { id: string; name: string; county: string | null; status: string; activationCode?: string }
 export interface Weights { repayment: number; delivery: number; circle: number; tenure_savings: number; declared: number }
+export interface AdminMe { id: string; email: string; full_name: string | null; admin_level: string; must_change_password: boolean }
+export interface AdminUser { id: string; email: string; full_name: string | null; admin_level: string; status: string; last_login_at: string | null; created_at: string }
 export interface LadderStep { step: number; limit_cents: number; min_score: number; min_loans_closed: number }
 export interface Rules { version: number; weights: Weights; ladder: LadderStep[]; mismatch_discount_threshold_bps: number }
 export interface Loan {
@@ -72,6 +74,17 @@ export const adminApi = {
 
   deleteCoop: (id: string, reason?: string) =>
     api.del<{ ok: boolean; deleted: boolean }>(`/cooperatives/${id}`, { reason }),
+
+  me: () => api.get<AdminMe>('/account/me'),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.put<{ ok: boolean }>('/account/password', { currentPassword, newPassword }),
+  changeEmail: (email: string) => api.put<{ ok: boolean }>('/account/email', { email }),
+  listAdmins: () => api.get<{ data: AdminUser[] }>('/account/admins'),
+  inviteAdmin: (email: string, fullName: string, level: string, tempPassword: string) =>
+    api.post<{ id: string; email: string; level: string }>('/account/admins', { email, fullName, level, tempPassword }),
+  changeAdminLevel: (id: string, level: string) =>
+    api.put<{ ok: boolean }>(`/account/admins/${id}/level`, { level }),
+  revokeAdmin: (id: string) => api.post<{ ok: boolean }>(`/account/admins/${id}/revoke`, {}),
 
   reconSummary: () => api.get<{ data: ReconRow[] }>('/reconciliation/summary'),
   reconExceptions: () => api.get<{ data: Exception[] }>('/reconciliation/exceptions'),
