@@ -33,6 +33,8 @@ export const api = {
 export interface Cooperative { id: string; name: string; county: string | null; status: string; activationCode?: string; lending_suspended?: boolean; suspend_reason?: string | null }
 export interface SuspEntry { id: string; name: string; suspend_reason: string | null; suspended_at: string; cooperative_name?: string }
 export interface Suspensions { cooperatives: SuspEntry[]; clusters: SuspEntry[]; circles: SuspEntry[] }
+export interface ChildEntry { id: string; name: string; lending_suspended: boolean; suspend_reason: string | null; cluster_name?: string }
+export interface CoopChildren { clusters: ChildEntry[]; circles: ChildEntry[] }
 export interface Weights { repayment: number; delivery: number; circle: number; tenure_savings: number; declared: number }
 export interface AdminMe { id: string; email: string; full_name: string | null; admin_level: string; must_change_password: boolean }
 export interface AdminUser { id: string; email: string; full_name: string | null; admin_level: string; status: string; last_login_at: string | null; created_at: string }
@@ -93,6 +95,7 @@ export const adminApi = {
     api.post<{ ok: boolean }>(`/access/${level}/${id}/suspend`, { reason }),
   resume: (level: string, id: string) =>
     api.post<{ ok: boolean }>(`/access/${level}/${id}/resume`, {}),
+  coopChildren: (coopId: string) => api.get<CoopChildren>(`/access/cooperative/${coopId}/children`),
 
   reconSummary: () => api.get<{ data: ReconRow[] }>('/reconciliation/summary'),
   reconExceptions: () => api.get<{ data: Exception[] }>('/reconciliation/exceptions'),

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { adminApi, setToken, getToken, kes, ApiError } from './api';
-import type { Cooperative, Rules, Weights, ReconRow, Exception, Loan, LoanFlow, AdminMe, AdminUser } from './api';
+import type { Cooperative, Rules, Weights, ReconRow, Exception, Loan, LoanFlow, AdminMe, AdminUser, CoopChildren } from './api';
 
 type Tab = 'overview' | 'cooperatives' | 'loans' | 'credit' | 'reconciliation' | 'account';
 
@@ -123,6 +123,7 @@ function Cooperatives() {
   const [name, setName] = useState(''); const [county, setCounty] = useState('');
   const [newCode, setNewCode] = useState<{ name: string; code: string } | null>(null);
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true);
+  const [manageCoop, setManageCoop] = useState<Cooperative | null>(null);
 
   const load = useCallback(() => {
     adminApi.listCoops().then((c) => setCoops(c.data)).catch(() => {}).finally(() => setLoading(false));
@@ -195,9 +196,12 @@ function Cooperatives() {
                 <td>{c.lending_suspended ? <span className="chip chip-red">Paused</span> : <span className="chip chip-green">Open</span>}</td>
                 <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                   {c.status === 'ACTIVE' && (
-                    <button className={`btn btn-sm ${c.lending_suspended ? 'btn-ghost' : 'btn-amber'}`} onClick={() => toggleLending(c)}>
-                      {c.lending_suspended ? 'Resume lending' : 'Pause lending'}
-                    </button>
+                    <>
+                      <button className="btn btn-ghost btn-sm" style={{ marginRight: 6 }} onClick={() => setManageCoop(c)}>Clusters/circles</button>
+                      <button className={`btn btn-sm ${c.lending_suspended ? 'btn-ghost' : 'btn-amber'}`} onClick={() => toggleLending(c)}>
+                        {c.lending_suspended ? 'Resume lending' : 'Pause lending'}
+                      </button>
+                    </>
                   )}
                   {c.status !== 'ACTIVE' && <button className="btn btn-danger btn-sm" onClick={() => remove(c.id, c.name)}>Delete</button>}
                 </td></tr>
@@ -205,7 +209,83 @@ function Cooperatives() {
           </table>
         )}
       </div>
+      {manageCoop && <ManageLendingModal coop={manageCoop} onClose={() => setManageCoop(null)} />}
     </>
+  );
+}
+
+function ManageLendingModal({ coop, onClose }: { coop: Cooperative; onClose: () => void }) {
+  const [kids, setKids] = useState<CoopChildren | null>(null);
+  const [err, setErr] = useState('');
+
+  const load = useCallback(() => {
+    adminApi.coopChildren(coop.id).then(setKids).catch((e) => setErr(e instanceof ApiError ? e.message : 'Load failed'));
+  }, [coop.id]);
+  useEffect(() => { load(); }, [load]);
+
+  async function toggle(level: 'cluster' | 'circle', id: string, name: string, suspended: boolean) {
+    setErr('');
+    try {
+      if (suspended) {
+        await adminApi.resume(level, id);
+      } else {
+        const reason = prompt(`Pause new loans for ${level} "${name}". Message farmers will see (optional):`, `Lending is temporarily paused for your ${level} while we complete a review.`);
+        if (reason === null) return;
+        await adminApi.suspend(level, id, reason);
+      }
+      load();
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not update'); }
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(7,62,10,0.45)', display: 'grid', placeItems: 'center', zIndex: 50, padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, maxWidth: 620, width: '100%', maxHeight: '85vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+        <div className="card-head" style={{ position: 'sticky', top: 0, background: '#fff' }}>
+          <h3>Lending — {coop.name}</h3>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>Close</button>
+        </div>
+        <div className="card-body">
+          {err && <div className="err">{err}</div>}
+          <p className="muted" style={{ fontSize: 13, marginBottom: 16 }}>Pause new loans for a specific cluster or circle. Existing loans and repayments continue.</p>
+          {!kids ? <div className="empty"><span className="spin" /></div> : (
+            <>
+              <h4 style={{ fontSize: 14, marginBottom: 8 }}>Clusters</h4>
+              {kids.clusters.length === 0 ? <p className="muted" style={{ fontSize: 13 }}>No clusters.</p> : (
+                <table style={{ marginBottom: 20 }}>
+                  <tbody>{kids.clusters.map((cl) => (
+                    <tr key={cl.id}>
+                      <td style={{ fontWeight: 500 }}>{cl.name}</td>
+                      <td>{cl.lending_suspended ? <span className="chip chip-red">Paused</span> : <span className="chip chip-green">Open</span>}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button className={`btn btn-sm ${cl.lending_suspended ? 'btn-ghost' : 'btn-amber'}`} onClick={() => toggle('cluster', cl.id, cl.name, cl.lending_suspended)}>
+                          {cl.lending_suspended ? 'Resume' : 'Pause'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              )}
+              <h4 style={{ fontSize: 14, marginBottom: 8 }}>Circles</h4>
+              {kids.circles.length === 0 ? <p className="muted" style={{ fontSize: 13 }}>No circles.</p> : (
+                <table>
+                  <tbody>{kids.circles.map((ci) => (
+                    <tr key={ci.id}>
+                      <td style={{ fontWeight: 500 }}>{ci.name}<div className="muted" style={{ fontSize: 12 }}>{ci.cluster_name}</div></td>
+                      <td>{ci.lending_suspended ? <span className="chip chip-red">Paused</span> : <span className="chip chip-green">Open</span>}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button className={`btn btn-sm ${ci.lending_suspended ? 'btn-ghost' : 'btn-amber'}`} onClick={() => toggle('circle', ci.id, ci.name, ci.lending_suspended)}>
+                          {ci.lending_suspended ? 'Resume' : 'Pause'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
