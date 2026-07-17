@@ -39,7 +39,8 @@ export interface Weights { repayment: number; delivery: number; circle: number; 
 export interface AdminMe { id: string; email: string; full_name: string | null; admin_level: string; must_change_password: boolean }
 export interface AdminUser { id: string; email: string; full_name: string | null; admin_level: string; status: string; last_login_at: string | null; created_at: string }
 export interface LadderStep { step: number; limit_cents: number; min_score: number; min_loans_closed: number }
-export interface Rules { version: number; weights: Weights; ladder: LadderStep[]; mismatch_discount_threshold_bps: number }
+export interface CustomFeature { key: string; label: string; weight: number; kind: 'COMPUTABLE' | 'EXTERNAL'; source: string; active: boolean }
+export interface Rules { version: number; weights: Weights; ladder: LadderStep[]; mismatch_discount_threshold_bps: number; custom_features?: CustomFeature[] }
 export interface Loan {
   id: string; status: string; principal_cents: number; weeks: number; total_repayable_cents: number;
   applied_at: string; coop_approved_at: string | null; gf_approved_at: string | null;
@@ -67,6 +68,9 @@ export const adminApi = {
   rulesHistory: () => api.get<{ data: Rules[] }>('/rules/credit/history'),
   publishRules: (weights?: Weights, ladder?: LadderStep[]) =>
     api.put<{ version: number }>('/rules/credit', { weights, ladder }),
+  computableSources: () => api.get<{ sources: Record<string, string> }>('/rules/credit/computable-sources'),
+  publishFeatures: (customFeatures: CustomFeature[]) =>
+    api.put<{ version: number }>('/rules/credit', { customFeatures }),
 
   gfApprove: (loanId: string) => api.post<{ status: string }>(`/loans/${loanId}/gf-approval`, {}),
   gfReject: (loanId: string, reason: string) => api.post<{ status: string }>(`/loans/${loanId}/gf-reject`, { reason }),

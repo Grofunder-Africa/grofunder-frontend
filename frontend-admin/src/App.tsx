@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { adminApi, setToken, getToken, kes, ApiError } from './api';
-import type { Cooperative, Rules, Weights, ReconRow, Exception, Loan, LoanFlow, AdminMe, AdminUser, CoopChildren } from './api';
+import type { Cooperative, Rules, Weights, ReconRow, Exception, Loan, LoanFlow, AdminMe, AdminUser, CoopChildren, CustomFeature } from './api';
 
 type Tab = 'overview' | 'cooperatives' | 'loans' | 'credit' | 'reconciliation' | 'account';
 
@@ -364,7 +364,143 @@ function CreditModel() {
           </p>
         </div>
       </div>
+
+      <CustomFeatures />
     </>
+  );
+}
+
+/* ---------- Custom scoring features (super-admin only) ---------- */
+function CustomFeatures() {
+  const [features, setFeatures] = useState<CustomFeature[]>([]);
+  const [sources, setSources] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState(''); const [ok, setOk] = useState('');
+  const [isOwner, setIsOwner] = useState(false);
+  const [form, setForm] = useState({ label: '', weight: '10', mode: 'COMPUTABLE', source: '', externalName: '' });
+
+  const load = useCallback(() => {
+    Promise.all([adminApi.rules(), adminApi.computableSources(), adminApi.me()])
+      .then(([r, s, me]) => {
+        setFeatures(r.custom_features ?? []);
+        setSources(s.sources);
+        setIsOwner(me.admin_level === 'OWNER');
+        if (!form.source && Object.keys(s.sources)[0]) setForm((f) => ({ ...f, source: Object.keys(s.sources)[0] }));
+      })
+      .catch((e) => setErr(e instanceof ApiError ? e.message : 'Load failed'))
+      .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function save(next: CustomFeature[]) {
+    setErr(''); setOk('');
+    try { const r = await adminApi.publishFeatures(next); setOk(`Published version ${r.version}`); setFeatures(next); }
+    catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not publish'); }
+  }
+
+  function addFeature() {
+    setErr('');
+    const weight = Number(form.weight);
+    if (!(weight >= 0 && weight <= 100)) { setErr('Weight must be 0–100'); return; }
+    const isExternal = form.mode === 'EXTERNAL';
+    const label = isExternal ? form.externalName.trim() : (sources[form.source] ?? '');
+    if (!label) { setErr('Give the feature a name'); return; }
+    const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    if (features.some((f) => f.key === key)) { setErr('A feature with a similar name already exists'); return; }
+    const feature: CustomFeature = {
+      key, label, weight,
+      kind: isExternal ? 'EXTERNAL' : 'COMPUTABLE',
+      source: isExternal ? (form.externalName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_')) : form.source,
+      active: !isExternal, // external features start inactive (flagged) until a source is wired
+    };
+    save([...features, feature]);
+    setForm({ label: '', weight: '10', mode: 'COMPUTABLE', source: Object.keys(sources)[0] ?? '', externalName: '' });
+  }
+
+  function toggleActive(key: string) {
+    const f = features.find((x) => x.key === key);
+    if (f?.kind === 'EXTERNAL') { setErr('External features need a data source wired before they can be activated'); return; }
+    save(features.map((x) => x.key === key ? { ...x, active: !x.active } : x));
+  }
+  function removeFeature(key: string) {
+    if (!confirm('Remove this scoring feature? A new model version will be published.')) return;
+    save(features.filter((x) => x.key !== key));
+  }
+
+  if (loading) return null;
+  if (!isOwner) return (
+    <div className="card"><div className="card-head"><h3>Custom scoring features</h3></div>
+      <div className="card-body"><p className="muted" style={{ fontSize: 13.5 }}>Only an owner can add or change scoring features.</p></div>
+    </div>
+  );
+
+  return (
+    <div className="card">
+      <div className="card-head"><h3>Custom scoring features</h3><span className="muted" style={{ fontSize: 12.5, fontWeight: 400 }}>owner only · publishes a new version</span></div>
+      <div className="card-body">
+        {err && <div className="err">{err}</div>}{ok && <div className="ok">{ok}</div>}
+        <p className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
+          Add new factors to the credit score. Features computed from data you already have take effect immediately; features needing an external data source are flagged and stay inactive until that source is connected.
+        </p>
+
+        {features.length > 0 && (
+          <table style={{ marginBottom: 20 }}>
+            <thead><tr><th>Feature</th><th>Weight</th><th>Type</th><th>Status</th><th style={{ textAlign: 'right' }}>Actions</th></tr></thead>
+            <tbody>{features.map((f) => (
+              <tr key={f.key}>
+                <td style={{ fontWeight: 500 }}>{f.label}</td>
+                <td>{f.weight}%</td>
+                <td>{f.kind === 'COMPUTABLE'
+                  ? <span className="chip chip-green">Computable</span>
+                  : <span className="chip chip-amber">Needs data source</span>}</td>
+                <td>{f.active ? <span className="chip chip-green">Active</span> : <span className="chip chip-grey">Inactive</span>}</td>
+                <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  <button className="btn btn-ghost btn-sm" onClick={() => toggleActive(f.key)} disabled={f.kind === 'EXTERNAL' && !f.active}>
+                    {f.active ? 'Deactivate' : 'Activate'}
+                  </button>
+                  <button className="btn btn-danger btn-sm" style={{ marginLeft: 6 }} onClick={() => removeFeature(f.key)}>Remove</button>
+                </td>
+              </tr>
+            ))}</tbody>
+          </table>
+        )}
+
+        <h4 style={{ fontSize: 14, marginBottom: 10 }}>Add a feature</h4>
+        <div className="inline-form">
+          <div className="field">
+            <label>Type</label>
+            <select className="input" value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value })}>
+              <option value="COMPUTABLE">From data we have</option>
+              <option value="EXTERNAL">Needs external data source</option>
+            </select>
+          </div>
+          {form.mode === 'COMPUTABLE' ? (
+            <div className="field" style={{ minWidth: 240 }}>
+              <label>Data source</label>
+              <select className="input" value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })}>
+                {Object.entries(sources).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </div>
+          ) : (
+            <div className="field" style={{ minWidth: 240 }}>
+              <label>Feature name</label>
+              <input className="input" value={form.externalName} onChange={(e) => setForm({ ...form, externalName: e.target.value })} placeholder="e.g. M-Pesa inflow trend" />
+            </div>
+          )}
+          <div className="field" style={{ maxWidth: 110 }}>
+            <label>Weight (%)</label>
+            <input className="input" inputMode="numeric" value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })} />
+          </div>
+          <button className="btn btn-primary" onClick={addFeature}>Add feature</button>
+        </div>
+        {form.mode === 'EXTERNAL' && (
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
+            This feature will be saved and flagged as needing a data source. It won't affect scores until the source is connected and you activate it.
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
