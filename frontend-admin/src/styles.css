@@ -131,3 +131,21 @@ tr:hover td { background: #FAFDFA; }
   box-shadow: 0 20px 60px rgba(0,0,0,0.3); padding: 32px; }
 .auth-card .brand { color: var(--g); padding: 0 0 4px; }
 @media (max-width: 760px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } .sidebar { width: 66px; } .nav button span:last-child, .brand span:not(.dot), .sidebar-foot .who { display: none; } .hero::after { display: none; } }
+
+/* sub-tabs (e.g. messaging compose/history) */
+.tabs { display: inline-flex; gap: 4px; background: #EEF2EF; padding: 4px; border-radius: 11px; }
+.tabs button { border: none; background: none; font-family: inherit; font-size: 14px; font-weight: 600;
+  color: var(--mut); padding: 8px 18px; border-radius: 8px; cursor: pointer; transition: all 0.14s ease; }
+.tabs button.active { background: #fff; color: var(--g-dark); box-shadow: var(--shadow); }
+
+/* pipeline stages */
+.pipeline-stages { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.pipeline-stage { text-align: left; border: 1.5px solid var(--line); background: #fff; border-radius: 12px;
+  padding: 16px; cursor: pointer; transition: all 0.14s ease; font-family: inherit; }
+.pipeline-stage:hover:not(:disabled) { border-color: var(--g); box-shadow: var(--shadow); transform: translateY(-1px); }
+.pipeline-stage.open { border-color: var(--g); background: var(--g-tint); }
+.pipeline-stage:disabled { cursor: default; opacity: 0.55; }
+.pipeline-stage-count { font-size: 28px; font-weight: 800; color: var(--g-dark); line-height: 1; }
+.pipeline-stage-label { font-size: 13px; color: var(--mut); margin-top: 6px; font-weight: 600; }
+.pipeline-stage-stuck { display: inline-block; margin-top: 8px; font-size: 11.5px; font-weight: 700;
+  color: #C0392B; background: #FFE3E3; padding: 2px 8px; border-radius: 20px; }

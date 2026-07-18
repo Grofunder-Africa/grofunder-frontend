@@ -30,11 +30,15 @@ export const api = {
   del: <T>(p: string, b?: unknown) => request<T>('DELETE', p, b),
 };
 
-export interface Cooperative { id: string; name: string; county: string | null; status: string; activationCode?: string; lending_suspended?: boolean; suspend_reason?: string | null }
+export interface Cooperative { id: string; name: string; county: string | null; status: string; activationCode?: string; entity_type?: string; lending_suspended?: boolean; suspend_reason?: string | null }
 export interface SuspEntry { id: string; name: string; suspend_reason: string | null; suspended_at: string; cooperative_name?: string }
 export interface Suspensions { cooperatives: SuspEntry[]; clusters: SuspEntry[]; circles: SuspEntry[] }
 export interface ChildEntry { id: string; name: string; lending_suspended: boolean; suspend_reason: string | null; cluster_name?: string }
 export interface CoopChildren { clusters: ChildEntry[]; circles: ChildEntry[] }
+export interface MessageCampaign { id: string; audience: string; sender_label: string | null; sender_email: string; body: string; recipient_count: number; sent_count: number; failed_count: number; created_at: string }
+export interface PipelineStage { stage: string; label: string; count: number; stuck: number }
+export interface PipelineLoan { id: string; status: string; principal_cents: number; weeks: number; farmer_name: string; cooperative_name: string; stage: string; stage_label: string; stuck: boolean; hours_at_stage: number }
+export interface Pipeline { stages: PipelineStage[]; loans: PipelineLoan[] }
 export interface Weights { repayment: number; delivery: number; circle: number; tenure_savings: number; declared: number }
 export interface AdminMe { id: string; email: string; full_name: string | null; admin_level: string; must_change_password: boolean }
 export interface AdminUser { id: string; email: string; full_name: string | null; admin_level: string; status: string; last_login_at: string | null; created_at: string }
@@ -60,8 +64,8 @@ export const adminApi = {
   login: (email: string, password: string) =>
     api.post<{ token: string; user: { id: string; role: string } }>('/auth/login', { email, password }),
 
-  onboardCoop: (name: string, county?: string) =>
-    api.post<Cooperative & { activationCode: string }>('/cooperatives', { name, county }),
+  onboardCoop: (name: string, county?: string, entityType?: 'COOPERATIVE' | 'AGENT') =>
+    api.post<Cooperative & { activationCode: string }>('/cooperatives', { name, county, entityType }),
   listCoops: () => api.get<{ data: Cooperative[] }>('/cooperatives'),
 
   rules: () => api.get<Rules>('/rules/credit'),
@@ -100,6 +104,14 @@ export const adminApi = {
   resume: (level: string, id: string) =>
     api.post<{ ok: boolean }>(`/access/${level}/${id}/resume`, {}),
   coopChildren: (coopId: string) => api.get<CoopChildren>(`/access/cooperative/${coopId}/children`),
+
+  sendMessage: (audience: string, body: string, audienceRef?: string) =>
+    api.post<{ campaignId: string; recipientCount: number; sentCount: number; failedCount: number; skippedNoPhone: number }>(
+      '/admin-messaging/send', { audience, body, audienceRef }),
+  messageLog: () => api.get<{ data: MessageCampaign[] }>('/admin-messaging/log'),
+
+  pipeline: (stuckHours?: number) =>
+    api.get<Pipeline>(`/loans/pipeline/view${stuckHours ? `?stuckHours=${stuckHours}` : ''}`),
 
   reconSummary: () => api.get<{ data: ReconRow[] }>('/reconciliation/summary'),
   reconExceptions: () => api.get<{ data: Exception[] }>('/reconciliation/exceptions'),

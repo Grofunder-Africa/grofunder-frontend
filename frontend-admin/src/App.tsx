@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { adminApi, setToken, getToken, kes, ApiError } from './api';
-import type { Cooperative, Rules, Weights, ReconRow, Exception, Loan, LoanFlow, AdminMe, AdminUser, CoopChildren, CustomFeature } from './api';
+import type { Cooperative, Rules, Weights, ReconRow, Exception, Loan, LoanFlow, AdminMe, AdminUser, CoopChildren, CustomFeature, MessageCampaign, Pipeline } from './api';
 
-type Tab = 'overview' | 'cooperatives' | 'loans' | 'credit' | 'reconciliation' | 'account';
+type Tab = 'overview' | 'cooperatives' | 'loans' | 'pipeline' | 'credit' | 'reconciliation' | 'messaging' | 'account';
 
 export default function App() {
   const [authed, setAuthed] = useState(!!getToken());
@@ -43,8 +43,10 @@ function Portal({ onSignOut }: { onSignOut: () => void }) {
     ['overview', '◈', 'Overview'],
     ['cooperatives', '🏦', 'Cooperatives'],
     ['loans', '💵', 'Loans'],
+    ['pipeline', '📊', 'Pipeline'],
     ['credit', '⚖', 'Credit model'],
     ['reconciliation', '🔗', 'Reconciliation'],
+    ['messaging', '✉', 'Messaging'],
     ['account', '⚙', 'Account'],
   ];
   return (
@@ -67,8 +69,10 @@ function Portal({ onSignOut }: { onSignOut: () => void }) {
         {tab === 'overview' && <Overview onGo={setTab} />}
         {tab === 'cooperatives' && <Cooperatives />}
         {tab === 'loans' && <Loans />}
+        {tab === 'pipeline' && <PipelineView />}
         {tab === 'credit' && <CreditModel />}
         {tab === 'reconciliation' && <Reconciliation />}
+        {tab === 'messaging' && <Messaging />}
         {tab === 'account' && <Account />}
       </main>
     </div>
@@ -121,6 +125,7 @@ function Overview({ onGo }: { onGo: (t: Tab) => void }) {
 function Cooperatives() {
   const [coops, setCoops] = useState<Cooperative[]>([]);
   const [name, setName] = useState(''); const [county, setCounty] = useState('');
+  const [entityType, setEntityType] = useState<'COOPERATIVE' | 'AGENT'>('COOPERATIVE');
   const [newCode, setNewCode] = useState<{ name: string; code: string } | null>(null);
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true);
   const [manageCoop, setManageCoop] = useState<Cooperative | null>(null);
@@ -133,9 +138,9 @@ function Cooperatives() {
   async function onboard() {
     setErr(''); setBusy(true);
     try {
-      const res = await adminApi.onboardCoop(name.trim(), county.trim() || undefined);
+      const res = await adminApi.onboardCoop(name.trim(), county.trim() || undefined, entityType);
       setNewCode({ name: name.trim(), code: res.activationCode });
-      setName(''); setCounty(''); load();
+      setName(''); setCounty(''); setEntityType('COOPERATIVE'); load();
     } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not onboard'); }
     finally { setBusy(false); }
   }
@@ -172,26 +177,33 @@ function Cooperatives() {
         </div>
       )}
       <div className="card">
-        <div className="card-head"><h3>Onboard a new cooperative</h3></div>
+        <div className="card-head"><h3>Onboard a new cooperative or agent</h3></div>
         <div className="card-body">
           <div className="inline-form">
-            <div className="field" style={{ flex: 2 }}><label>Cooperative name</label>
-              <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Orinde Farmers Cooperative Society" /></div>
+            <div className="field"><label>Type</label>
+              <select className="input" value={entityType} onChange={(e) => setEntityType(e.target.value as 'COOPERATIVE' | 'AGENT')}>
+                <option value="COOPERATIVE">Cooperative</option>
+                <option value="AGENT">Agent</option>
+              </select></div>
+            <div className="field" style={{ flex: 2 }}><label>{entityType === 'AGENT' ? 'Agent name' : 'Cooperative name'}</label>
+              <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={entityType === 'AGENT' ? 'Jane Wanjiru (agent)' : 'Orinde Farmers Cooperative Society'} /></div>
             <div className="field" style={{ flex: 1 }}><label>County (optional)</label>
               <input className="input" value={county} onChange={(e) => setCounty(e.target.value)} placeholder="Homa Bay" /></div>
-            <button className="btn btn-primary" disabled={busy || !name.trim()} onClick={onboard}>Onboard & issue code</button>
+            <button className="btn btn-primary" disabled={busy || !name.trim()} onClick={onboard}>Onboard &amp; issue code</button>
           </div>
         </div>
       </div>
       <div className="card">
-        <div className="card-head"><h3>{coops.length} cooperative{coops.length === 1 ? '' : 's'}</h3></div>
+        <div className="card-head"><h3>{coops.length} cooperative{coops.length === 1 ? '' : 's'} &amp; agent{coops.length === 1 ? '' : 's'}</h3></div>
         {loading ? <div className="empty"><span className="spin" /></div> : coops.length === 0 ? (
-          <div className="empty">No cooperatives yet. Onboard your first one above.</div>
+          <div className="empty">No cooperatives or agents yet. Onboard your first one above.</div>
         ) : (
           <table>
-            <thead><tr><th>Name</th><th>County</th><th>Status</th><th>Lending</th><th style={{ textAlign: 'right' }}>Actions</th></tr></thead>
+            <thead><tr><th>Name</th><th>Type</th><th>County</th><th>Status</th><th>Lending</th><th style={{ textAlign: 'right' }}>Actions</th></tr></thead>
             <tbody>{coops.map((c) => (
-              <tr key={c.id}><td style={{ fontWeight: 600 }}>{c.name}</td><td className="muted">{c.county ?? '—'}</td>
+              <tr key={c.id}><td style={{ fontWeight: 600 }}>{c.name}</td>
+                <td>{c.entity_type === 'AGENT' ? <span className="chip chip-purple">Agent</span> : <span className="chip chip-blue">Cooperative</span>}</td>
+                <td className="muted">{c.county ?? '—'}</td>
                 <td><span className={`chip ${c.status === 'ACTIVE' ? 'chip-green' : c.status === 'AWAITING_ACTIVATION' ? 'chip-amber' : 'chip-grey'}`}>{c.status}</span></td>
                 <td>{c.lending_suspended ? <span className="chip chip-red">Paused</span> : <span className="chip chip-green">Open</span>}</td>
                 <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -863,4 +875,203 @@ function AdminTeam() {
       </div>
     </>
   );
+}
+
+/* ---------- Messaging ---------- */
+const AUDIENCE_OPTIONS: { value: string; label: string; needs?: 'coop' }[] = [
+  { value: 'ALL_FARMERS', label: 'All farmers' },
+  { value: 'ARREARS_FARMERS', label: 'Farmers in arrears' },
+  { value: 'COOPERATIVE', label: "A cooperative's farmers", needs: 'coop' },
+  { value: 'ALL_COOP_STAFF', label: 'All cooperative staff' },
+  { value: 'COOP_STAFF', label: "A cooperative's staff", needs: 'coop' },
+];
+
+function Messaging() {
+  const [tab, setTab] = useState<'compose' | 'log'>('compose');
+  return (
+    <>
+      <div className="page-head"><div className="h1">Messaging</div><div className="sub">Send messages to farmers and cooperatives — every send is logged</div></div>
+      <div className="tabs" style={{ marginBottom: 18 }}>
+        <button className={tab === 'compose' ? 'active' : ''} onClick={() => setTab('compose')}>Compose</button>
+        <button className={tab === 'log' ? 'active' : ''} onClick={() => setTab('log')}>History</button>
+      </div>
+      {tab === 'compose' ? <Compose /> : <MessageLog />}
+    </>
+  );
+}
+
+function Compose() {
+  const [coops, setCoops] = useState<Cooperative[]>([]);
+  const [audience, setAudience] = useState('ALL_FARMERS');
+  const [coopRef, setCoopRef] = useState('');
+  const [body, setBody] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(''); const [ok, setOk] = useState('');
+
+  useEffect(() => {
+    adminApi.listCoops().then((r) => setCoops(r.data.filter((c) => c.status === 'ACTIVE'))).catch(() => {});
+  }, []);
+
+  const selected = AUDIENCE_OPTIONS.find((a) => a.value === audience);
+  const needsCoop = selected?.needs === 'coop';
+
+  async function send() {
+    setErr(''); setOk(''); setBusy(true);
+    try {
+      if (needsCoop && !coopRef) throw new ApiError('REF', 'Choose a cooperative', 400);
+      const r = await adminApi.sendMessage(audience, body.trim(), needsCoop ? coopRef : undefined);
+      let m = `Sent to ${r.sentCount} recipient${r.sentCount === 1 ? '' : 's'}.`;
+      if (r.failedCount) m += ` ${r.failedCount} failed.`;
+      if (r.skippedNoPhone) m += ` ${r.skippedNoPhone} skipped (no phone number).`;
+      setOk(m); setBody('');
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not send'); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="card">
+      <div className="card-head"><h3>Compose a message</h3></div>
+      <div className="card-body">
+        {err && <div className="err">{err}</div>}{ok && <div className="ok">{ok}</div>}
+        <div className="field" style={{ maxWidth: 420 }}>
+          <label>Send to</label>
+          <select className="input" value={audience} onChange={(e) => setAudience(e.target.value)}>
+            {AUDIENCE_OPTIONS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+          </select>
+        </div>
+        {needsCoop && (
+          <div className="field" style={{ maxWidth: 420 }}>
+            <label>Cooperative</label>
+            <select className="input" value={coopRef} onChange={(e) => setCoopRef(e.target.value)}>
+              <option value="">Choose a cooperative…</option>
+              {coops.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+        )}
+        <div className="field">
+          <label>Message <span className="muted" style={{ fontWeight: 400 }}>({body.length}/800)</span></label>
+          <textarea className="input" style={{ minHeight: 110, resize: 'vertical', fontFamily: 'inherit' }} maxLength={800}
+            value={body} onChange={(e) => setBody(e.target.value)} placeholder="Type your message…" />
+        </div>
+        <div className="row" style={{ justifyContent: 'space-between' }}>
+          <p className="muted" style={{ fontSize: 12.5, margin: 0 }}>Recipients without a phone number are skipped automatically.</p>
+          <button className="btn btn-primary" disabled={busy || !body.trim() || (needsCoop && !coopRef)} onClick={send}>
+            {busy ? <span className="spin" /> : 'Send message'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MessageLog() {
+  const [log, setLog] = useState<MessageCampaign[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    adminApi.messageLog().then((r) => setLog(r.data)).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  const audLabel = (a: string) => AUDIENCE_OPTIONS.find((o) => o.value === a)?.label ?? a.replace(/_/g, ' ');
+
+  if (loading) return <div className="empty"><span className="spin" /></div>;
+  return (
+    <div className="card">
+      <div className="card-head"><h3>Message history</h3><span className="muted" style={{ fontSize: 13 }}>{log.length} sent</span></div>
+      {log.length === 0 ? <div className="empty">No messages sent yet.</div> : (
+        <table>
+          <thead><tr><th>When</th><th>Audience</th><th>Sent by</th><th>Message</th><th>Delivered</th></tr></thead>
+          <tbody>{log.map((c) => (
+            <tr key={c.id}>
+              <td className="muted" style={{ whiteSpace: 'nowrap' }}>{new Date(c.created_at).toLocaleDateString()}<br /><span style={{ fontSize: 11 }}>{new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></td>
+              <td><span className="chip chip-blue">{audLabel(c.audience)}</span></td>
+              <td className="muted" style={{ fontSize: 13 }}>{c.sender_email}</td>
+              <td style={{ maxWidth: 280 }}>{c.body}</td>
+              <td><span className="chip chip-green">{c.sent_count}</span>{c.failed_count > 0 && <span className="chip chip-red" style={{ marginLeft: 4 }}>{c.failed_count} failed</span>}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Pipeline view ---------- */
+function PipelineView() {
+  const [data, setData] = useState<Pipeline | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState('');
+  const [openStage, setOpenStage] = useState<string | null>(null);
+
+  useEffect(() => {
+    adminApi.pipeline().then(setData).catch((e) => setErr(e instanceof ApiError ? e.message : 'Load failed')).finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="empty"><span className="spin" /></div>;
+
+  const totalInFlight = data?.loans.length ?? 0;
+  const totalStuck = data?.loans.filter((l) => l.stuck).length ?? 0;
+  const stageLoans = openStage ? (data?.loans.filter((l) => l.stage === openStage) ?? []) : [];
+  const openStageLabel = data?.stages.find((s) => s.stage === openStage)?.label ?? '';
+
+  return (
+    <>
+      <div className="page-head"><div className="h1">Application pipeline</div><div className="sub">Where every in-flight loan sits — and what's been waiting too long</div></div>
+      {err && <div className="err">{err}</div>}
+
+      <div className="stat-grid" style={{ marginBottom: 22 }}>
+        <div className="stat stat-green"><div className="stat-num">{totalInFlight}</div><div className="stat-label">Loans in flight</div></div>
+        <div className={`stat ${totalStuck > 0 ? 'stat-amber' : 'stat-blue'}`}>
+          <div className="stat-num">{totalStuck}</div>
+          <div className="stat-label">Waiting &gt; 24 hours</div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-head"><h3>Stages</h3><span className="muted" style={{ fontSize: 13 }}>Click a stage to see its loans</span></div>
+        <div className="card-body">
+          {totalInFlight === 0 ? (
+            <div className="empty">No loans in flight. As farmers apply and move through approval, they'll appear here.</div>
+          ) : (
+            <div className="pipeline-stages">
+              {data!.stages.map((s) => (
+                <button key={s.stage} className={`pipeline-stage ${openStage === s.stage ? 'open' : ''} ${s.count === 0 ? 'muted-stage' : ''}`}
+                  onClick={() => setOpenStage(openStage === s.stage ? null : s.stage)} disabled={s.count === 0}>
+                  <div className="pipeline-stage-count">{s.count}</div>
+                  <div className="pipeline-stage-label">{s.label}</div>
+                  {s.stuck > 0 && <div className="pipeline-stage-stuck">{s.stuck} stuck</div>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {openStage && (
+        <div className="card">
+          <div className="card-head"><h3>{openStageLabel} — {stageLoans.length} loan{stageLoans.length === 1 ? '' : 's'}</h3>
+            <button className="btn btn-ghost btn-sm" onClick={() => setOpenStage(null)}>Close</button></div>
+          <table>
+            <thead><tr><th>Farmer</th><th>Cooperative</th><th>Amount</th><th>Waiting</th></tr></thead>
+            <tbody>{stageLoans.map((l) => (
+              <tr key={l.id} style={l.stuck ? { background: '#FFF6F6' } : undefined}>
+                <td style={{ fontWeight: 600 }}>{l.farmer_name}</td>
+                <td className="muted">{l.cooperative_name}</td>
+                <td>{kes(l.principal_cents)}</td>
+                <td>{l.stuck
+                  ? <span className="chip chip-red">{formatHours(l.hours_at_stage)}</span>
+                  : <span className="muted">{formatHours(l.hours_at_stage)}</span>}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+}
+
+function formatHours(h: number): string {
+  if (h < 1) return 'under 1h';
+  if (h < 24) return `${Math.round(h)}h`;
+  const days = Math.floor(h / 24);
+  return `${days}d ${Math.round(h - days * 24)}h`;
 }
