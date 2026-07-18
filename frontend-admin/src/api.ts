@@ -113,6 +113,8 @@ export const adminApi = {
   pipeline: (stuckHours?: number) =>
     api.get<Pipeline>(`/loans/pipeline/view${stuckHours ? `?stuckHours=${stuckHours}` : ''}`),
 
+  exportData: (dataset: string) => api.get<{ data: Record<string, unknown>[] }>(`/export/${dataset}`),
+
   reconSummary: () => api.get<{ data: ReconRow[] }>('/reconciliation/summary'),
   reconExceptions: () => api.get<{ data: Exception[] }>('/reconciliation/exceptions'),
   resolveException: (id: string, note: string) => api.post<{ ok: boolean }>(`/reconciliation/exceptions/${id}/resolve`, { note }),

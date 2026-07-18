@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import { adminApi, setToken, getToken, kes, ApiError } from './api';
+import logo from './assets/grofunder-logo.png';
 import type { Cooperative, Rules, Weights, ReconRow, Exception, Loan, LoanFlow, AdminMe, AdminUser, CoopChildren, CustomFeature, MessageCampaign, Pipeline } from './api';
 
-type Tab = 'overview' | 'cooperatives' | 'loans' | 'pipeline' | 'credit' | 'reconciliation' | 'messaging' | 'account';
+type Tab = 'overview' | 'cooperatives' | 'loans' | 'pipeline' | 'credit' | 'reconciliation' | 'messaging' | 'export' | 'account';
 
 export default function App() {
   const [authed, setAuthed] = useState(!!getToken());
@@ -23,8 +25,8 @@ function Login({ onDone }: { onDone: () => void }) {
   return (
     <div className="auth-wrap">
       <div className="auth-card">
-        <div className="brand">grofunder <span className="dot">🌿</span></div>
-        <p className="muted" style={{ fontSize: 13.5, marginBottom: 22 }}>Admin Console</p>
+        <div className="auth-brand"><img src={logo} alt="grofunder" /></div>
+        <p className="muted auth-sub">Admin Console</p>
         {err && <div className="err">{err}</div>}
         <div className="field"><label>Email</label>
           <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@grofunder.co.ke" onKeyDown={(e) => e.key === 'Enter' && submit()} /></div>
@@ -37,26 +39,47 @@ function Login({ onDone }: { onDone: () => void }) {
   );
 }
 
+function NavIcon({ name }: { name: string }) {
+  const p: Record<string, ReactNode> = {
+    overview: <><path d="M3 9.5 12 3l9 6.5" /><path d="M5 8.5V20h14V8.5" /></>,
+    cooperatives: <><circle cx="9" cy="8" r="3" /><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" /><path d="M16 5.3A3 3 0 0 1 16 13" /><path d="M21 20c0-2.6-1.7-4.8-4-5.6" /></>,
+    loans: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7v10M9.5 9.5c0-1.1 1.1-2 2.5-2s2.5.9 2.5 2-1.1 2-2.5 2-2.5.9-2.5 2 1.1 2 2.5 2 2.5-.9 2.5-2" /></>,
+    pipeline: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>,
+    credit: <><path d="M12 3v18M5 8l7-5 7 5" /><circle cx="5" cy="12" r="2.5" /><circle cx="19" cy="12" r="2.5" /></>,
+    reconciliation: <><path d="M8 7h8a4 4 0 0 1 0 8H8" /><path d="M11 4 8 7l3 3M13 12l3 3-3 3" /></>,
+    messaging: <><path d="M4 5h16v12H8l-4 3z" /></>,
+    export: <><path d="M12 3v11M8 10l4 4 4-4" /><path d="M4 20h16" /></>,
+    account: <><circle cx="12" cy="8" r="3.2" /><path d="M5.5 20c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5" /></>,
+  };
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      {p[name] ?? null}
+    </svg>
+  );
+}
+
 function Portal({ onSignOut }: { onSignOut: () => void }) {
   const [tab, setTab] = useState<Tab>('overview');
   const nav: [Tab, string, string][] = [
-    ['overview', '◈', 'Overview'],
-    ['cooperatives', '🏦', 'Cooperatives'],
-    ['loans', '💵', 'Loans'],
-    ['pipeline', '📊', 'Pipeline'],
-    ['credit', '⚖', 'Credit model'],
-    ['reconciliation', '🔗', 'Reconciliation'],
-    ['messaging', '✉', 'Messaging'],
-    ['account', '⚙', 'Account'],
+    ['overview', 'overview', 'Overview'],
+    ['cooperatives', 'cooperatives', 'Cooperatives'],
+    ['loans', 'loans', 'Loans'],
+    ['pipeline', 'pipeline', 'Pipeline'],
+    ['credit', 'credit', 'Credit model'],
+    ['reconciliation', 'reconciliation', 'Reconciliation'],
+    ['messaging', 'messaging', 'Messaging'],
+    ['export', 'export', 'Export'],
+    ['account', 'account', 'Account'],
   ];
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="brand">grofunder <span className="dot">🌿</span></div>
+        <div className="brand"><img src={logo} alt="grofunder" /></div>
+        <div className="tagline">Growing farmers, growing wealth</div>
         <nav className="nav">
           {nav.map(([t, ico, label]) => (
             <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>
-              <span className="ico">{ico}</span><span>{label}</span>
+              <span className="ico"><NavIcon name={ico} /></span><span>{label}</span>
             </button>
           ))}
         </nav>
@@ -73,6 +96,7 @@ function Portal({ onSignOut }: { onSignOut: () => void }) {
         {tab === 'credit' && <CreditModel />}
         {tab === 'reconciliation' && <Reconciliation />}
         {tab === 'messaging' && <Messaging />}
+        {tab === 'export' && <ExportData />}
         {tab === 'account' && <Account />}
       </main>
     </div>
@@ -97,15 +121,15 @@ function Overview({ onGo }: { onGo: (t: Tab) => void }) {
 
   return (
     <>
-      <div className="hero">
-        <h1>Karibu, Grofunder 🌱</h1>
-        <p>Your lending network at a glance — cooperatives, the credit model, and the books.</p>
+      <div className="page-head">
+        <div className="h1">Karibu, <span style={{ color: 'var(--g)' }}>Grofunder</span></div>
+        <div className="sub">Your lending network at a glance — cooperatives, the credit model, and the books.</div>
       </div>
       <div className="stat-grid">
-        <div className="stat stat-green"><span className="em">🏦</span><div className="n">{coops.length}</div><div className="l">Cooperatives</div></div>
-        <div className="stat stat-blue"><span className="em">✓</span><div className="n">{active}</div><div className="l">Active</div></div>
-        <div className="stat stat-purple"><span className="em">⚖</span><div className="n">v{rules?.version ?? '—'}</div><div className="l">Credit model</div></div>
-        <div className="stat stat-amber"><span className="em">🔗</span><div className="n">{exceptions.length}</div><div className="l">Open exceptions</div></div>
+        <div className="stat stat-green"><div className="stat-label">Cooperatives &amp; agents</div><div className="stat-num">{coops.length}</div></div>
+        <div className="stat stat-blue"><div className="stat-label">Active</div><div className="stat-num">{active}</div></div>
+        <div className="stat stat-purple"><div className="stat-label">Credit model</div><div className="stat-num">v{rules?.version ?? '—'}</div></div>
+        <div className="stat stat-amber"><div className="stat-label">Open exceptions</div><div className="stat-num">{exceptions.length}</div></div>
       </div>
       <div className="card">
         <div className="card-head"><h3>Quick actions</h3></div>
@@ -1074,4 +1098,108 @@ function formatHours(h: number): string {
   if (h < 24) return `${Math.round(h)}h`;
   const days = Math.floor(h / 24);
   return `${days}d ${Math.round(h - days * 24)}h`;
+}
+
+/* ---------- Export data ---------- */
+function toCSV(rows: Record<string, unknown>[]): string {
+  if (rows.length === 0) return '';
+  const headers = Object.keys(rows[0]);
+  const escape = (v: unknown) => {
+    const s = v == null ? '' : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines = [headers.join(',')];
+  for (const row of rows) lines.push(headers.map((h) => escape(row[h])).join(','));
+  return lines.join('\n');
+}
+
+function downloadCSV(filename: string, rows: Record<string, unknown>[]) {
+  const csv = toCSV(rows);
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }); // BOM for Excel
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+const EXPORTS: { key: string; label: string; desc: string }[] = [
+  { key: 'loans', label: 'Loans', desc: 'Every loan with farmer, cooperative, amounts, status and dates' },
+  { key: 'farmers', label: 'Farmers', desc: 'All farmers with contact, cooperative, cluster and credit limit' },
+  { key: 'cooperatives', label: 'Cooperatives & agents', desc: 'All cooperatives and agents with status and member counts' },
+  { key: 'repayments', label: 'Repayments', desc: 'Every payment received, tied to its loan and farmer' },
+];
+
+function ExportData() {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState(''); const [ok, setOk] = useState('');
+  const [notAllowed, setNotAllowed] = useState(false);
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  async function one(key: string, label: string) {
+    setBusy(key); setErr(''); setOk('');
+    try {
+      const r = await adminApi.exportData(key);
+      if (r.data.length === 0) { setOk(`No ${label.toLowerCase()} to export yet.`); return; }
+      downloadCSV(`grofunder_${key}_${today}.csv`, r.data);
+      setOk(`Downloaded ${r.data.length} ${label.toLowerCase()} row${r.data.length === 1 ? '' : 's'}.`);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 403) { setNotAllowed(true); setErr('You need Owner or Full-admin access to export data.'); }
+      else setErr(e instanceof ApiError ? e.message : 'Export failed');
+    } finally { setBusy(null); }
+  }
+
+  async function all() {
+    setBusy('all'); setErr(''); setOk('');
+    try {
+      let total = 0;
+      for (const e of EXPORTS) {
+        const r = await adminApi.exportData(e.key);
+        if (r.data.length > 0) { downloadCSV(`grofunder_${e.key}_${today}.csv`, r.data); total += r.data.length; }
+      }
+      setOk(`Downloaded all datasets (${total} rows total across ${EXPORTS.length} files).`);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 403) { setNotAllowed(true); setErr('You need Owner or Full-admin access to export data.'); }
+      else setErr(e instanceof ApiError ? e.message : 'Export failed');
+    } finally { setBusy(null); }
+  }
+
+  return (
+    <>
+      <div className="page-head"><div className="h1">Export data</div><div className="sub">Download your data as spreadsheets (CSV — opens in Excel, Google Sheets, Numbers)</div></div>
+      {err && <div className="err">{err}</div>}{ok && <div className="ok">{ok}</div>}
+
+      <div className="card" style={{ marginBottom: 18 }}>
+        <div className="card-body" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>Download everything</div>
+            <div className="muted" style={{ fontSize: 13 }}>Gets all four datasets as separate CSV files in one click.</div>
+          </div>
+          <button className="btn btn-primary" disabled={busy !== null || notAllowed} onClick={all}>
+            {busy === 'all' ? <span className="spin" /> : 'Download all'}</button>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-head"><h3>Individual datasets</h3></div>
+        <table>
+          <tbody>{EXPORTS.map((e) => (
+            <tr key={e.key}>
+              <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{e.label}</td>
+              <td className="muted" style={{ fontSize: 13 }}>{e.desc}</td>
+              <td style={{ textAlign: 'right' }}>
+                <button className="btn btn-ghost btn-sm" disabled={busy !== null || notAllowed} onClick={() => one(e.key, e.label)}>
+                  {busy === e.key ? <span className="spin" /> : 'Download CSV'}</button>
+              </td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+
+      <p className="muted" style={{ fontSize: 12.5, marginTop: 14 }}>
+        These files contain personal and financial data (farmer names, phone numbers, IDs, loan details). Handle and store them securely.
+      </p>
+    </>
+  );
 }
