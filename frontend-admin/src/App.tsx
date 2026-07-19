@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { adminApi, setToken, getToken, kes, ApiError } from './api';
 import logo from './assets/grofunder-logo.png';
-import type { Cooperative, Rules, Weights, ReconRow, Exception, Loan, LoanFlow, AdminMe, AdminUser, CoopChildren, CustomFeature, MessageCampaign, Pipeline } from './api';
+import type { Cooperative, Rules, Weights, ReconRow, Exception, Loan, LoanFlow, AdminMe, AdminUser, CoopChildren, CustomFeature, MessageCampaign, Pipeline, ImportPreview, ImportBody } from './api';
 
-type Tab = 'overview' | 'cooperatives' | 'loans' | 'pipeline' | 'credit' | 'reconciliation' | 'messaging' | 'export' | 'account';
+type Tab = 'overview' | 'cooperatives' | 'loans' | 'pipeline' | 'credit' | 'reconciliation' | 'messaging' | 'import' | 'export' | 'account';
 
 export default function App() {
   const [authed, setAuthed] = useState(!!getToken());
@@ -49,6 +49,7 @@ function NavIcon({ name }: { name: string }) {
     reconciliation: <><path d="M8 7h8a4 4 0 0 1 0 8H8" /><path d="M11 4 8 7l3 3M13 12l3 3-3 3" /></>,
     messaging: <><path d="M4 5h16v12H8l-4 3z" /></>,
     export: <><path d="M12 3v11M8 10l4 4 4-4" /><path d="M4 20h16" /></>,
+    import: <><path d="M12 14V3M8 7l4-4 4 4" /><path d="M4 20h16" /></>,
     account: <><circle cx="12" cy="8" r="3.2" /><path d="M5.5 20c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5" /></>,
   };
   return (
@@ -68,6 +69,7 @@ function Portal({ onSignOut }: { onSignOut: () => void }) {
     ['credit', 'credit', 'Credit model'],
     ['reconciliation', 'reconciliation', 'Reconciliation'],
     ['messaging', 'messaging', 'Messaging'],
+    ['import', 'import', 'Import'],
     ['export', 'export', 'Export'],
     ['account', 'account', 'Account'],
   ];
@@ -96,6 +98,7 @@ function Portal({ onSignOut }: { onSignOut: () => void }) {
         {tab === 'credit' && <CreditModel />}
         {tab === 'reconciliation' && <Reconciliation />}
         {tab === 'messaging' && <Messaging />}
+        {tab === 'import' && <ImportData />}
         {tab === 'export' && <ExportData />}
         {tab === 'account' && <Account />}
       </main>
@@ -1199,6 +1202,138 @@ function ExportData() {
 
       <p className="muted" style={{ fontSize: 12.5, marginTop: 14 }}>
         These files contain personal and financial data (farmer names, phone numbers, IDs, loan details). Handle and store them securely.
+      </p>
+    </>
+  );
+}
+
+/* ---------- Import data ---------- */
+function ImportData() {
+  const [coopName, setCoopName] = useState('');
+  const [county, setCounty] = useState('');
+  const [files, setFiles] = useState<{ name: string; content: string }[]>([]);
+  const [prev, setPrev] = useState<ImportPreview | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(''); const [done, setDone] = useState('');
+  const [notAllowed, setNotAllowed] = useState(false);
+
+  async function onFiles(fileList: FileList | null) {
+    if (!fileList) return;
+    setErr(''); setPrev(null); setDone('');
+    const read: { name: string; content: string }[] = [];
+    for (const f of Array.from(fileList)) {
+      const content = await f.text();
+      read.push({ name: f.name, content });
+    }
+    setFiles(read);
+  }
+
+  function body(): ImportBody {
+    return { files, cooperativeName: coopName.trim(), county: county.trim() || undefined };
+  }
+
+  async function runPreview() {
+    setBusy(true); setErr(''); setDone('');
+    try {
+      setPrev(await adminApi.importPreview(body()));
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 403) { setNotAllowed(true); setErr('You need Owner or Full-admin access to import data.'); }
+      else setErr(e instanceof ApiError ? e.message : 'Preview failed');
+    } finally { setBusy(false); }
+  }
+
+  async function runCommit() {
+    if (!confirm(`Import into "${coopName.trim()}"? This writes the data into Grofunder.`)) return;
+    setBusy(true); setErr(''); setDone('');
+    try {
+      const r = await adminApi.importCommit(body());
+      setDone(`Imported: ${r.created.farmers} farmers, ${r.created.clusters} clusters, ${r.created.loans} loans, ${r.created.payments} payments, ${r.created.disbursements} disbursements.` +
+        (r.demotedExtraLoans ? ` ${r.demotedExtraLoans} extra live loan(s) brought in as closed.` : '') +
+        (r.skipped.testRows ? ` ${r.skipped.testRows} test row(s) skipped.` : ''));
+      setPrev(null); setFiles([]);
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Import failed');
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <>
+      <div className="page-head">
+        <div className="h1">Import data</div>
+        <div className="sub">Bring a cooperative's records in from an exported system. Preview first, then commit — nothing is written until you confirm.</div>
+      </div>
+      {err && <div className="err">{err}</div>}
+      {done && <div className="ok">{done}</div>}
+
+      <div className="card">
+        <div className="card-head"><h3>1 · Choose the cooperative &amp; files</h3></div>
+        <div className="card-body">
+          <div className="inline-form" style={{ marginBottom: 18 }}>
+            <div className="field" style={{ flex: 2 }}><label>Cooperative or agent name</label>
+              <input className="input" value={coopName} onChange={(e) => setCoopName(e.target.value)} placeholder="Nyawest" disabled={notAllowed} /></div>
+            <div className="field" style={{ flex: 1 }}><label>County (optional)</label>
+              <input className="input" value={county} onChange={(e) => setCounty(e.target.value)} placeholder="Homa Bay" disabled={notAllowed} /></div>
+          </div>
+          <div className="field">
+            <label>Exported CSV files (profiles, loans, payments, disbursements…)</label>
+            <input className="input" type="file" accept=".csv" multiple onChange={(e) => onFiles(e.target.files)} disabled={notAllowed} />
+          </div>
+          {files.length > 0 && (
+            <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>{files.length} file{files.length === 1 ? '' : 's'} loaded: {files.map((f) => f.name).join(', ')}</p>
+          )}
+          <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={busy || notAllowed || !coopName.trim() || files.length === 0} onClick={runPreview}>
+            {busy && !prev ? <span className="spin" /> : 'Preview import'}
+          </button>
+        </div>
+      </div>
+
+      {prev && (
+        <>
+          <div className="card">
+            <div className="card-head"><h3>2 · Preview — what will happen</h3>
+              <span className={`chip ${prev.cooperative.mode === 'existing' ? 'chip-amber' : 'chip-green'}`}>
+                {prev.cooperative.mode === 'existing' ? 'Into existing cooperative' : 'New cooperative will be created'}</span>
+            </div>
+            <div className="card-body">
+              <div className="stat-grid" style={{ marginBottom: 8 }}>
+                <div className="stat stat-green"><div className="stat-label">Farmers to import</div><div className="stat-num">{prev.farmers.willImport}</div></div>
+                <div className="stat"><div className="stat-label">Clusters</div><div className="stat-num">{prev.clusters.length}</div></div>
+                <div className="stat stat-blue"><div className="stat-label">Loans</div><div className="stat-num">{prev.loans.total}</div></div>
+                <div className="stat stat-amber"><div className="stat-label">Payments</div><div className="stat-num">{prev.payments.total}</div></div>
+              </div>
+              <table>
+                <tbody>
+                  <tr><td style={{ fontWeight: 600 }}>Files detected</td><td>{prev.files.map((f) => `${f.type ?? 'unknown'} (${f.rows})`).join(', ')}</td></tr>
+                  <tr><td style={{ fontWeight: 600 }}>Clusters</td><td className="muted">{prev.clusters.map((c) => c.display).join(', ')}</td></tr>
+                  <tr><td style={{ fontWeight: 600 }}>Loan statuses</td><td className="muted">{Object.entries(prev.loans.byStatus).map(([s, n]) => `${n} ${s.toLowerCase()}`).join(', ')}</td></tr>
+                  <tr><td style={{ fontWeight: 600 }}>Test rows flagged</td><td className="muted">{prev.farmers.flaggedTest.length ? `${prev.farmers.flaggedTest.length} skipped (${prev.farmers.flaggedTest.slice(0, 6).join(', ')}${prev.farmers.flaggedTest.length > 6 ? '…' : ''})` : 'none'}</td></tr>
+                  <tr><td style={{ fontWeight: 600 }}>Missing phone / ID</td><td className="muted">{prev.farmers.missingPhone} without phone, {prev.farmers.missingId} without national ID</td></tr>
+                  <tr><td style={{ fontWeight: 600 }}>Parked (not imported)</td><td className="muted">{prev.parked.guaranteeRequests} guarantee requests, {prev.parked.riskProfiles} risk profiles</td></tr>
+                </tbody>
+              </table>
+              {prev.warnings.length > 0 && (
+                <div style={{ marginTop: 14 }}>
+                  {prev.warnings.map((w, i) => <div key={i} className="chip chip-amber" style={{ display: 'block', marginBottom: 6, padding: '8px 12px' }}>{w}</div>)}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="card">
+            <div className="card-head"><h3>3 · Commit</h3></div>
+            <div className="card-body">
+              <p className="muted" style={{ fontSize: 13.5, marginBottom: 14 }}>
+                This writes everything above into Grofunder in one operation. If anything fails, nothing is saved.
+              </p>
+              <button className="btn btn-primary" disabled={busy} onClick={runCommit}>
+                {busy ? <span className="spin" /> : `Import into ${prev.cooperative.name}`}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      <p className="muted" style={{ fontSize: 12.5, marginTop: 14 }}>
+        Files contain personal and financial data. Phone numbers and IDs are cleaned and validated on the way in; obvious test rows are skipped.
       </p>
     </>
   );

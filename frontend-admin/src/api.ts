@@ -115,6 +115,9 @@ export const adminApi = {
 
   exportData: (dataset: string) => api.get<{ data: Record<string, unknown>[] }>(`/export/${dataset}`),
 
+  importPreview: (body: ImportBody) => api.post<ImportPreview>('/import/preview', body),
+  importCommit: (body: ImportBody) => api.post<ImportCommitResult>('/import/commit', body),
+
   reconSummary: () => api.get<{ data: ReconRow[] }>('/reconciliation/summary'),
   reconExceptions: () => api.get<{ data: Exception[] }>('/reconciliation/exceptions'),
   resolveException: (id: string, note: string) => api.post<{ ok: boolean }>(`/reconciliation/exceptions/${id}/resolve`, { note }),
@@ -125,4 +128,30 @@ export const adminApi = {
 export function kes(cents: number | null | undefined): string {
   if (cents == null) return '\u2014';
   return 'KES ' + Math.round(cents / 100).toLocaleString('en-KE');
+}
+
+export interface ImportBody {
+  files: { name: string; content: string }[];
+  cooperativeName: string;
+  cooperativeId?: string;
+  entityType?: 'COOPERATIVE' | 'AGENT';
+  county?: string;
+  includeTestRows?: boolean;
+}
+export interface ImportPreview {
+  cooperative: { name: string; mode: 'create' | 'existing'; id?: string };
+  files: { name: string; type: string | null; rows: number }[];
+  clusters: { display: string; sourceNames: string[] }[];
+  farmers: { total: number; willImport: number; flaggedTest: string[]; missingPhone: number; missingId: number };
+  loans: { total: number; byStatus: Record<string, number>; unmatchedFarmer: number };
+  payments: { total: number; unmatchedLoan: number };
+  disbursements: { total: number; unmatchedLoan: number };
+  parked: { guaranteeRequests: number; riskProfiles: number };
+  warnings: string[];
+}
+export interface ImportCommitResult {
+  cooperativeId: string;
+  created: { clusters: number; farmers: number; loans: number; payments: number; disbursements: number };
+  skipped: { testRows: number; unmatchedLoans: number; unmatchedPayments: number };
+  demotedExtraLoans: number;
 }
