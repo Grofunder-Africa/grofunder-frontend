@@ -21,7 +21,15 @@ function Auth({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
 
   async function submit() {
-    setErr(''); setBusy(true);
+    setErr('');
+    // Friendly guard: people often type the cooperative's name here out of habit.
+    if (!email.includes('@')) {
+      setErr(mode === 'login'
+        ? 'Please enter the email address you registered with (e.g. chair@cooperative.co.ke) — not the cooperative name.'
+        : 'Please enter a valid email address (e.g. chair@cooperative.co.ke).');
+      return;
+    }
+    setBusy(true);
     try {
       if (mode === 'activate') {
         await coopApi.activate(coopName, code, email, password);
@@ -47,6 +55,12 @@ function Auth({ onDone }: { onDone: () => void }) {
 
         {err && <div className="err">{err}</div>}
 
+        {mode === 'login' && (
+          <p className="muted" style={{ fontSize: 12.5, marginTop: -2, marginBottom: 14 }}>
+            Sign in with the <strong>email address</strong> and password you set when you activated your cooperative — not the cooperative's name.
+          </p>
+        )}
+
         {mode === 'activate' && (
           <>
             <div className="field">
@@ -60,8 +74,9 @@ function Auth({ onDone }: { onDone: () => void }) {
           </>
         )}
         <div className="field">
-          <label>Email</label>
+          <label>{mode === 'activate' ? 'Your email address' : 'Email address'}</label>
           <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="chair@cooperative.co.ke" />
+          {mode === 'login' && <span className="hint">The email you registered with, e.g. chair@cooperative.co.ke</span>}
         </div>
         <div className="field">
           <label>{mode === 'activate' ? 'Choose a password' : 'Password'}</label>

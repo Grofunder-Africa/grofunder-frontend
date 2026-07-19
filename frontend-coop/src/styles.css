@@ -92,3 +92,5 @@ tr:hover td { background: #FAFDFA; }
   padding: 8px; border-radius: 8px; cursor: pointer; color: var(--mut); font-weight: 500; }
 .tabs button.active { background: #fff; color: var(--g-dark); font-weight: 600; box-shadow: var(--shadow); }
 @media (max-width: 720px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } .sidebar { width: 64px; } .nav button span:last-child, .brand span, .sidebar-foot .who { display: none; } }
+
+.hint { display: block; font-size: 11.5px; color: #8A968C; margin-top: 5px; }
