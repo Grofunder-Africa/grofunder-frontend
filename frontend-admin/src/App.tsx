@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { adminApi, setToken, getToken, kes, ApiError } from './api';
 import logo from './assets/grofunder-logo.png';
-import type { Cooperative, Rules, Weights, ReconRow, Exception, Loan, LoanFlow, AdminMe, AdminUser, CoopChildren, CustomFeature, MessageCampaign, Pipeline, ImportPreview, ImportBody } from './api';
+import type { Cooperative, Rules, Weights, ReconRow, Exception, Loan, LoanFlow, AdminMe, AdminUser, CoopChildren, CustomFeature, MessageCampaign, Pipeline, ImportPreview, ImportBody, WebsiteSubmission } from './api';
 
-type Tab = 'overview' | 'cooperatives' | 'loans' | 'pipeline' | 'credit' | 'reconciliation' | 'messaging' | 'import' | 'export' | 'account';
+type Tab = 'overview' | 'cooperatives' | 'loans' | 'pipeline' | 'credit' | 'reconciliation' | 'messaging' | 'photos' | 'import' | 'export' | 'account';
 
 export default function App() {
   const [authed, setAuthed] = useState(!!getToken());
@@ -48,6 +48,7 @@ function NavIcon({ name }: { name: string }) {
     credit: <><path d="M12 3v18M5 8l7-5 7 5" /><circle cx="5" cy="12" r="2.5" /><circle cx="19" cy="12" r="2.5" /></>,
     reconciliation: <><path d="M8 7h8a4 4 0 0 1 0 8H8" /><path d="M11 4 8 7l3 3M13 12l3 3-3 3" /></>,
     messaging: <><path d="M4 5h16v12H8l-4 3z" /></>,
+    photos: <><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="8.5" cy="10" r="1.5" /><path d="M21 16l-5-5-4 4-2-2-4 4" /></>,
     export: <><path d="M12 3v11M8 10l4 4 4-4" /><path d="M4 20h16" /></>,
     import: <><path d="M12 14V3M8 7l4-4 4 4" /><path d="M4 20h16" /></>,
     account: <><circle cx="12" cy="8" r="3.2" /><path d="M5.5 20c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5" /></>,
@@ -69,6 +70,7 @@ function Portal({ onSignOut }: { onSignOut: () => void }) {
     ['credit', 'credit', 'Credit model'],
     ['reconciliation', 'reconciliation', 'Reconciliation'],
     ['messaging', 'messaging', 'Messaging'],
+    ['photos', 'photos', 'Photos'],
     ['import', 'import', 'Import'],
     ['export', 'export', 'Export'],
     ['account', 'account', 'Account'],
@@ -98,6 +100,7 @@ function Portal({ onSignOut }: { onSignOut: () => void }) {
         {tab === 'credit' && <CreditModel />}
         {tab === 'reconciliation' && <Reconciliation />}
         {tab === 'messaging' && <Messaging />}
+        {tab === 'photos' && <Photos />}
         {tab === 'import' && <ImportData />}
         {tab === 'export' && <ExportData />}
         {tab === 'account' && <Account />}
@@ -1335,6 +1338,95 @@ function ImportData() {
       <p className="muted" style={{ fontSize: 12.5, marginTop: 14 }}>
         Files contain personal and financial data. Phone numbers and IDs are cleaned and validated on the way in; obvious test rows are skipped.
       </p>
+    </>
+  );
+}
+
+/* ---------- Photos: farmer submissions for the Grofunder website ---------- */
+function Photos() {
+  const [view, setView] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
+  const [items, setItems] = useState<WebsiteSubmission[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState('');
+  const [note, setNote] = useState<Record<string, string>>({});
+  const [msg, setMsg] = useState(''); const [err, setErr] = useState('');
+
+  const load = useCallback(() => {
+    setLoading(true);
+    adminApi.websiteSubmissions(view)
+      .then((r) => setItems(r.data))
+      .catch((e) => setErr(e instanceof ApiError ? e.message : 'Could not load submissions'))
+      .finally(() => setLoading(false));
+  }, [view]);
+  useEffect(() => { load(); }, [load]);
+
+  async function review(id: string, decision: 'APPROVED' | 'REJECTED') {
+    setBusyId(id); setErr(''); setMsg('');
+    try {
+      await adminApi.reviewSubmission(id, decision, note[id]);
+      setMsg(decision === 'APPROVED' ? 'Approved — this photo can now appear on the website.' : 'Rejected — it will not be published.');
+      load();
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not save decision'); }
+    finally { setBusyId(''); }
+  }
+
+  return (
+    <>
+      <div className="page-head">
+        <div>
+          <div className="h1">Photos</div>
+          <div className="sub">Farmer photos submitted for the Grofunder website</div>
+        </div>
+      </div>
+      {err && <div className="err">{err}</div>}{msg && <div className="ok">{msg}</div>}
+
+      <div className="tabs-inline">
+        {(['PENDING', 'APPROVED', 'REJECTED'] as const).map((v) => (
+          <button key={v} className={`tab-inline ${view === v ? 'active' : ''}`} onClick={() => setView(v)}>
+            {v === 'PENDING' ? 'Awaiting review' : v === 'APPROVED' ? 'Approved' : 'Rejected'}
+          </button>
+        ))}
+      </div>
+
+      {loading ? <div className="empty"><span className="spin" /></div> : items.length === 0 ? (
+        <div className="empty">
+          {view === 'PENDING' ? 'Nothing awaiting review.' : view === 'APPROVED' ? 'No approved photos yet.' : 'No rejected photos.'}
+        </div>
+      ) : (
+        <div className="sub-grid">
+          {items.map((s) => (
+            <div key={s.id} className="card sub-card">
+              <div className="sub-img">
+                {s.image_url.startsWith('mock://')
+                  ? <div className="sub-img-mock">Photo</div>
+                  : <img src={s.image_url} alt={s.caption ?? 'submission'} />}
+              </div>
+              <div className="card-body">
+                <div className="sub-meta">
+                  <strong>{s.author_name}</strong>
+                  <span className="muted"> · {s.cooperative_name}</span>
+                </div>
+                {s.caption && <p className="sub-caption">{s.caption}</p>}
+                <div className="muted" style={{ fontSize: 12 }}>Submitted {s.submitted_at}</div>
+                {view === 'PENDING' ? (
+                  <>
+                    <input className="input" style={{ marginTop: 10 }} placeholder="Note (optional)"
+                      value={note[s.id] ?? ''} onChange={(e) => setNote({ ...note, [s.id]: e.target.value })} />
+                    <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                      <button className="btn btn-primary btn-sm" disabled={busyId === s.id} onClick={() => review(s.id, 'APPROVED')}>Approve</button>
+                      <button className="btn btn-ghost btn-sm" disabled={busyId === s.id} onClick={() => review(s.id, 'REJECTED')}>Reject</button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                    Reviewed {s.reviewed_at ?? '—'}{s.review_note ? ` · "${s.review_note}"` : ''}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }

@@ -123,6 +123,12 @@ export const adminApi = {
   resolveException: (id: string, note: string) => api.post<{ ok: boolean }>(`/reconciliation/exceptions/${id}/resolve`, { note }),
 
   runArrears: () => api.post<{ scanned: number; markedInArrears: number; lateFeesApplied: number }>('/arrears/sweep', {}),
+
+  websiteSubmissions: (status = 'PENDING') =>
+    api.get<{ data: WebsiteSubmission[] }>(`/admin-posts/submissions?status=${status}`),
+  pendingPhotoCount: () => api.get<{ count: number }>('/admin-posts/submissions/pending-count'),
+  reviewSubmission: (id: string, decision: 'APPROVED' | 'REJECTED', note?: string) =>
+    api.post<{ id: string; status: string }>(`/admin-posts/submissions/${id}/review`, { decision, note }),
 };
 
 export function kes(cents: number | null | undefined): string {
@@ -154,4 +160,10 @@ export interface ImportCommitResult {
   created: { clusters: number; farmers: number; loans: number; payments: number; disbursements: number };
   skipped: { testRows: number; unmatchedLoans: number; unmatchedPayments: number };
   demotedExtraLoans: number;
+}
+
+export interface WebsiteSubmission {
+  id: string; image_url: string; caption: string | null;
+  author_name: string; cooperative_name: string; status: string;
+  submitted_at: string; reviewed_at: string | null; review_note: string | null;
 }
