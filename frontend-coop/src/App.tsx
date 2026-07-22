@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { coopApi, setToken, getToken, kes, ApiError } from './api';
-import type { Cluster, Farmer, Product, Loan, CoopProfile, InboxMessage } from './api';
+import type { Cluster, Farmer, Product, Loan, CoopProfile, InboxMessage, CaptureTypeState, LedgerFarmer, AudienceGroup, OutreachLogItem } from './api';
 import logo from './assets/grofunder-logo.png';
 
-type Tab = 'overview' | 'clusters' | 'farmers' | 'products' | 'approvals' | 'messages' | 'settings';
+type Tab = 'overview' | 'clusters' | 'farmers' | 'products' | 'approvals' | 'messages' | 'settings' | string;
 
 export default function App() {
   const [authed, setAuthed] = useState(!!getToken());
@@ -165,6 +165,8 @@ function NavIcon({ name }: { name: string }) {
     approvals: <><path d="M20 7 10 17l-5-5" /></>,
     messages: <><path d="M4 5h16v12H8l-4 3z" /></>,
     settings: <><circle cx="12" cy="12" r="3" /><path d="M12 3v2M12 19v2M5 5l1.5 1.5M17.5 17.5 19 19M3 12h2M19 12h2M5 19l1.5-1.5M17.5 6.5 19 5" /></>,
+    capture: <><path d="M4 5h16v4H4zM4 11h16v4H4zM4 17h16v2H4z" /></>,
+    outreach: <><path d="M3 11l18-8-8 18-2-7-8-3z" /></>,
   };
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -176,20 +178,35 @@ function NavIcon({ name }: { name: string }) {
 function Portal({ onSignOut }: { onSignOut: () => void }) {
   const [tab, setTab] = useState<Tab>('overview');
   const [unread, setUnread] = useState(0);
+  const [captureTypes, setCaptureTypes] = useState<CaptureTypeState[]>([]);
   const refreshUnread = useCallback(() => {
     coopApi.inboxUnread().then((r) => setUnread(r.count)).catch(() => {});
   }, []);
+  const refreshCapture = useCallback(() => {
+    coopApi.captureTypes().then((r) => setCaptureTypes(r.data)).catch(() => {});
+  }, []);
   useEffect(() => { refreshUnread(); const t = setInterval(refreshUnread, 60000); return () => clearInterval(t); }, [refreshUnread]);
+  useEffect(() => { refreshCapture(); }, [refreshCapture]);
 
+  const enabledCapture = captureTypes.filter((c) => c.enabled);
+
+  // Base nav, then any enabled capture types appear as their own tabs.
   const nav: [Tab, string, string][] = [
     ['overview', 'overview', 'Overview'],
     ['clusters', 'clusters', 'Clusters'],
     ['farmers', 'farmers', 'Farmers'],
     ['products', 'products', 'Products'],
     ['approvals', 'approvals', 'Loan approvals'],
+    ...enabledCapture.map((c) => [`capture:${c.type}`, 'capture', c.label] as [Tab, string, string]),
+    ['outreach', 'outreach', 'Outreach'],
     ['messages', 'messages', 'Messages'],
     ['settings', 'settings', 'Settings'],
   ];
+
+  const activeCapture = typeof tab === 'string' && tab.startsWith('capture:')
+    ? enabledCapture.find((c) => `capture:${c.type}` === tab)
+    : null;
+
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -214,8 +231,10 @@ function Portal({ onSignOut }: { onSignOut: () => void }) {
         {tab === 'farmers' && <Farmers />}
         {tab === 'products' && <Products />}
         {tab === 'approvals' && <Approvals />}
+        {tab === 'outreach' && <Outreach />}
         {tab === 'messages' && <Inbox onRead={refreshUnread} />}
-        {tab === 'settings' && <Settings />}
+        {tab === 'settings' && <Settings captureTypes={captureTypes} onCaptureChange={refreshCapture} />}
+        {activeCapture && <CaptureLedger key={activeCapture.type} meta={activeCapture} />}
       </main>
     </div>
   );
@@ -668,8 +687,9 @@ function Approvals() {
 export type { Loan };
 
 /* ---------- Settings: primary contacts ---------- */
-function Settings() {
+function Settings({ captureTypes, onCaptureChange }: { captureTypes: CaptureTypeState[]; onCaptureChange: () => void }) {
   const [profile, setProfile] = useState<CoopProfile | null>(null);
+  const [togglingType, setTogglingType] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -730,6 +750,34 @@ function Settings() {
           </button>
         </div>
       </div>
+
+      <div className="card">
+        <div className="card-head"><h3>What you capture</h3></div>
+        <div className="card-body">
+          <p className="muted" style={{ fontSize: 13.5, marginBottom: 18 }}>
+            Turn on the kinds of records your cooperative keeps. Each one you enable adds its own tab where you can record entries per farmer.
+          </p>
+          {captureTypes.map((c) => (
+            <div key={c.type} className="toggle-row">
+              <div>
+                <div style={{ fontWeight: 500 }}>{c.label}</div>
+                <div className="muted" style={{ fontSize: 12.5 }}>Recorded in {c.unit === 'kg' ? 'kilograms' : 'Kenyan shillings'}</div>
+              </div>
+              <button
+                className={`switch${c.enabled ? ' on' : ''}`}
+                disabled={togglingType === c.type}
+                onClick={async () => {
+                  setTogglingType(c.type);
+                  try { await coopApi.setCaptureType(c.type, !c.enabled); onCaptureChange(); }
+                  catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not update'); }
+                  finally { setTogglingType(''); }
+                }}
+                aria-pressed={c.enabled}
+              ><span className="knob" /></button>
+            </div>
+          ))}
+        </div>
+      </div>
     </>
   );
 }
@@ -783,6 +831,193 @@ function Inbox({ onRead }: { onRead: () => void }) {
           ))}
         </div>
       )}
+    </>
+  );
+}
+
+/* ---------- Capture ledger (generated per enabled type) ---------- */
+function CaptureLedger({ meta }: { meta: CaptureTypeState }) {
+  const [rows, setRows] = useState<LedgerFarmer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState('');
+  const [addingFor, setAddingFor] = useState<string | null>(null);
+  const today = new Date().toISOString().slice(0, 10);
+  const [entryDate, setEntryDate] = useState(today);
+  const [amount, setAmount] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    coopApi.ledger(meta.type).then((r) => setRows(r.data)).catch(() => setErr('Could not load this ledger')).finally(() => setLoading(false));
+  }, [meta.type]);
+  useEffect(() => { load(); }, [load]);
+
+  const factor = meta.unit === 'kg' ? 1000 : 100;
+  const fmt = (units: number) => {
+    const major = units / factor;
+    return meta.unit === 'kg' ? `${major.toLocaleString()} kg` : `KES ${major.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+  };
+
+  function openAdd(farmerId: string) {
+    setAddingFor(farmerId); setEntryDate(today); setAmount(''); setErr('');
+  }
+
+  async function saveEntry() {
+    if (!addingFor) return;
+    const n = Number(amount);
+    if (!(n > 0)) { setErr('Enter an amount greater than zero.'); return; }
+    setSaving(true); setErr('');
+    try {
+      await coopApi.addEntry(meta.type, addingFor, entryDate, n);
+      setAddingFor(null); load();
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not save entry'); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <>
+      <div className="page-head"><div><div className="h1">{meta.label}</div><div className="sub">Record {meta.label.toLowerCase()} per farmer — entries add up over time</div></div></div>
+      {err && <div className="err">{err}</div>}
+      {loading ? <div className="empty"><span className="spin" /></div> : rows.length === 0 ? (
+        <div className="empty">No farmers yet. Register farmers first, then record their {meta.label.toLowerCase()} here.</div>
+      ) : (
+        <div className="card">
+          <table>
+            <thead><tr><th>Farmer</th><th>Cluster</th><th>Entries</th><th style={{ textAlign: 'right' }}>Total</th><th></th></tr></thead>
+            <tbody>{rows.map((f) => (
+              <tr key={f.farmer_id} style={{ verticalAlign: 'top' }}>
+                <td style={{ fontWeight: 500 }}>{f.full_name}</td>
+                <td className="muted">{f.cluster_name ?? '—'}</td>
+                <td>
+                  {f.entries.length === 0 ? <span className="muted">No entries yet</span> : (
+                    <div className="entry-chips">
+                      {f.entries.map((e) => (
+                        <span key={e.id} className="entry-chip">{e.entry_date} · {fmt(e.amount_units)}</span>
+                      ))}
+                    </div>
+                  )}
+                  {addingFor === f.farmer_id && (
+                    <div className="entry-add">
+                      <input className="input" type="date" value={entryDate} onChange={(ev) => setEntryDate(ev.target.value)} style={{ width: 'auto' }} />
+                      <input className="input" type="number" min="0" step="any" value={amount} onChange={(ev) => setAmount(ev.target.value)} placeholder={meta.amountLabel} style={{ width: 140 }} />
+                      <button className="btn btn-primary btn-sm" disabled={saving} onClick={saveEntry}>{saving ? <span className="spin" /> : 'Save'}</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setAddingFor(null)}>Cancel</button>
+                    </div>
+                  )}
+                </td>
+                <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(f.total_units)}</td>
+                <td style={{ textAlign: 'right' }}>
+                  {addingFor !== f.farmer_id && (
+                    <button className="btn-add" title={`Add ${meta.label.toLowerCase()} entry`} onClick={() => openAdd(f.farmer_id)}>+</button>
+                  )}
+                </td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ---------- Outreach: coop messages its own farmers ---------- */
+function Outreach() {
+  const [audiences, setAudiences] = useState<{ clusters: AudienceGroup[]; circles: AudienceGroup[] }>({ clusters: [], circles: [] });
+  const [log, setLog] = useState<OutreachLogItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [audience, setAudience] = useState('ALL_MY_FARMERS');
+  const [ref, setRef] = useState('');
+  const [body, setBody] = useState('');
+  const [err, setErr] = useState(''); const [ok, setOk] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const load = useCallback(() => {
+    Promise.all([coopApi.outreachAudiences(), coopApi.outreachLog()])
+      .then(([a, l]) => { setAudiences({ clusters: a.clusters, circles: a.circles }); setLog(l.data); })
+      .catch(() => setErr('Could not load outreach')).finally(() => setLoading(false));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  function pickAudience(a: string) { setAudience(a); setRef(''); }
+
+  const needsRef = audience === 'MY_CLUSTER' || audience === 'MY_CIRCLE';
+  const refOptions = audience === 'MY_CLUSTER' ? audiences.clusters : audience === 'MY_CIRCLE' ? audiences.circles : [];
+
+  async function send() {
+    setErr(''); setOk('');
+    if (needsRef && !ref) { setErr(`Choose a ${audience === 'MY_CLUSTER' ? 'cluster' : 'circle'}.`); return; }
+    if (!body.trim()) { setErr('Write a message to send.'); return; }
+    setSending(true);
+    try {
+      const r = await coopApi.sendOutreach(audience, body.trim(), needsRef ? ref : undefined);
+      let msg = `Sent to ${r.sentCount} farmer${r.sentCount === 1 ? '' : 's'}.`;
+      if (r.skippedNoPhone > 0) msg += ` ${r.skippedNoPhone} have no phone number yet — they'll see it in the farmer app.`;
+      if (r.failedCount > 0) msg += ` ${r.failedCount} failed to deliver by SMS.`;
+      setOk(msg); setBody(''); load();
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not send'); }
+    finally { setSending(false); }
+  }
+
+  const audienceLabel = (a: string, r: string | null) => {
+    if (a === 'ALL_MY_FARMERS') return 'All my farmers';
+    if (a === 'MY_CLUSTER') return `Cluster: ${audiences.clusters.find((c) => c.id === r)?.name ?? '—'}`;
+    if (a === 'MY_CIRCLE') return `Circle: ${audiences.circles.find((c) => c.id === r)?.name ?? '—'}`;
+    return a;
+  };
+
+  return (
+    <>
+      <div className="page-head"><div><div className="h1">Outreach</div><div className="sub">Send a message to your farmers</div></div></div>
+      {err && <div className="err">{err}</div>}{ok && <div className="ok">{ok}</div>}
+
+      <div className="card">
+        <div className="card-head"><h3>New message</h3></div>
+        <div className="card-body">
+          <div className="field">
+            <label>Send to</label>
+            <select className="input" value={audience} onChange={(e) => pickAudience(e.target.value)}>
+              <option value="ALL_MY_FARMERS">All my farmers</option>
+              <option value="MY_CLUSTER">A cluster</option>
+              <option value="MY_CIRCLE">A circle</option>
+            </select>
+          </div>
+          {needsRef && (
+            <div className="field">
+              <label>{audience === 'MY_CLUSTER' ? 'Which cluster' : 'Which circle'}</label>
+              <select className="input" value={ref} onChange={(e) => setRef(e.target.value)}>
+                <option value="">— select —</option>
+                {refOptions.map((o) => <option key={o.id} value={o.id}>{o.name} ({o.member_count})</option>)}
+              </select>
+              {audience === 'MY_CIRCLE' && <span className="hint">Circles are formed by farmers. You can see them here to reach out.</span>}
+            </div>
+          )}
+          <div className="field">
+            <label>Message</label>
+            <textarea className="input" rows={4} maxLength={800} value={body} onChange={(e) => setBody(e.target.value)} placeholder="e.g. Bring your cherry to the collection point on Thursday." />
+            <span className="hint">{body.length}/800 · Farmers see this in the farmer app, and by SMS where a number is on record.</span>
+          </div>
+          <button className="btn btn-primary" disabled={sending} onClick={send}>{sending ? <span className="spin" /> : 'Send message'}</button>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-head"><h3>Sent messages</h3></div>
+        {loading ? <div className="empty"><span className="spin" /></div> : log.length === 0 ? (
+          <div className="empty">No messages sent yet.</div>
+        ) : (
+          <table>
+            <thead><tr><th>When</th><th>To</th><th>Message</th><th style={{ textAlign: 'right' }}>Reached</th></tr></thead>
+            <tbody>{log.map((m) => (
+              <tr key={m.id} style={{ verticalAlign: 'top' }}>
+                <td className="muted" style={{ whiteSpace: 'nowrap' }}>{m.sent_at}</td>
+                <td>{audienceLabel(m.audience, m.audience_ref)}</td>
+                <td>{m.body}</td>
+                <td style={{ textAlign: 'right' }}>{m.sent_count}{m.failed_count > 0 && <span className="muted"> (+{m.failed_count} failed)</span>}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        )}
+      </div>
     </>
   );
 }

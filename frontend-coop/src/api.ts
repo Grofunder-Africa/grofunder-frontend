@@ -84,6 +84,19 @@ export const coopApi = {
 
   sendMessage: (audience: string, body: string, audienceRef?: string) =>
     api.post<{ campaignId: string; sentCount: number; failedCount: number }>('/messaging/campaigns', { audience, body, audienceRef }),
+
+  captureTypes: () => api.get<{ data: CaptureTypeState[] }>('/capture/types'),
+  setCaptureType: (type: string, enabled: boolean) =>
+    api.patch<{ data: CaptureTypeState[] }>(`/capture/types/${type}`, { enabled }),
+  ledger: (type: string) => api.get<{ data: LedgerFarmer[] }>(`/capture/${type}/ledger`),
+  addEntry: (type: string, farmerId: string, entryDate: string, amount: number) =>
+    api.post<{ id: string }>(`/capture/${type}/entries`, { farmerId, entryDate, amount }),
+
+  outreachAudiences: () => api.get<{ clusters: AudienceGroup[]; circles: AudienceGroup[] }>('/coop-messaging/audiences'),
+  sendOutreach: (audience: string, body: string, audienceRef?: string) =>
+    api.post<{ campaignId: string; recipientCount: number; sentCount: number; failedCount: number; skippedNoPhone: number }>(
+      '/coop-messaging/send', { audience, body, audienceRef }),
+  outreachLog: () => api.get<{ data: OutreachLogItem[] }>('/coop-messaging/log'),
 };
 
 export function kes(cents: number | null | undefined): string {
@@ -98,4 +111,17 @@ export interface CoopProfile {
 
 export interface InboxMessage {
   id: string; body: string; sender: string | null; sentAt: string | null; readAt: string | null;
+}
+
+export interface CaptureTypeState {
+  type: string; label: string; unit: 'kg' | 'KES'; amountLabel: string; enabled: boolean;
+}
+export interface LedgerFarmer {
+  farmer_id: string; full_name: string; cluster_name: string | null;
+  total_units: number; entries: { id: string; entry_date: string; amount_units: number }[];
+}
+export interface AudienceGroup { id: string; name: string; member_count: number; state?: string }
+export interface OutreachLogItem {
+  id: string; audience: string; audience_ref: string | null; body: string;
+  recipient_count: number; sent_count: number; failed_count: number; sent_at: string;
 }

@@ -162,3 +162,17 @@ tbody tr:hover { background: #FCFDFB; }
 /* ---------- Modal ---------- */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(20,37,26,0.4); display: grid; place-items: center; z-index: 50; padding: 20px; }
 .modal { background: var(--card); border-radius: 16px; padding: 26px; width: 100%; max-width: 460px; box-shadow: 0 20px 50px rgba(0,0,0,0.25); }
+
+/* ---------- Capture ---------- */
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 0.5px solid var(--line); }
+.toggle-row:last-child { border-bottom: none; }
+.switch { position: relative; width: 42px; height: 24px; border-radius: 12px; background: #D4DAD5; border: none; cursor: pointer; transition: background 0.16s; padding: 0; }
+.switch.on { background: var(--g); }
+.switch .knob { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left 0.16s; }
+.switch.on .knob { left: 20px; }
+.switch:disabled { opacity: 0.6; cursor: default; }
+.btn-add { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--g); background: var(--g-tint); color: var(--g-ink); font-size: 18px; line-height: 1; cursor: pointer; transition: background 0.14s; }
+.btn-add:hover { background: var(--g); color: #fff; }
+.entry-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.entry-chip { font-size: 12px; background: var(--g-tint); color: var(--g-ink); border-radius: 6px; padding: 3px 8px; white-space: nowrap; }
+.entry-add { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
