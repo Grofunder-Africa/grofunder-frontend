@@ -74,16 +74,13 @@ function Auth({ onDone }: { onDone: () => void }) {
         <div className="auth-card">
           <div className="auth-brand"><img src={logo} alt="grofunder" /></div>
           <p className="auth-sub">Cooperative activated</p>
-          <div className="ok" style={{ marginBottom: 18 }}>Your cooperative is set up and ready.</div>
-          <p className="muted" style={{ fontSize: 13.5, marginBottom: 8 }}>
-            This is your <strong>username</strong> — you'll use it with your password to sign in from now on. Please write it down.
-          </p>
+          <p className="muted" style={{ fontSize: 13.5, marginBottom: 8 }}>Your username</p>
           <div style={{ background: 'var(--g-tint)', border: '0.5px solid #CFE9D0', borderRadius: 10, padding: '16px 18px', textAlign: 'center', marginBottom: 18 }}>
             <div style={{ fontFamily: 'var(--serif)', fontSize: 26, fontWeight: 500, color: 'var(--g-deep)', letterSpacing: '-0.01em' }}>{assignedUsername}</div>
           </div>
           {err && <div className="err">{err}</div>}
           <button className="btn btn-primary" style={{ width: '100%' }} disabled={busy} onClick={continueAfterActivation}>
-            {busy ? <span className="spin" /> : 'I\u2019ve noted my username — continue'}
+            {busy ? <span className="spin" /> : 'Continue'}
           </button>
         </div>
       </div>
@@ -94,7 +91,7 @@ function Auth({ onDone }: { onDone: () => void }) {
     <div className="auth-wrap">
       <div className="auth-card">
         <div className="auth-brand"><img src={logo} alt="grofunder" /></div>
-        <p className="auth-sub">Cooperative Portal</p>
+        <p className="auth-sub">Growing farmers, growing wealth</p>
 
         <div className="tabs">
           <button className={mode === 'login' ? 'active' : ''} onClick={() => { setMode('login'); setErr(''); }}>Sign in</button>
@@ -105,15 +102,9 @@ function Auth({ onDone }: { onDone: () => void }) {
 
         {mode === 'login' && (
           <>
-            <p className="muted" style={{ fontSize: 12.5, marginTop: -2, marginBottom: 14 }}>
-              {username
-                ? <>Confirm your cooperative's <strong>username</strong> below and enter your password.</>
-                : <>Sign in with your cooperative's <strong>username</strong> and password.</>}
-            </p>
             <div className="field">
               <label>Cooperative username</label>
               <input className="input" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="e.g. Nyawest" autoCapitalize="none" />
-              <span className="hint">This is your cooperative's name, given to you when you activated.</span>
             </div>
             <div className="field">
               <label>Password</label>
@@ -135,15 +126,11 @@ function Auth({ onDone }: { onDone: () => void }) {
             <div className="field">
               <label>Email <span className="muted" style={{ fontWeight: 400 }}>(optional)</span></label>
               <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="cooperative@example.co.ke" />
-              <span className="hint">For official messages. You can add or change this later in Settings.</span>
             </div>
             <div className="field">
               <label>Choose a password</label>
               <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" />
             </div>
-            <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
-              You'll sign in from now on with a <strong>username</strong> based on your cooperative's name, plus this password.
-            </p>
           </>
         )}
 
