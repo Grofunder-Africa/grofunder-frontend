@@ -30,7 +30,7 @@ export const api = {
   del: <T>(p: string, b?: unknown) => request<T>('DELETE', p, b),
 };
 
-export interface Cooperative { id: string; name: string; county: string | null; status: string; activationCode?: string; entity_type?: string; lending_suspended?: boolean; suspend_reason?: string | null }
+export interface Cooperative { id: string; name: string; username?: string | null; county: string | null; status: string; activationCode?: string; entity_type?: string; lending_suspended?: boolean; suspend_reason?: string | null }
 export interface SuspEntry { id: string; name: string; suspend_reason: string | null; suspended_at: string; cooperative_name?: string }
 export interface Suspensions { cooperatives: SuspEntry[]; clusters: SuspEntry[]; circles: SuspEntry[] }
 export interface ChildEntry { id: string; name: string; lending_suspended: boolean; suspend_reason: string | null; cluster_name?: string }

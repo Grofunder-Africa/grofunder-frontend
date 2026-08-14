@@ -231,7 +231,15 @@ function Cooperatives() {
           <table>
             <thead><tr><th>Name</th><th>Type</th><th>County</th><th>Status</th><th>Lending</th><th style={{ textAlign: 'right' }}>Actions</th></tr></thead>
             <tbody>{coops.map((c) => (
-              <tr key={c.id}><td style={{ fontWeight: 600 }}>{c.name}</td>
+              <tr key={c.id}>
+                <td>
+                  <div style={{ fontWeight: 600 }}>{c.name}</div>
+                  {c.username && (
+                    <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                      Username: <span style={{ fontWeight: 500 }}>{c.username}</span>
+                    </div>
+                  )}
+                </td>
                 <td>{c.entity_type === 'AGENT' ? <span className="chip chip-purple">Agent</span> : <span className="chip chip-blue">Cooperative</span>}</td>
                 <td className="muted">{c.county ?? '—'}</td>
                 <td><span className={`chip ${c.status === 'ACTIVE' ? 'chip-green' : c.status === 'AWAITING_ACTIVATION' ? 'chip-amber' : 'chip-grey'}`}>{c.status}</span></td>
@@ -1342,6 +1350,13 @@ function ImportData() {
   );
 }
 
+
+/** Ask Cloudinary for a review-sized image rather than the full upload. */
+function sizedImg(url: string, width = 600): string {
+  if (!url.includes('/upload/')) return url;
+  return url.replace('/upload/', `/upload/c_limit,w_${width},q_auto,f_auto/`);
+}
+
 /* ---------- Photos: farmer submissions for the Grofunder website ---------- */
 function Photos() {
   const [view, setView] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
@@ -1399,7 +1414,7 @@ function Photos() {
               <div className="sub-img">
                 {s.image_url.startsWith('mock://')
                   ? <div className="sub-img-mock">Photo</div>
-                  : <img src={s.image_url} alt={s.caption ?? 'submission'} />}
+                  : <img src={sizedImg(s.image_url)} alt={s.caption ?? 'submission'} loading="lazy" />}
               </div>
               <div className="card-body">
                 <div className="sub-meta">
