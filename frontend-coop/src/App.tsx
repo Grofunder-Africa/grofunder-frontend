@@ -402,8 +402,14 @@ function Clusters() {
     finally { setSavingHead(false); }
   }
 
+  // Errors inside the Edit modal need their own state — the page-level err/ok
+  // banner renders above the modal in the DOM, which sits invisibly behind
+  // the modal's dark overlay while it's open. Whatever goes wrong here has to
+  // show up inside the modal itself, or it's effectively never seen.
+  const [editErr, setEditErr] = useState('');
+
   function openEdit(c: Cluster) {
-    setErr(''); setOk('');
+    setErr(''); setOk(''); setEditErr('');
     setEditFor(c); setEditStep('menu');
     setRenameValue(c.name); setRenameAgreed(false);
     setReassignTo(''); setDeleteAgreed(false);
@@ -416,19 +422,22 @@ function Clusters() {
   async function saveRename() {
     if (!editFor) return;
     const trimmed = renameValue.trim();
-    setRenaming(true); setErr('');
+    setRenaming(true); setEditErr('');
     try {
       await coopApi.renameCluster(editFor.id, trimmed);
       setOk(`Renamed "${editFor.name}" to "${trimmed}". It now shows the new name everywhere — including every farmer in it.`);
       setEditFor(null); load();
-    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not rename cluster'); }
+    } catch (e) {
+      console.error('Cluster rename failed:', e);
+      setEditErr(e instanceof ApiError ? e.message : 'Could not rename cluster');
+    }
     finally { setRenaming(false); }
   }
 
   async function confirmDelete() {
     if (!editFor) return;
     const decision = reassignTo ? { reassignToClusterId: reassignTo } : { unassign: true };
-    setDeleting(true); setErr('');
+    setDeleting(true); setEditErr('');
     try {
       const res = await coopApi.deleteCluster(editFor.id, editFor.member_count > 0 ? decision : undefined);
       if (res.deleted) {
@@ -443,9 +452,12 @@ function Clusters() {
         // Rare race: someone joined this cluster after the list loaded.
         setEditFor((f) => f ? { ...f, member_count: res.needsDecision!.memberCount } : f);
         setDeleteAgreed(false);
-        setErr(`This cluster now has ${res.needsDecision.memberCount} farmer${res.needsDecision.memberCount === 1 ? '' : 's'} — choose where they go, then agree again.`);
+        setEditErr(`This cluster now has ${res.needsDecision.memberCount} farmer${res.needsDecision.memberCount === 1 ? '' : 's'} — choose where they go, then agree again.`);
       }
-    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not delete cluster'); }
+    } catch (e) {
+      console.error('Cluster delete failed:', e);
+      setEditErr(e instanceof ApiError ? e.message : 'Could not delete cluster');
+    }
     finally { setDeleting(false); }
   }
 
@@ -542,6 +554,7 @@ function Clusters() {
             {editStep === 'menu' && (
               <>
                 <h3 style={{ marginTop: 0 }}>Edit "{editFor.name}"</h3>
+                {editErr && <div className="err">{editErr}</div>}
 
                 <div className="field">
                   <label>Rename</label>
@@ -577,6 +590,7 @@ function Clusters() {
             {editStep === 'confirm-rename' && (
               <>
                 <h3 style={{ marginTop: 0 }}>Confirm rename</h3>
+                {editErr && <div className="err">{editErr}</div>}
                 <p style={{ fontSize: 13.5 }}>
                   Rename <strong>"{editFor.name}"</strong> to <strong>"{renameValue.trim()}"</strong>?
                   {editFor.member_count > 0
@@ -599,6 +613,7 @@ function Clusters() {
             {editStep === 'confirm-delete' && (
               <>
                 <h3 style={{ marginTop: 0 }}>Confirm delete</h3>
+                {editErr && <div className="err">{editErr}</div>}
                 {editFor.member_count > 0 && (
                   <>
                     <p style={{ fontSize: 13.5 }}>
