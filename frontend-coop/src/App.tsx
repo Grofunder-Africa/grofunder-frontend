@@ -354,14 +354,15 @@ function Clusters() {
   const [members, setMembers] = useState<Farmer[]>([]);
   const [chosen, setChosen] = useState('');
   const [savingHead, setSavingHead] = useState(false);
-  // Rename state
-  const [renameFor, setRenameFor] = useState<Cluster | null>(null);
+  // Edit modal — one entry point covering rename and delete, so each row only
+  // ever shows two buttons ("Change head" and "Edit") instead of three.
+  const [editFor, setEditFor] = useState<Cluster | null>(null);
+  const [editStep, setEditStep] = useState<'menu' | 'confirm-rename' | 'confirm-delete'>('menu');
   const [renameValue, setRenameValue] = useState('');
+  const [renameAgreed, setRenameAgreed] = useState(false);
   const [renaming, setRenaming] = useState(false);
-  // Delete state — null decision means "not yet chosen"; a cluster with
-  // members needs an explicit reassign-or-unassign choice before deleting.
-  const [deleteFor, setDeleteFor] = useState<Cluster | null>(null);
   const [reassignTo, setReassignTo] = useState('');
+  const [deleteAgreed, setDeleteAgreed] = useState(false);
   const [deleting, setDeleting] = useState(false);
   // Trash
   const [trashOpen, setTrashOpen] = useState(false);
@@ -401,30 +402,35 @@ function Clusters() {
     finally { setSavingHead(false); }
   }
 
-  function openRename(c: Cluster) {
-    setErr(''); setOk(''); setRenameFor(c); setRenameValue(c.name);
+  function openEdit(c: Cluster) {
+    setErr(''); setOk('');
+    setEditFor(c); setEditStep('menu');
+    setRenameValue(c.name); setRenameAgreed(false);
+    setReassignTo(''); setDeleteAgreed(false);
   }
+  function closeEdit() {
+    if (renaming || deleting) return; // don't let a backdrop click cancel mid-save
+    setEditFor(null);
+  }
+
   async function saveRename() {
-    if (!renameFor) return;
+    if (!editFor) return;
     const trimmed = renameValue.trim();
-    if (!trimmed || trimmed === renameFor.name) { setRenameFor(null); return; }
     setRenaming(true); setErr('');
     try {
-      await coopApi.renameCluster(renameFor.id, trimmed);
-      setOk(`Renamed "${renameFor.name}" to "${trimmed}". It now shows the new name everywhere — including every farmer in it.`);
-      setRenameFor(null); load();
+      await coopApi.renameCluster(editFor.id, trimmed);
+      setOk(`Renamed "${editFor.name}" to "${trimmed}". It now shows the new name everywhere — including every farmer in it.`);
+      setEditFor(null); load();
     } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not rename cluster'); }
     finally { setRenaming(false); }
   }
 
-  function openDelete(c: Cluster) {
-    setErr(''); setOk(''); setDeleteFor(c); setReassignTo('');
-  }
-  async function confirmDelete(decision?: { reassignToClusterId?: string; unassign?: boolean }) {
-    if (!deleteFor) return;
+  async function confirmDelete() {
+    if (!editFor) return;
+    const decision = reassignTo ? { reassignToClusterId: reassignTo } : { unassign: true };
     setDeleting(true); setErr('');
     try {
-      const res = await coopApi.deleteCluster(deleteFor.id, decision);
+      const res = await coopApi.deleteCluster(editFor.id, editFor.member_count > 0 ? decision : undefined);
       if (res.deleted) {
         const moved = res.deleted.reassignedTo
           ? ` Its ${res.deleted.memberCount} farmer${res.deleted.memberCount === 1 ? '' : 's'} moved to "${res.deleted.reassignedTo}".`
@@ -432,12 +438,12 @@ function Clusters() {
           ? ` Its ${res.deleted.memberCount} farmer${res.deleted.memberCount === 1 ? '' : 's'} are now unassigned.`
           : '';
         setOk(`"${res.deleted.name}" moved to Trash — restorable for 5 days.${moved}`);
-        setDeleteFor(null); load();
+        setEditFor(null); load();
       } else if (res.needsDecision) {
-        // Rare race: someone joined this cluster after the list loaded. Switch
-        // the modal into the reassignment view with the real, current count.
-        setDeleteFor((f) => f ? { ...f, member_count: res.needsDecision!.memberCount } : f);
-        setErr(`This cluster now has ${res.needsDecision.memberCount} farmer${res.needsDecision.memberCount === 1 ? '' : 's'} — choose where they go.`);
+        // Rare race: someone joined this cluster after the list loaded.
+        setEditFor((f) => f ? { ...f, member_count: res.needsDecision!.memberCount } : f);
+        setDeleteAgreed(false);
+        setErr(`This cluster now has ${res.needsDecision.memberCount} farmer${res.needsDecision.memberCount === 1 ? '' : 's'} — choose where they go, then agree again.`);
       }
     } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not delete cluster'); }
     finally { setDeleting(false); }
@@ -458,7 +464,7 @@ function Clusters() {
     finally { setRestoringId(''); }
   }
 
-  const otherClusters = clusters.filter((c) => c.id !== deleteFor?.id);
+  const otherClusters = clusters.filter((c) => c.id !== editFor?.id);
 
   return (
     <>
@@ -495,9 +501,7 @@ function Clusters() {
                     {c.head_farmer_id ? 'Change head' : 'Appoint head'}
                   </button>
                   {' '}
-                  <button className="btn btn-ghost btn-sm" onClick={() => openRename(c)}>Rename</button>
-                  {' '}
-                  <button className="btn btn-ghost btn-sm" onClick={() => openDelete(c)}>Delete</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => openEdit(c)}>Edit</button>
                 </td>
               </tr>
             ))}</tbody>
@@ -531,64 +535,97 @@ function Clusters() {
         </div>
       )}
 
-      {renameFor && (
-        <div className="modal-backdrop" onClick={() => setRenameFor(null)}>
+      {editFor && (
+        <div className="modal-backdrop" onClick={closeEdit}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0 }}>Rename cluster</h3>
-            <div className="field">
-              <label>New name</label>
-              <input className="input" value={renameValue} onChange={(e) => setRenameValue(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && saveRename()} autoFocus />
-            </div>
-            <p className="muted" style={{ fontSize: 13 }}>
-              {renameFor.member_count > 0
-                ? `This affects ${renameFor.member_count} farmer${renameFor.member_count === 1 ? '' : 's'} — they'll all show "${renameValue.trim() || renameFor.name}" as their cluster the moment you save.`
-                : 'No farmers are in this cluster yet.'}
-            </p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-              <button className="btn btn-ghost" onClick={() => setRenameFor(null)}>Cancel</button>
-              <button className="btn btn-primary" disabled={!renameValue.trim() || renaming} onClick={saveRename}>
-                {renaming ? <span className="spin" /> : 'Rename'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {deleteFor && (
-        <div className="modal-backdrop" onClick={() => !deleting && setDeleteFor(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0 }}>Delete "{deleteFor.name}"</h3>
-            {deleteFor.member_count === 0 ? (
+            {editStep === 'menu' && (
               <>
-                <p className="muted" style={{ fontSize: 13.5 }}>
-                  This cluster has no farmers. It'll move to Trash and can be restored within 5 days — after that it's gone for good.
+                <h3 style={{ marginTop: 0 }}>Edit "{editFor.name}"</h3>
+
+                <div className="field">
+                  <label>Rename</label>
+                  <input className="input" value={renameValue} onChange={(e) => setRenameValue(e.target.value)} autoFocus />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    disabled={!renameValue.trim() || renameValue.trim() === editFor.name}
+                    onClick={() => setEditStep('confirm-rename')}
+                  >
+                    Rename…
+                  </button>
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--line)', paddingTop: 16 }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--clay-ink)', marginBottom: 8 }}>Danger zone</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span className="muted" style={{ fontSize: 13 }}>Moves this cluster to Trash (restorable for 5 days).</span>
+                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--clay-ink)', borderColor: 'var(--clay-line)' }}
+                      onClick={() => setEditStep('confirm-delete')}>
+                      Delete…
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+                  <button className="btn btn-ghost" onClick={closeEdit}>Close</button>
+                </div>
+              </>
+            )}
+
+            {editStep === 'confirm-rename' && (
+              <>
+                <h3 style={{ marginTop: 0 }}>Confirm rename</h3>
+                <p style={{ fontSize: 13.5 }}>
+                  Rename <strong>"{editFor.name}"</strong> to <strong>"{renameValue.trim()}"</strong>?
+                  {editFor.member_count > 0
+                    ? ` This affects ${editFor.member_count} farmer${editFor.member_count === 1 ? '' : 's'} — they'll all show the new name the moment you proceed.`
+                    : ' No farmers are in this cluster yet.'}
                 </p>
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-                  <button className="btn btn-ghost" disabled={deleting} onClick={() => setDeleteFor(null)}>Cancel</button>
-                  <button className="btn btn-primary" disabled={deleting} onClick={() => confirmDelete()}>
-                    {deleting ? <span className="spin" /> : 'Delete'}
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={renameAgreed} onChange={(e) => setRenameAgreed(e.target.checked)} />
+                  I agree, rename this cluster
+                </label>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+                  <button className="btn btn-ghost" disabled={renaming} onClick={() => setEditStep('menu')}>Back</button>
+                  <button className="btn btn-primary" disabled={!renameAgreed || renaming} onClick={saveRename}>
+                    {renaming ? <span className="spin" /> : 'Proceed'}
                   </button>
                 </div>
               </>
-            ) : (
+            )}
+
+            {editStep === 'confirm-delete' && (
               <>
-                <p className="muted" style={{ fontSize: 13.5 }}>
-                  {deleteFor.member_count} farmer{deleteFor.member_count === 1 ? '' : 's'} {deleteFor.member_count === 1 ? 'is' : 'are'} still in this cluster.
-                  Choose what happens to {deleteFor.member_count === 1 ? 'them' : 'them'} before it moves to Trash.
+                <h3 style={{ marginTop: 0 }}>Confirm delete</h3>
+                {editFor.member_count > 0 && (
+                  <>
+                    <p style={{ fontSize: 13.5 }}>
+                      {editFor.member_count} farmer{editFor.member_count === 1 ? '' : 's'} {editFor.member_count === 1 ? 'is' : 'are'} still in
+                      "{editFor.name}". Choose what happens to {editFor.member_count === 1 ? 'them' : 'them'}:
+                    </p>
+                    <div className="field">
+                      <label>Move farmers to</label>
+                      <select className="input" value={reassignTo} onChange={(e) => setReassignTo(e.target.value)}>
+                        <option value="">— leave them unassigned —</option>
+                        {otherClusters.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+                  </>
+                )}
+                <p style={{ fontSize: 13.5 }}>
+                  {editFor.member_count === 0 && 'This cluster has no farmers. '}
+                  It'll move to Trash and can be restored within 5 days — after that it's gone for good.
                 </p>
-                <div className="field">
-                  <label>Move farmers to</label>
-                  <select className="input" value={reassignTo} onChange={(e) => setReassignTo(e.target.value)}>
-                    <option value="">— leave them unassigned —</option>
-                    {otherClusters.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-                  <button className="btn btn-ghost" disabled={deleting} onClick={() => setDeleteFor(null)}>Cancel</button>
-                  <button className="btn btn-primary" disabled={deleting}
-                    onClick={() => confirmDelete(reassignTo ? { reassignToClusterId: reassignTo } : { unassign: true })}>
-                    {deleting ? <span className="spin" /> : reassignTo ? 'Move & delete' : 'Unassign & delete'}
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={deleteAgreed} onChange={(e) => setDeleteAgreed(e.target.checked)} />
+                  I agree, delete this cluster
+                </label>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+                  <button className="btn btn-ghost" disabled={deleting} onClick={() => setEditStep('menu')}>Back</button>
+                  <button className="btn btn-primary" disabled={!deleteAgreed || deleting} onClick={confirmDelete}>
+                    {deleting ? <span className="spin" /> : 'Proceed'}
                   </button>
                 </div>
               </>
