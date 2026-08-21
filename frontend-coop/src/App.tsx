@@ -1,10 +1,64 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { coopApi, setToken, getToken, kes, ApiError } from './api';
-import type { Cluster, Farmer, Product, Loan, CoopProfile, InboxMessage, CaptureTypeState, LedgerFarmer, AudienceGroup, OutreachLogItem } from './api';
+import type { Cluster, Farmer, Product, Loan, CoopProfile, InboxMessage, CaptureTypeState, LedgerFarmer, AudienceGroup, OutreachLogItem, TrashedCluster, MemberNoPattern } from './api';
 import logo from './assets/grofunder-logo.png';
 
 type Tab = 'overview' | 'clusters' | 'farmers' | 'products' | 'approvals' | 'messages' | 'settings' | string;
+
+/* ---------- Cooperative theming ----------
+ * A cooperative picks one accent color; the rest (a darker shade for the
+ * sidebar/hover states, a light tint for focus rings) is derived so Settings
+ * only ever needs a single color picker. Falls back to Grofunder's own
+ * green when a cooperative hasn't set one. */
+const DEFAULT_ACCENT = '#09AF0F';
+
+function hexToRgb(hex: string): [number, number, number] | null {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function mix(c: [number, number, number], target: [number, number, number], amount: number): [number, number, number] {
+  return [0, 1, 2].map((i) => Math.round(c[i] + (target[i] - c[i]) * amount)) as [number, number, number];
+}
+function toHex(c: [number, number, number]): string {
+  return '#' + c.map((x) => Math.max(0, Math.min(255, x)).toString(16).padStart(2, '0')).join('');
+}
+function luma([r, g, b]: [number, number, number]): number {
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+}
+
+// Restricted to exactly 3 for this testing phase — no custom picker, no
+// other presets. Widen this list later once branding is out of testing.
+const THEME_PRESETS = [
+  { name: 'Grofunder green', hex: '#09AF0F' },
+  { name: 'Light blue', hex: '#5B9BD5' },
+  { name: 'Light purple', hex: '#9B7FC7' },
+];
+
+function applyCoopTheme(hex: string | null | undefined) {
+  const base = hexToRgb(hex ?? '') ?? hexToRgb(DEFAULT_ACCENT)!;
+  const black: [number, number, number] = [0, 0, 0];
+  const white: [number, number, number] = [255, 255, 255];
+  const root = document.documentElement.style;
+
+  // The sidebar carries white text on top of this, so it must stay dark
+  // enough to read regardless of what's picked — a light gold or pastel
+  // shouldn't need extra darkening by hand. Mixing toward black scales luma
+  // linearly, so solve for the blend that guarantees a safe max brightness,
+  // never going lighter than a sensible minimum darkening (0.42) even for
+  // already-dark colors, so the hue still reads as "theirs" rather than near-black.
+  const baseLuma = luma(base);
+  const targetLuma = 88; // ~out of 255; comfortably dark enough for white text
+  const neededBlend = baseLuma > 0 ? 1 - targetLuma / baseLuma : 0.9;
+  const deepBlend = Math.max(0.42, Math.min(0.92, neededBlend));
+
+  root.setProperty('--coop-accent', toHex(base));
+  root.setProperty('--coop-accent-deep', toHex(mix(base, black, deepBlend)));
+  root.setProperty('--coop-accent-tint', toHex(mix(base, white, 0.90)));
+  root.setProperty('--coop-accent-pale', toHex(mix(base, white, 0.62)));
+}
 
 export default function App() {
   const [authed, setAuthed] = useState(!!getToken());
@@ -166,6 +220,10 @@ function Portal({ onSignOut }: { onSignOut: () => void }) {
   const [tab, setTab] = useState<Tab>('overview');
   const [unread, setUnread] = useState(0);
   const [captureTypes, setCaptureTypes] = useState<CaptureTypeState[]>([]);
+  const [profile, setProfile] = useState<CoopProfile | null>(null);
+  const refreshProfile = useCallback(() => {
+    coopApi.myProfile().then(setProfile).catch(() => {});
+  }, []);
   const refreshUnread = useCallback(() => {
     coopApi.inboxUnread().then((r) => setUnread(r.count)).catch(() => {});
   }, []);
@@ -174,6 +232,10 @@ function Portal({ onSignOut }: { onSignOut: () => void }) {
   }, []);
   useEffect(() => { refreshUnread(); const t = setInterval(refreshUnread, 60000); return () => clearInterval(t); }, [refreshUnread]);
   useEffect(() => { refreshCapture(); }, [refreshCapture]);
+  useEffect(() => { refreshProfile(); }, [refreshProfile]);
+  // Re-applies the moment the coop saves a new color in Settings, too —
+  // profile is the single source of truth for the whole shell's theme.
+  useEffect(() => { applyCoopTheme(profile?.theme_color); }, [profile?.theme_color]);
 
   const enabledCapture = captureTypes.filter((c) => c.enabled);
 
@@ -198,6 +260,7 @@ function Portal({ onSignOut }: { onSignOut: () => void }) {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand"><img src={logo} alt="grofunder" /></div>
+        {profile?.name && <div className="coop-name">{profile.name}</div>}
         <div className="tagline">Growing farmers, growing wealth</div>
         <nav className="nav">
           {nav.map(([t, ico, label]) => (
@@ -220,7 +283,7 @@ function Portal({ onSignOut }: { onSignOut: () => void }) {
         {tab === 'approvals' && <Approvals />}
         {tab === 'outreach' && <Outreach />}
         {tab === 'messages' && <Inbox onRead={refreshUnread} />}
-        {tab === 'settings' && <Settings captureTypes={captureTypes} onCaptureChange={refreshCapture} />}
+        {tab === 'settings' && <Settings captureTypes={captureTypes} onCaptureChange={refreshCapture} onProfileChange={refreshProfile} />}
         {activeCapture && <CaptureLedger key={activeCapture.type} meta={activeCapture} />}
       </main>
     </div>
@@ -291,6 +354,20 @@ function Clusters() {
   const [members, setMembers] = useState<Farmer[]>([]);
   const [chosen, setChosen] = useState('');
   const [savingHead, setSavingHead] = useState(false);
+  // Rename state
+  const [renameFor, setRenameFor] = useState<Cluster | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renaming, setRenaming] = useState(false);
+  // Delete state — null decision means "not yet chosen"; a cluster with
+  // members needs an explicit reassign-or-unassign choice before deleting.
+  const [deleteFor, setDeleteFor] = useState<Cluster | null>(null);
+  const [reassignTo, setReassignTo] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  // Trash
+  const [trashOpen, setTrashOpen] = useState(false);
+  const [trash, setTrash] = useState<TrashedCluster[]>([]);
+  const [trashLoading, setTrashLoading] = useState(false);
+  const [restoringId, setRestoringId] = useState('');
 
   const load = useCallback(() => {
     coopApi.clusters().then((c) => setClusters(c.data)).catch(() => {}).finally(() => setLoading(false));
@@ -324,9 +401,71 @@ function Clusters() {
     finally { setSavingHead(false); }
   }
 
+  function openRename(c: Cluster) {
+    setErr(''); setOk(''); setRenameFor(c); setRenameValue(c.name);
+  }
+  async function saveRename() {
+    if (!renameFor) return;
+    const trimmed = renameValue.trim();
+    if (!trimmed || trimmed === renameFor.name) { setRenameFor(null); return; }
+    setRenaming(true); setErr('');
+    try {
+      await coopApi.renameCluster(renameFor.id, trimmed);
+      setOk(`Renamed "${renameFor.name}" to "${trimmed}". It now shows the new name everywhere — including every farmer in it.`);
+      setRenameFor(null); load();
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not rename cluster'); }
+    finally { setRenaming(false); }
+  }
+
+  function openDelete(c: Cluster) {
+    setErr(''); setOk(''); setDeleteFor(c); setReassignTo('');
+  }
+  async function confirmDelete(decision?: { reassignToClusterId?: string; unassign?: boolean }) {
+    if (!deleteFor) return;
+    setDeleting(true); setErr('');
+    try {
+      const res = await coopApi.deleteCluster(deleteFor.id, decision);
+      if (res.deleted) {
+        const moved = res.deleted.reassignedTo
+          ? ` Its ${res.deleted.memberCount} farmer${res.deleted.memberCount === 1 ? '' : 's'} moved to "${res.deleted.reassignedTo}".`
+          : res.deleted.memberCount > 0
+          ? ` Its ${res.deleted.memberCount} farmer${res.deleted.memberCount === 1 ? '' : 's'} are now unassigned.`
+          : '';
+        setOk(`"${res.deleted.name}" moved to Trash — restorable for 5 days.${moved}`);
+        setDeleteFor(null); load();
+      } else if (res.needsDecision) {
+        // Rare race: someone joined this cluster after the list loaded. Switch
+        // the modal into the reassignment view with the real, current count.
+        setDeleteFor((f) => f ? { ...f, member_count: res.needsDecision!.memberCount } : f);
+        setErr(`This cluster now has ${res.needsDecision.memberCount} farmer${res.needsDecision.memberCount === 1 ? '' : 's'} — choose where they go.`);
+      }
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not delete cluster'); }
+    finally { setDeleting(false); }
+  }
+
+  function openTrash() {
+    setTrashOpen(true); setTrashLoading(true); setErr(''); setOk('');
+    coopApi.clusterTrash().then((r) => setTrash(r.data)).catch(() => setErr('Could not load trash')).finally(() => setTrashLoading(false));
+  }
+  async function restore(id: string) {
+    setRestoringId(id); setErr('');
+    try {
+      const r = await coopApi.restoreCluster(id);
+      setOk(`"${r.name}" restored.`);
+      setTrash((t) => t.filter((x) => x.id !== id));
+      load();
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not restore — it may already be permanently removed'); }
+    finally { setRestoringId(''); }
+  }
+
+  const otherClusters = clusters.filter((c) => c.id !== deleteFor?.id);
+
   return (
     <>
-      <div className="page-head"><div><div className="h1">Clusters</div><div className="sub">The groups your cooperative is organised into</div></div></div>
+      <div className="page-head">
+        <div><div className="h1">Clusters</div><div className="sub">The groups your cooperative is organised into</div></div>
+        <button className="btn btn-ghost btn-sm" onClick={openTrash}>Trash</button>
+      </div>
       {err && <div className="err">{err}</div>}{ok && <div className="ok">{ok}</div>}
       <div className="card">
         <div className="card-body">
@@ -355,6 +494,10 @@ function Clusters() {
                   <button className="btn btn-ghost btn-sm" disabled={c.member_count === 0} onClick={() => openPicker(c)}>
                     {c.head_farmer_id ? 'Change head' : 'Appoint head'}
                   </button>
+                  {' '}
+                  <button className="btn btn-ghost btn-sm" onClick={() => openRename(c)}>Rename</button>
+                  {' '}
+                  <button className="btn btn-ghost btn-sm" onClick={() => openDelete(c)}>Delete</button>
                 </td>
               </tr>
             ))}</tbody>
@@ -387,6 +530,102 @@ function Clusters() {
           </div>
         </div>
       )}
+
+      {renameFor && (
+        <div className="modal-backdrop" onClick={() => setRenameFor(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>Rename cluster</h3>
+            <div className="field">
+              <label>New name</label>
+              <input className="input" value={renameValue} onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && saveRename()} autoFocus />
+            </div>
+            <p className="muted" style={{ fontSize: 13 }}>
+              {renameFor.member_count > 0
+                ? `This affects ${renameFor.member_count} farmer${renameFor.member_count === 1 ? '' : 's'} — they'll all show "${renameValue.trim() || renameFor.name}" as their cluster the moment you save.`
+                : 'No farmers are in this cluster yet.'}
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+              <button className="btn btn-ghost" onClick={() => setRenameFor(null)}>Cancel</button>
+              <button className="btn btn-primary" disabled={!renameValue.trim() || renaming} onClick={saveRename}>
+                {renaming ? <span className="spin" /> : 'Rename'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteFor && (
+        <div className="modal-backdrop" onClick={() => !deleting && setDeleteFor(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>Delete "{deleteFor.name}"</h3>
+            {deleteFor.member_count === 0 ? (
+              <>
+                <p className="muted" style={{ fontSize: 13.5 }}>
+                  This cluster has no farmers. It'll move to Trash and can be restored within 5 days — after that it's gone for good.
+                </p>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+                  <button className="btn btn-ghost" disabled={deleting} onClick={() => setDeleteFor(null)}>Cancel</button>
+                  <button className="btn btn-primary" disabled={deleting} onClick={() => confirmDelete()}>
+                    {deleting ? <span className="spin" /> : 'Delete'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="muted" style={{ fontSize: 13.5 }}>
+                  {deleteFor.member_count} farmer{deleteFor.member_count === 1 ? '' : 's'} {deleteFor.member_count === 1 ? 'is' : 'are'} still in this cluster.
+                  Choose what happens to {deleteFor.member_count === 1 ? 'them' : 'them'} before it moves to Trash.
+                </p>
+                <div className="field">
+                  <label>Move farmers to</label>
+                  <select className="input" value={reassignTo} onChange={(e) => setReassignTo(e.target.value)}>
+                    <option value="">— leave them unassigned —</option>
+                    {otherClusters.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+                  <button className="btn btn-ghost" disabled={deleting} onClick={() => setDeleteFor(null)}>Cancel</button>
+                  <button className="btn btn-primary" disabled={deleting}
+                    onClick={() => confirmDelete(reassignTo ? { reassignToClusterId: reassignTo } : { unassign: true })}>
+                    {deleting ? <span className="spin" /> : reassignTo ? 'Move & delete' : 'Unassign & delete'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {trashOpen && (
+        <div className="modal-backdrop" onClick={() => setTrashOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>Trash</h3>
+            <p className="muted" style={{ fontSize: 13 }}>Deleted clusters stay here for 5 days, then they're permanently removed.</p>
+            {trashLoading ? <div className="empty"><span className="spin" /></div> : trash.length === 0 ? (
+              <div className="empty">Nothing in the trash.</div>
+            ) : (
+              <table>
+                <thead><tr><th>Name</th><th>Days left</th><th style={{ textAlign: 'right' }}>Action</th></tr></thead>
+                <tbody>{trash.map((t) => (
+                  <tr key={t.id}>
+                    <td style={{ fontWeight: 500 }}>{t.name}</td>
+                    <td className="muted">{t.days_remaining}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button className="btn btn-ghost btn-sm" disabled={restoringId === t.id} onClick={() => restore(t.id)}>
+                        {restoringId === t.id ? <span className="spin" /> : 'Restore'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+              <button className="btn btn-ghost" onClick={() => setTrashOpen(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -398,27 +637,80 @@ function Farmers() {
   const [form, setForm] = useState({ fullName: '', clusterName: '', phone: '', nationalId: '', coopMemberNo: '' });
   const [err, setErr] = useState(''); const [ok, setOk] = useState('');
   const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true);
+  // Member-number suggestion — prefilled from the cooperative's numbering
+  // pattern (manual prefix or detected from existing records), always editable.
+  const [suggestedMemberNo, setSuggestedMemberNo] = useState<string | null>(null);
+  const [memberNoPrefix, setMemberNoPrefix] = useState<string | null>(null);
+  const memberNoWasSuggested = useRef(false);
+
+  const refreshSuggestion = useCallback(() => {
+    coopApi.nextMemberNo().then((p) => {
+      setSuggestedMemberNo(p.suggested);
+      setMemberNoPrefix(p.prefix);
+      // Only auto-fill if the field is empty or still holds our last suggestion
+      // (never overwrite something the coop typed themselves).
+      setForm((s) => {
+        if (s.coopMemberNo === '' || memberNoWasSuggested.current) {
+          memberNoWasSuggested.current = !!p.suggested;
+          return { ...s, coopMemberNo: p.suggested ?? '' };
+        }
+        return s;
+      });
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => { refreshSuggestion(); }, [refreshSuggestion]);
   // CSV import state
   const [importErrors, setImportErrors] = useState<{ row: number; message: string }[]>([]);
   const [importMsg, setImportMsg] = useState('');
   const [importing, setImporting] = useState(false);
   // Complete-registration modal state
   const [editing, setEditing] = useState<Farmer | null>(null);
+  const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState(''); const [editId, setEditId] = useState('');
+  const [editMemberNo, setEditMemberNo] = useState('');
   const [editErr, setEditErr] = useState(''); const [savingEdit, setSavingEdit] = useState(false);
 
-  useEffect(() => { if (editing) { setEditPhone(''); setEditId(''); setEditErr(''); } }, [editing]);
+  // If the cooperative has an established prefix (set manually, or detected
+  // from other farmers) and this farmer's number either starts with it or is
+  // simply blank, the edit box only ever shows/edits the digits — the prefix
+  // is fixed context, not something to retype or risk mistyping. Falls back
+  // to a plain full-text box for a farmer whose number doesn't match the
+  // current prefix (e.g. an older, differently-formatted number).
+  const editSplit = (() => {
+    if (!memberNoPrefix) return null;
+    const current = editing?.coop_member_no ?? '';
+    if (current && !current.startsWith(memberNoPrefix)) return null;
+    return { prefix: memberNoPrefix, digits: current.slice(memberNoPrefix.length) };
+  })();
+
+  // Pre-fill with what's on record, so the coop can see AND correct it.
+  useEffect(() => {
+    if (editing) {
+      setEditName(editing.full_name ?? '');
+      setEditPhone(editing.phone ?? '');
+      setEditId(editing.national_id ?? '');
+      setEditMemberNo(editSplit ? editSplit.digits : (editing.coop_member_no ?? ''));
+      setEditErr('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing]);
 
   async function saveComplete() {
     if (!editing) return;
     setEditErr(''); setSavingEdit(true);
     try {
-      const fields: { phone?: string; nationalId?: string } = {};
-      if (!editing.phone && editPhone.trim()) fields.phone = editPhone.trim();
-      if (!editing.national_id && editId.trim()) fields.nationalId = editId.trim();
-      if (!fields.phone && !fields.nationalId) { setEditErr('Enter the missing detail to save.'); setSavingEdit(false); return; }
+      // Send only what actually changed. When the field is prefix-locked,
+      // rejoin prefix + digits into the one string the backend expects.
+      const newMemberNo = editSplit ? (editMemberNo.trim() ? editSplit.prefix + editMemberNo.trim() : '') : editMemberNo.trim();
+      const fields: { fullName?: string; phone?: string; nationalId?: string; coopMemberNo?: string } = {};
+      if (editName.trim() !== (editing.full_name ?? '')) fields.fullName = editName.trim();
+      if (editPhone.trim() !== (editing.phone ?? '')) fields.phone = editPhone.trim();
+      if (editId.trim() !== (editing.national_id ?? '')) fields.nationalId = editId.trim();
+      if (newMemberNo !== (editing.coop_member_no ?? '')) fields.coopMemberNo = newMemberNo;
+      if (Object.keys(fields).length === 0) { setEditing(null); setSavingEdit(false); return; }
       await coopApi.updateFarmer(editing.id, fields);
-      setEditing(null); load();
+      setEditing(null); load(); refreshSuggestion();
     } catch (e) { setEditErr(e instanceof ApiError ? e.message : 'Could not save'); }
     finally { setSavingEdit(false); }
   }
@@ -437,6 +729,8 @@ function Farmers() {
     try {
       await coopApi.addFarmer(form.fullName.trim(), form.clusterName, form.phone.trim() || undefined, form.nationalId.trim() || undefined, form.coopMemberNo.trim() || undefined);
       setOk(`${form.fullName} added`); setForm((s) => ({ ...s, fullName: '', phone: '', nationalId: '', coopMemberNo: '' })); load();
+      memberNoWasSuggested.current = false;
+      refreshSuggestion();
     } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not add farmer'); }
     finally { setBusy(false); }
   }
@@ -499,7 +793,15 @@ function Farmers() {
               </div>
               <div className="field"><label>Phone</label><input className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="0712 345 678" /></div>
               <div className="field"><label>National ID</label><input className="input" value={form.nationalId} onChange={(e) => setForm({ ...form, nationalId: e.target.value })} placeholder="12345678" /></div>
-              <div className="field"><label>Member no. (optional)</label><input className="input" value={form.coopMemberNo} onChange={(e) => setForm({ ...form, coopMemberNo: e.target.value })} placeholder="ORD-001" /></div>
+              <div className="field">
+                <label>Member no. {suggestedMemberNo ? '' : '(optional)'}</label>
+                <input className="input" value={form.coopMemberNo}
+                  onChange={(e) => { memberNoWasSuggested.current = false; setForm({ ...form, coopMemberNo: e.target.value }); }}
+                  placeholder="ORD-001" />
+                {suggestedMemberNo && form.coopMemberNo === suggestedMemberNo && (
+                  <span className="hint">Suggested from your numbering pattern — edit if this one's wrong.</span>
+                )}
+              </div>
               <button className="btn btn-primary" disabled={busy || !form.fullName.trim()} onClick={add}>Add farmer</button>
             </div>
           )}
@@ -517,6 +819,7 @@ function Farmers() {
               Upload a CSV to register many farmers at once. Include a header row with a <strong>Name</strong> column, and optionally
               {' '}<strong>Cluster</strong>, <strong>Phone</strong>, <strong>National ID</strong>, and <strong>Member no</strong>.
               Import whatever you have now — records without a phone or ID come in as <em>incomplete</em>, and you can fill in the rest later.
+              {' '}Rows with no member number get one automatically, continuing your existing numbering (set this in Settings, or leave it to be detected).
             </p>
             <input className="input" type="file" accept=".csv" disabled={importing}
               onChange={(e) => { onImportFile(e.target.files?.[0] ?? null); e.target.value = ''; }} />
@@ -539,17 +842,19 @@ function Farmers() {
           <div className="empty">No farmers yet.</div>
         ) : (
           <table>
-            <thead><tr><th>Name</th><th>Member no.</th><th>Status</th><th>Credit limit</th><th style={{ textAlign: 'right' }}>Action</th></tr></thead>
+            <thead><tr><th>Name</th><th>Phone</th><th>Cluster</th><th>Member no.</th><th>Status</th><th>Credit limit</th><th style={{ textAlign: 'right' }}>Action</th></tr></thead>
             <tbody>{farmers.map((f) => (
               <tr key={f.id}>
                 <td style={{ fontWeight: 500 }}>{f.full_name}</td>
+                <td>{f.phone ?? <span className="muted">—</span>}</td>
+                <td className="muted">{f.cluster_name ?? '—'}</td>
                 <td className="muted">{f.coop_member_no ?? '—'}</td>
                 <td>{f.registration_complete
                   ? <span className="chip chip-green">Complete</span>
                   : <span className="chip chip-amber">Needs {[!f.phone && 'phone', !f.national_id && 'ID'].filter(Boolean).join(' + ')}</span>}</td>
-                <td>{f.credit_limit_cents != null ? kes(f.credit_limit_cents) : <span className="muted">not yet set</span>}</td>
+                <td>{f.credit_limit_cents ? kes(f.credit_limit_cents) : <span className="muted">not yet set</span>}</td>
                 <td style={{ textAlign: 'right' }}>
-                  {!f.registration_complete && <button className="btn btn-ghost btn-sm" onClick={() => setEditing(f)}>Complete</button>}
+                  <button className="btn btn-ghost btn-sm" onClick={() => setEditing(f)}>View</button>
                 </td>
               </tr>
             ))}</tbody>
@@ -560,18 +865,63 @@ function Farmers() {
       {editing && (
         <div className="modal-backdrop" onClick={() => setEditing(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0 }}>Complete {editing.full_name}'s registration</h3>
-            <p className="muted" style={{ fontSize: 13 }}>Add the missing details. A farmer needs a phone and national ID before they can access loans.</p>
+            <h3 style={{ marginTop: 0 }}>Edit farmer</h3>
+            <p className="muted" style={{ fontSize: 13, marginTop: -4 }}>
+              {editing.cluster_name ?? 'No cluster'}
+              {editing.registration_complete
+                ? ' · Registration complete'
+                : ` · Needs ${[!editing.phone && 'phone', !editing.national_id && 'ID'].filter(Boolean).join(' + ')} before loans`}
+            </p>
             {editErr && <div className="err">{editErr}</div>}
-            {!editing.phone && (
-              <div className="field"><label>Phone</label><input className="input" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="0712 345 678" /></div>
-            )}
-            {!editing.national_id && (
-              <div className="field"><label>National ID</label><input className="input" value={editId} onChange={(e) => setEditId(e.target.value)} placeholder="12345678" /></div>
-            )}
+
+            <div className="field">
+              <label>Full name</label>
+              <input className="input" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="e.g. Jane Achieng" />
+            </div>
+            <div className="field">
+              <label>Phone</label>
+              <input className="input" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="0712 345 678" />
+            </div>
+            <div className="field">
+              <label>National ID</label>
+              <input className="input" value={editId} onChange={(e) => setEditId(e.target.value)} placeholder="12345678" />
+            </div>
+            <div className="field">
+              <label>Member no.</label>
+              {editSplit ? (
+                <div style={{ display: 'flex', alignItems: 'stretch' }}>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', padding: '0 10px', borderRadius: '10px 0 0 10px',
+                    background: 'var(--g-tint2)', border: '1px solid var(--line)', borderRight: 'none',
+                    color: 'var(--mut)', fontSize: 14, whiteSpace: 'nowrap',
+                  }}>
+                    {editSplit.prefix}
+                  </div>
+                  <input
+                    className="input"
+                    style={{ borderRadius: '0 10px 10px 0' }}
+                    value={editMemberNo}
+                    onChange={(e) => setEditMemberNo(e.target.value)}
+                    placeholder="003"
+                  />
+                </div>
+              ) : (
+                <input className="input" value={editMemberNo} onChange={(e) => setEditMemberNo(e.target.value)} placeholder="ORD-001" />
+              )}
+              {memberNoPrefix && !editSplit && (
+                <span className="hint">Doesn't match your cooperative's prefix ({memberNoPrefix}) — editing the full value.</span>
+              )}
+            </div>
+            <div className="field">
+              <label>Credit limit</label>
+              <div className="muted" style={{ fontSize: 14, paddingTop: 4 }}>
+                {editing.credit_limit_cents ? kes(editing.credit_limit_cents) : 'Not yet set by Grofunder'}
+              </div>
+            </div>
+
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-              <button className="btn btn-ghost" onClick={() => setEditing(null)}>Cancel</button>
-              <button className="btn btn-primary" disabled={savingEdit} onClick={saveComplete}>{savingEdit ? <span className="spin" /> : 'Save'}</button>
+              <button className="btn btn-ghost" onClick={() => setEditing(null)}>Close</button>
+              <button className="btn btn-primary" disabled={savingEdit || !editName.trim()} onClick={saveComplete}>{savingEdit ? <span className="spin" /> : 'Save changes'}</button>
             </div>
           </div>
         </div>
@@ -657,7 +1007,7 @@ function Approvals() {
               <tr key={f.id}>
                 <td style={{ fontWeight: 500 }}>{f.full_name}</td>
                 <td className="muted">{f.cluster_name ?? '—'}</td>
-                <td>{f.credit_limit_cents != null ? kes(f.credit_limit_cents) : <span className="muted">not yet set</span>}</td>
+                <td>{f.credit_limit_cents ? kes(f.credit_limit_cents) : <span className="muted">not yet set</span>}</td>
               </tr>
             ))}</tbody>
           </table>
@@ -674,7 +1024,7 @@ function Approvals() {
 export type { Loan };
 
 /* ---------- Settings: primary contacts ---------- */
-function Settings({ captureTypes, onCaptureChange }: { captureTypes: CaptureTypeState[]; onCaptureChange: () => void }) {
+function Settings({ captureTypes, onCaptureChange, onProfileChange }: { captureTypes: CaptureTypeState[]; onCaptureChange: () => void; onProfileChange: () => void }) {
   const [profile, setProfile] = useState<CoopProfile | null>(null);
   const [togglingType, setTogglingType] = useState('');
   const [name, setName] = useState('');
@@ -683,13 +1033,29 @@ function Settings({ captureTypes, onCaptureChange }: { captureTypes: CaptureType
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(''); const [ok, setOk] = useState('');
+  // Member-number prefix
+  const [memberNoPrefix, setMemberNoPrefix] = useState('');
+  const [savingPrefix, setSavingPrefix] = useState(false);
+  const [preview, setPreview] = useState<MemberNoPattern | null>(null);
+  // Branding
+  const [themeColor, setThemeColor] = useState(DEFAULT_ACCENT);
+  const [savingTheme, setSavingTheme] = useState(false);
+  const lastSavedTheme = useRef(DEFAULT_ACCENT);
+
+  const loadPreview = useCallback(() => {
+    coopApi.nextMemberNo().then(setPreview).catch(() => {});
+  }, []);
 
   useEffect(() => {
     coopApi.myProfile().then((p) => {
       setProfile(p);
       setName(p.contact_name ?? ''); setPhone(p.contact_phone ?? ''); setEmail(p.contact_email ?? '');
+      setMemberNoPrefix(p.member_no_prefix ?? '');
+      setThemeColor(p.theme_color ?? DEFAULT_ACCENT);
+      lastSavedTheme.current = p.theme_color ?? DEFAULT_ACCENT;
     }).catch(() => setErr('Could not load your cooperative profile')).finally(() => setLoading(false));
-  }, []);
+    loadPreview();
+  }, [loadPreview]);
 
   async function save() {
     setBusy(true); setErr(''); setOk('');
@@ -701,6 +1067,66 @@ function Settings({ captureTypes, onCaptureChange }: { captureTypes: CaptureType
       setErr(e instanceof ApiError ? e.message : 'Could not save');
     } finally { setBusy(false); }
   }
+
+  async function savePrefix() {
+    setSavingPrefix(true); setErr(''); setOk('');
+    try {
+      const r = await coopApi.updateMemberNoPrefix(memberNoPrefix.trim() || null);
+      setMemberNoPrefix(r.member_no_prefix ?? '');
+      setOk(r.member_no_prefix
+        ? `New member numbers will now start with "${r.member_no_prefix}".`
+        : 'Cleared — member numbers will go back to being detected from your existing records.');
+      loadPreview();
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Could not save');
+    } finally { setSavingPrefix(false); }
+  }
+
+  async function saveTheme(color: string) {
+    setSavingTheme(true); setErr(''); setOk('');
+    try {
+      const r = await coopApi.updateTheme(color);
+      setProfile((p) => p ? { ...p, theme_color: r.theme_color } : p);
+      lastSavedTheme.current = r.theme_color ?? DEFAULT_ACCENT;
+      setOk('Saved — that\u2019s now live across the portal for everyone at your cooperative.');
+      onProfileChange();
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Could not save');
+      applyCoopTheme(lastSavedTheme.current); // the preview got ahead of reality — pull it back
+    } finally { setSavingTheme(false); }
+  }
+
+  async function resetTheme() {
+    setThemeColor(DEFAULT_ACCENT);
+    setSavingTheme(true); setErr(''); setOk('');
+    try {
+      await coopApi.updateTheme(null);
+      setProfile((p) => p ? { ...p, theme_color: null } : p);
+      lastSavedTheme.current = DEFAULT_ACCENT;
+      setOk('Back to the default Grofunder green.');
+      onProfileChange();
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Could not save');
+    } finally { setSavingTheme(false); }
+  }
+
+  // Live preview: apply instantly to the real sidebar/buttons as they pick,
+  // so what they see while choosing is exactly what they'll get — no mockup,
+  // no guessing from a hex code. Picking is cheap; only Save persists it.
+  function previewTheme(color: string) {
+    setThemeColor(color);
+    applyCoopTheme(color);
+  }
+
+  // Leaving Settings (tab switch, sign-out) without saving reverts the live
+  // preview back to what's actually on record, so nothing *looks* saved that
+  // isn't — the rest of the app shouldn't be left showing an unsaved pick.
+  // (Cleanup must run only on unmount, not on every pick — hence the ref.)
+  const themeColorRef = useRef(themeColor);
+  useEffect(() => { themeColorRef.current = themeColor; }, [themeColor]);
+  useEffect(() => () => {
+    if (themeColorRef.current !== lastSavedTheme.current) applyCoopTheme(lastSavedTheme.current);
+  }, []);
 
   if (loading) return <div className="empty"><span className="spin" /></div>;
 
@@ -734,6 +1160,73 @@ function Settings({ captureTypes, onCaptureChange }: { captureTypes: CaptureType
           </div>
           <button className="btn btn-primary" disabled={busy} onClick={save}>
             {busy ? <span className="spin" /> : 'Save contacts'}
+          </button>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-head"><h3>Branding</h3></div>
+        <div className="card-body">
+          <p className="muted" style={{ fontSize: 13.5, marginBottom: 18 }}>
+            Pick a color and watch the sidebar on the left change right now — that's exactly what your farmers'
+            officers and staff will see. Nothing saves until you click "Save color".
+          </p>
+
+          <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+            {THEME_PRESETS.map((p) => (
+              <button
+                key={p.hex}
+                onClick={() => previewTheme(p.hex)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', cursor: 'pointer',
+                  borderRadius: 10, background: '#fff',
+                  border: themeColor.toUpperCase() === p.hex ? '2px solid var(--ink)' : '1px solid var(--line)',
+                }}
+              >
+                <span style={{ width: 22, height: 22, borderRadius: 6, background: p.hex, flexShrink: 0 }} />
+                <span style={{ fontSize: 13.5, fontWeight: themeColor.toUpperCase() === p.hex ? 600 : 400 }}>{p.name}</span>
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontWeight: 500, fontSize: 13.5 }}>{profile?.name}</div>
+              <div className="muted" style={{ fontSize: 12, fontFamily: 'monospace' }}>{themeColor.toUpperCase()}</div>
+            </div>
+            <button className="btn btn-primary btn-sm" disabled={savingTheme || themeColor === lastSavedTheme.current} onClick={() => saveTheme(themeColor)}>
+              {savingTheme ? <span className="spin" /> : 'Save color'}
+            </button>
+            {profile?.theme_color && (
+              <button className="btn btn-ghost btn-sm" disabled={savingTheme} onClick={resetTheme}>
+                Reset to Grofunder green
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-head"><h3>Member numbers</h3></div>
+        <div className="card-body">
+          <p className="muted" style={{ fontSize: 13.5, marginBottom: 18 }}>
+            Set a prefix and new farmers get their member number suggested automatically — e.g. "GFA-OFCS" gives
+            {' '}GFA-OFCS101, GFA-OFCS102, and so on. Leave this blank and Grofunder will detect a pattern from your
+            existing records instead.
+          </p>
+          <div className="field">
+            <label>Member number prefix</label>
+            <input className="input" value={memberNoPrefix} onChange={(e) => setMemberNoPrefix(e.target.value)} placeholder="e.g. GFA-OFCS" />
+            {preview && (
+              <span className="hint">
+                {preview.source === 'MANUAL' && preview.suggested && `Next up: ${preview.suggested}`}
+                {preview.source === 'DETECTED' && preview.suggested && `Detected from your records — next up: ${preview.suggested}`}
+                {preview.source === 'NONE' && 'No pattern yet — the first member number you set will start one.'}
+              </span>
+            )}
+          </div>
+          <button className="btn btn-primary" disabled={savingPrefix} onClick={savePrefix}>
+            {savingPrefix ? <span className="spin" /> : 'Save prefix'}
           </button>
         </div>
       </div>

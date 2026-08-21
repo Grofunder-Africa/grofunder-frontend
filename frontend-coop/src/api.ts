@@ -35,6 +35,7 @@ export const api = {
   post: <T>(p: string, b?: unknown) => request<T>('POST', p, b),
   patch: <T>(p: string, b?: unknown) => request<T>('PATCH', p, b),
   put: <T>(p: string, b?: unknown) => request<T>('PUT', p, b),
+  del: <T>(p: string, b?: unknown) => request<T>('DELETE', p, b),
 };
 
 export interface Cluster { id: string; name: string; head_farmer_id: string | null; head_name?: string | null; member_count: number }
@@ -57,14 +58,21 @@ export const coopApi = {
   addCluster: (name: string) => api.post<Cluster>('/clusters', { name }),
   appointHead: (clusterId: string, farmerId: string) =>
     api.patch<Cluster>(`/clusters/${clusterId}/head`, { farmerId }),
+  renameCluster: (clusterId: string, name: string) =>
+    api.patch<Cluster>(`/clusters/${clusterId}`, { name }),
+  deleteCluster: (clusterId: string, decision?: { reassignToClusterId?: string; unassign?: boolean }) =>
+    api.del<DeleteClusterResult>(`/clusters/${clusterId}`, decision),
+  clusterTrash: () => api.get<{ data: TrashedCluster[] }>('/clusters/trash'),
+  restoreCluster: (clusterId: string) => api.post<Cluster>(`/clusters/${clusterId}/restore`, {}),
 
   farmers: (clusterId?: string) => api.get<{ data: Farmer[] }>(`/farmers${clusterId ? `?cluster_id=${clusterId}` : ''}`),
   addFarmer: (fullName: string, clusterName: string, phone?: string, nationalId?: string, coopMemberNo?: string) =>
     api.post<Farmer>('/farmers', { fullName, clusterName, phone, nationalId, coopMemberNo }),
-  updateFarmer: (id: string, fields: { phone?: string; nationalId?: string; coopMemberNo?: string; clusterName?: string }) =>
+  updateFarmer: (id: string, fields: { fullName?: string; phone?: string; nationalId?: string; coopMemberNo?: string; clusterName?: string }) =>
     api.patch<Farmer>(`/farmers/${id}`, fields),
   importFarmers: (rows: Record<string, string>[]) =>
     api.post<{ imported: number; errors: { row: number; message: string }[] }>('/farmers/import', { rows }),
+  nextMemberNo: () => api.get<MemberNoPattern>('/farmers/next-member-no'),
 
   products: () => api.get<{ data: Product[] }>('/products'),
   addProduct: (name: string, rateCentsPerKg: number, season?: string) =>
@@ -75,6 +83,10 @@ export const coopApi = {
   myProfile: () => api.get<CoopProfile>('/cooperatives/me'),
   updateContacts: (c: { contactName?: string; contactPhone?: string; contactEmail?: string }) =>
     api.patch<{ contact_name: string | null; contact_phone: string | null; contact_email: string | null }>('/cooperatives/me/contacts', c),
+  updateMemberNoPrefix: (prefix: string | null) =>
+    api.patch<{ member_no_prefix: string | null }>('/cooperatives/me/member-number-prefix', { prefix }),
+  updateTheme: (color: string | null) =>
+    api.patch<{ theme_color: string | null }>('/cooperatives/me/theme', { color }),
 
   inbox: () => api.get<{ data: InboxMessage[] }>('/inbox'),
   inboxUnread: () => api.get<{ count: number }>('/inbox/unread'),
@@ -107,6 +119,18 @@ export function kes(cents: number | null | undefined): string {
 export interface CoopProfile {
   id: string; name: string; slug: string; county: string | null; status: string; entity_type: string;
   contact_name: string | null; contact_phone: string | null; contact_email: string | null;
+  member_no_prefix: string | null; theme_color: string | null;
+}
+
+export interface DeleteClusterResult {
+  needsDecision?: { memberCount: number; otherClusters: { id: string; name: string }[] };
+  deleted?: { id: string; name: string; reassignedTo: string | null; memberCount: number };
+}
+export interface TrashedCluster {
+  id: string; name: string; member_count: number; deleted_at: string; days_remaining: number;
+}
+export interface MemberNoPattern {
+  prefix: string | null; suggested: string | null; source: 'MANUAL' | 'DETECTED' | 'NONE';
 }
 
 export interface InboxMessage {

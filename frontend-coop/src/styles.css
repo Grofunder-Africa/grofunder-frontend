@@ -7,6 +7,10 @@
 
 :root {
   --g: #09AF0F; --g-deep: #0B7A10; --g-ink: #14251A; --g-tint: #EBF7EB; --g-tint2: #F1F8F1;
+  /* Cooperative accent — defaults match Grofunder's own green so nothing
+     shifts until a coop actually picks a color. Set at runtime by App.tsx
+     once the cooperative's profile loads (see applyCoopTheme). */
+  --coop-accent: #09AF0F; --coop-accent-deep: #0B7A10; --coop-accent-tint: #EBF7EB; --coop-accent-pale: #A7DBA9;
   --amber: #E8A33D; --amber-tint: #FFF7EB; --amber-line: #F3E2C4; --amber-ink: #96702F;
   --blue: #3D6E96; --blue-tint: #EEF6FC; --blue-line: #CFE3F2; --blue-ink: #1E5B87;
   --clay: #B5433E; --clay-tint: #FBF0F0; --clay-line: #F0D4D4; --clay-ink: #A0524E;
@@ -30,17 +34,18 @@ body { font-family: var(--sans); background: var(--paper); color: var(--ink); fo
 
 /* Shell */
 .shell { display: flex; min-height: 100vh; }
-.sidebar { width: 230px; flex-shrink: 0; background: var(--g-deep); color: #fff; padding: 26px 0 22px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+.sidebar { width: 230px; flex-shrink: 0; background: var(--coop-accent-deep); color: #fff; padding: 26px 0 22px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; transition: background 0.2s ease; }
 .brand { margin: 0 22px; background: #fff; border-radius: 11px; padding: 12px 15px; display: flex; align-items: center; }
 .brand img { height: 22px; width: auto; display: block; }
-.tagline { margin: 11px 24px 26px; font-family: var(--serif); font-style: italic; font-weight: 300; font-size: 11px; color: #A7DBA9; letter-spacing: 0.01em; }
+.coop-name { margin: 14px 22px 2px; font-family: var(--serif); font-weight: 600; font-size: 17px; line-height: 1.28; color: #fff; letter-spacing: -0.01em; }
+.tagline { margin: 5px 24px 24px; font-family: var(--serif); font-style: italic; font-weight: 300; font-size: 11px; color: var(--coop-accent-pale); letter-spacing: 0.01em; }
 .nav { display: flex; flex-direction: column; gap: 2px; padding: 0 14px; }
-.nav button { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: none; border: none; cursor: pointer; font-family: var(--sans); font-size: 13.5px; font-weight: 300; color: #C9E9CA; padding: 10px 13px; border-radius: var(--radius-sm); transition: background 0.14s ease, color 0.14s ease; }
+.nav button { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: none; border: none; cursor: pointer; font-family: var(--sans); font-size: 13.5px; font-weight: 300; color: var(--coop-accent-pale); padding: 10px 13px; border-radius: var(--radius-sm); transition: background 0.14s ease, color 0.14s ease; }
 .nav button:hover { background: rgba(255,255,255,0.08); color: #fff; }
 .nav button.active { background: rgba(255,255,255,0.16); color: #fff; font-weight: 500; }
 .nav .ico { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; }
 .sidebar-foot { margin-top: auto; padding: 0 24px; }
-.sidebar-foot .who { font-size: 11px; color: #A7DBA9; margin-bottom: 10px; letter-spacing: 0.03em; }
+.sidebar-foot .who { font-size: 11px; color: var(--coop-accent-pale); margin-bottom: 10px; letter-spacing: 0.03em; }
 .btn-signout { background: rgba(255,255,255,0.12); color: #fff; border: none; border-radius: var(--radius-sm); padding: 8px 14px; font-family: var(--sans); font-size: 12.5px; cursor: pointer; transition: background 0.14s; }
 .btn-signout:hover { background: rgba(255,255,255,0.2); }
 .main { flex: 1; padding: 36px 40px; max-width: 1120px; }
@@ -74,10 +79,10 @@ body { font-family: var(--sans); background: var(--paper); color: var(--ink); fo
 /* Buttons */
 .btn { font-family: var(--sans); font-size: 13.5px; font-weight: 500; border: 0.5px solid transparent; border-radius: var(--radius-sm); padding: 9px 18px; cursor: pointer; transition: all 0.14s ease; display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
 .btn:disabled { opacity: 0.5; cursor: default; }
-.btn-primary { background: var(--g); color: #fff; }
-.btn-primary:hover:not(:disabled) { background: var(--g-deep); }
+.btn-primary { background: var(--coop-accent); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--coop-accent-deep); }
 .btn-ghost { background: #fff; color: var(--ink); border-color: var(--line); }
-.btn-ghost:hover:not(:disabled) { border-color: var(--g); color: var(--g-deep); }
+.btn-ghost:hover:not(:disabled) { border-color: var(--coop-accent); color: var(--coop-accent-deep); }
 .btn-blue { background: var(--blue); color: #fff; }
 .btn-blue:hover:not(:disabled) { background: var(--blue-ink); }
 .btn-danger { background: #fff; color: var(--clay); border-color: var(--clay-line); }
@@ -99,7 +104,7 @@ body { font-family: var(--sans); background: var(--paper); color: var(--ink); fo
 .field { margin-bottom: 15px; }
 .field label { display: block; font-size: 12px; font-weight: 500; color: var(--mut); margin-bottom: 6px; letter-spacing: 0.01em; }
 .input { width: 100%; font-family: var(--sans); font-size: 14px; color: var(--ink); background: #fff; border: 0.5px solid var(--line); border-radius: var(--radius-sm); padding: 10px 13px; transition: border 0.14s, box-shadow 0.14s; }
-.input:focus { outline: none; border-color: var(--g); box-shadow: 0 0 0 3px var(--g-tint); }
+.input:focus { outline: none; border-color: var(--coop-accent); box-shadow: 0 0 0 3px var(--coop-accent-tint); }
 select.input { cursor: pointer; }
 .inline-form { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
 .inline-form .field { margin-bottom: 0; flex: 1; min-width: 130px; }
