@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { coopApi, setToken, getToken, kes, ApiError } from './api';
-import type { Cluster, Farmer, Product, Loan, CoopProfile, InboxMessage, CaptureTypeState, LedgerFarmer, AudienceGroup, OutreachLogItem, TrashedCluster, MemberNoPattern } from './api';
+import type { Cluster, Farmer, Product, Loan, CoopProfile, InboxMessage, CaptureTypeState, LedgerFarmer, AudienceGroup, OutreachLogItem, TrashedCluster, MemberNoPattern, TrashedFarmer } from './api';
 import logo from './assets/grofunder-logo.png';
 
 type Tab = 'overview' | 'clusters' | 'farmers' | 'products' | 'approvals' | 'messages' | 'settings' | string;
@@ -728,6 +728,13 @@ function Farmers() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteAgreed, setDeleteAgreed] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // Trash — no purge/expiry here (unlike clusters): farmers stay recoverable
+  // indefinitely, since a loan or capture record cascading away with a hard
+  // delete would be a real, hard-to-undo mistake.
+  const [trashOpen, setTrashOpen] = useState(false);
+  const [trash, setTrash] = useState<TrashedFarmer[]>([]);
+  const [trashLoading, setTrashLoading] = useState(false);
+  const [restoringId, setRestoringId] = useState('');
 
   // If the cooperative has an established prefix (set manually, or detected
   // from other farmers) and this farmer's number either starts with it or is
@@ -785,6 +792,21 @@ function Farmers() {
       setEditErr(e instanceof ApiError ? e.message : 'Could not delete');
       setShowDeleteConfirm(false); // back to the main view so the error is visible next to the fields, not stranded on a confirm screen
     } finally { setDeleting(false); }
+  }
+
+  function openTrash() {
+    setTrashOpen(true); setTrashLoading(true); setErr(''); setOk('');
+    coopApi.farmerTrash().then((r) => setTrash(r.data)).catch(() => setErr('Could not load trash')).finally(() => setTrashLoading(false));
+  }
+  async function restore(id: string) {
+    setRestoringId(id); setErr('');
+    try {
+      const r = await coopApi.restoreFarmer(id);
+      setOk(`"${r.full_name}" restored.`);
+      setTrash((t) => t.filter((x) => x.id !== id));
+      load(); refreshSuggestion();
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not restore'); }
+    finally { setRestoringId(''); }
   }
 
   const load = useCallback(() => {
@@ -848,7 +870,10 @@ function Farmers() {
 
   return (
     <>
-      <div className="page-head"><div><div className="h1">Farmers</div><div className="sub">Everyone registered under your cooperative</div></div></div>
+      <div className="page-head">
+        <div><div className="h1">Farmers</div><div className="sub">Everyone registered under your cooperative</div></div>
+        <button className="btn btn-ghost btn-sm" onClick={openTrash}>Trash</button>
+      </div>
       {err && <div className="err">{err}</div>}{ok && <div className="ok">{ok}</div>}
       <div className="card">
         <div className="card-head"><h3>Register a farmer</h3></div>
@@ -1030,6 +1055,40 @@ function Farmers() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {trashOpen && (
+        <div className="modal-backdrop" onClick={() => setTrashOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>Trash</h3>
+            <p className="muted" style={{ fontSize: 13 }}>
+              Deleted farmers stay here indefinitely — nothing is ever permanently removed automatically, since
+              loan history and other records are tied to them. Restore anyone who was deleted by mistake.
+            </p>
+            {trashLoading ? <div className="empty"><span className="spin" /></div> : trash.length === 0 ? (
+              <div className="empty">Nothing in the trash.</div>
+            ) : (
+              <table>
+                <thead><tr><th>Name</th><th>Member no.</th><th>Deleted</th><th style={{ textAlign: 'right' }}>Action</th></tr></thead>
+                <tbody>{trash.map((t) => (
+                  <tr key={t.id}>
+                    <td style={{ fontWeight: 500 }}>{t.full_name}</td>
+                    <td className="muted">{t.coop_member_no ?? '—'}</td>
+                    <td className="muted">{t.deleted_at}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button className="btn btn-ghost btn-sm" disabled={restoringId === t.id} onClick={() => restore(t.id)}>
+                        {restoringId === t.id ? <span className="spin" /> : 'Restore'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+              <button className="btn btn-ghost" onClick={() => setTrashOpen(false)}>Close</button>
+            </div>
           </div>
         </div>
       )}
