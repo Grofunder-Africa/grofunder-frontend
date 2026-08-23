@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { coopApi, setToken, getToken, kes, ApiError } from './api';
-import type { Cluster, Farmer, Product, Loan, CoopProfile, InboxMessage, CaptureTypeState, LedgerFarmer, AudienceGroup, OutreachLogItem, TrashedCluster, MemberNoPattern, TrashedFarmer } from './api';
+import type { Cluster, Farmer, Product, Loan, CoopProfile, InboxMessage, CaptureTypeState, LedgerFarmer, AudienceGroup, OutreachLogItem, TrashedCluster, MemberNoPattern, TrashedFarmer, TrashedEntry } from './api';
 import logo from './assets/grofunder-logo.png';
 
 type Tab = 'overview' | 'clusters' | 'farmers' | 'products' | 'approvals' | 'messages' | 'settings' | string;
@@ -1504,6 +1504,18 @@ function CaptureLedger({ meta }: { meta: CaptureTypeState }) {
   const [entryDate, setEntryDate] = useState(today);
   const [amount, setAmount] = useState('');
   const [saving, setSaving] = useState(false);
+  // Delete — a lighter inline confirm rather than a full modal, since this is
+  // a small, frequent action on a single dated entry, not "delete a cluster"
+  // or "delete a farmer". Still requires a deliberate second click though —
+  // never a single click away from gone. Fully recoverable either way (trash
+  // below), same as everywhere else in the app.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Trash
+  const [trashOpen, setTrashOpen] = useState(false);
+  const [trash, setTrash] = useState<TrashedEntry[]>([]);
+  const [trashLoading, setTrashLoading] = useState(false);
+  const [restoringId, setRestoringId] = useState('');
 
   const load = useCallback(() => {
     setLoading(true);
@@ -1533,9 +1545,35 @@ function CaptureLedger({ meta }: { meta: CaptureTypeState }) {
     finally { setSaving(false); }
   }
 
+  async function confirmDelete(id: string) {
+    setDeletingId(id); setErr('');
+    try {
+      await coopApi.deleteEntry(meta.type, id);
+      setConfirmDeleteId(null); load();
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not delete entry'); }
+    finally { setDeletingId(null); }
+  }
+
+  function openTrash() {
+    setTrashOpen(true); setTrashLoading(true); setErr('');
+    coopApi.entryTrash(meta.type).then((r) => setTrash(r.data)).catch(() => setErr('Could not load trash')).finally(() => setTrashLoading(false));
+  }
+  async function restore(id: string) {
+    setRestoringId(id); setErr('');
+    try {
+      await coopApi.restoreEntry(meta.type, id);
+      setTrash((t) => t.filter((x) => x.id !== id));
+      load();
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not restore'); }
+    finally { setRestoringId(''); }
+  }
+
   return (
     <>
-      <div className="page-head"><div><div className="h1">{meta.label}</div><div className="sub">Record {meta.label.toLowerCase()} per farmer — entries add up over time</div></div></div>
+      <div className="page-head">
+        <div><div className="h1">{meta.label}</div><div className="sub">Record {meta.label.toLowerCase()} per farmer — entries add up over time</div></div>
+        <button className="btn btn-ghost btn-sm" onClick={openTrash}>Trash</button>
+      </div>
       {err && <div className="err">{err}</div>}
       {loading ? <div className="empty"><span className="spin" /></div> : rows.length === 0 ? (
         <div className="empty">No farmers yet. Register farmers first, then record their {meta.label.toLowerCase()} here.</div>
@@ -1551,7 +1589,35 @@ function CaptureLedger({ meta }: { meta: CaptureTypeState }) {
                   {f.entries.length === 0 ? <span className="muted">No entries yet</span> : (
                     <div className="entry-chips">
                       {f.entries.map((e) => (
-                        <span key={e.id} className="entry-chip">{e.entry_date} · {fmt(e.amount_units)}</span>
+                        confirmDeleteId === e.id ? (
+                          <span key={e.id} className="entry-chip" style={{ background: 'var(--clay-tint)', color: 'var(--clay-ink)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            Delete this entry?
+                            <button
+                              disabled={deletingId === e.id}
+                              onClick={() => confirmDelete(e.id)}
+                              style={{ border: 'none', background: 'var(--clay)', color: '#fff', borderRadius: 4, fontSize: 11, padding: '2px 7px', cursor: 'pointer' }}
+                            >
+                              {deletingId === e.id ? '…' : 'Yes'}
+                            </button>
+                            <button
+                              onClick={() => setConfirmDeleteId(null)}
+                              style={{ border: '1px solid var(--clay-line)', background: 'none', color: 'var(--clay-ink)', borderRadius: 4, fontSize: 11, padding: '2px 7px', cursor: 'pointer' }}
+                            >
+                              No
+                            </button>
+                          </span>
+                        ) : (
+                          <span key={e.id} className="entry-chip">
+                            {e.entry_date} · {fmt(e.amount_units)}
+                            <button
+                              title="Delete this entry"
+                              onClick={() => setConfirmDeleteId(e.id)}
+                              style={{ marginLeft: 6, border: 'none', background: 'none', color: 'var(--mut)', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1, verticalAlign: 'middle' }}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        )
                       ))}
                     </div>
                   )}
@@ -1573,6 +1639,39 @@ function CaptureLedger({ meta }: { meta: CaptureTypeState }) {
               </tr>
             ))}</tbody>
           </table>
+        </div>
+      )}
+
+      {trashOpen && (
+        <div className="modal-backdrop" onClick={() => setTrashOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>Trash — {meta.label}</h3>
+            <p className="muted" style={{ fontSize: 13 }}>
+              Deleted entries stay here indefinitely — nothing is ever permanently removed automatically.
+            </p>
+            {trashLoading ? <div className="empty"><span className="spin" /></div> : trash.length === 0 ? (
+              <div className="empty">Nothing in the trash.</div>
+            ) : (
+              <table>
+                <thead><tr><th>Farmer</th><th>Date</th><th style={{ textAlign: 'right' }}>Amount</th><th style={{ textAlign: 'right' }}>Action</th></tr></thead>
+                <tbody>{trash.map((t) => (
+                  <tr key={t.id}>
+                    <td style={{ fontWeight: 500 }}>{t.full_name}</td>
+                    <td className="muted">{t.entry_date}</td>
+                    <td style={{ textAlign: 'right' }}>{fmt(t.amount_units)}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button className="btn btn-ghost btn-sm" disabled={restoringId === t.id} onClick={() => restore(t.id)}>
+                        {restoringId === t.id ? <span className="spin" /> : 'Restore'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+              <button className="btn btn-ghost" onClick={() => setTrashOpen(false)}>Close</button>
+            </div>
+          </div>
         </div>
       )}
     </>

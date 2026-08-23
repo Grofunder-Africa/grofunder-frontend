@@ -106,6 +106,9 @@ export const coopApi = {
   ledger: (type: string) => api.get<{ data: LedgerFarmer[] }>(`/capture/${type}/ledger`),
   addEntry: (type: string, farmerId: string, entryDate: string, amount: number) =>
     api.post<{ id: string }>(`/capture/${type}/entries`, { farmerId, entryDate, amount }),
+  deleteEntry: (type: string, id: string) => api.del<{ id: string }>(`/capture/${type}/entries/${id}`),
+  entryTrash: (type: string) => api.get<{ data: TrashedEntry[] }>(`/capture/${type}/entries/trash`),
+  restoreEntry: (type: string, id: string) => api.post<{ id: string }>(`/capture/${type}/entries/${id}/restore`, {}),
 
   outreachAudiences: () => api.get<{ clusters: AudienceGroup[]; circles: AudienceGroup[] }>('/coop-messaging/audiences'),
   sendOutreach: (audience: string, body: string, audienceRef?: string) =>
@@ -152,6 +155,11 @@ export interface CaptureTypeState {
 export interface LedgerFarmer {
   farmer_id: string; full_name: string; cluster_name: string | null;
   total_units: number; entries: { id: string; entry_date: string; amount_units: number }[];
+}
+// No expiry field — capture entries are never auto-purged, same reasoning
+// as farmers: production/shares/savings history can factor into scoring.
+export interface TrashedEntry {
+  id: string; farmer_id: string; full_name: string; entry_date: string; amount_units: number; deleted_at: string;
 }
 export interface AudienceGroup { id: string; name: string; member_count: number; state?: string }
 export interface OutreachLogItem {
