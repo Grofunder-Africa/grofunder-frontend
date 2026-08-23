@@ -722,6 +722,12 @@ function Farmers() {
   const [editPhone, setEditPhone] = useState(''); const [editId, setEditId] = useState('');
   const [editMemberNo, setEditMemberNo] = useState('');
   const [editErr, setEditErr] = useState(''); const [savingEdit, setSavingEdit] = useState(false);
+  // Delete — same two-step "agree then proceed" pattern as clusters. Lives as
+  // a second view within the same modal, not a separate one, so it's still
+  // one obvious place to go for anything about a given farmer.
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteAgreed, setDeleteAgreed] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // If the cooperative has an established prefix (set manually, or detected
   // from other farmers) and this farmer's number either starts with it or is
@@ -744,6 +750,7 @@ function Farmers() {
       setEditId(editing.national_id ?? '');
       setEditMemberNo(editSplit ? editSplit.digits : (editing.coop_member_no ?? ''));
       setEditErr('');
+      setShowDeleteConfirm(false); setDeleteAgreed(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing]);
@@ -765,6 +772,19 @@ function Farmers() {
       setEditing(null); load(); refreshSuggestion();
     } catch (e) { setEditErr(e instanceof ApiError ? e.message : 'Could not save'); }
     finally { setSavingEdit(false); }
+  }
+
+  async function confirmDeleteFarmer() {
+    if (!editing) return;
+    setDeleting(true); setEditErr('');
+    try {
+      await coopApi.deleteFarmer(editing.id);
+      setEditing(null); load(); refreshSuggestion();
+    } catch (e) {
+      console.error('Delete farmer failed:', e);
+      setEditErr(e instanceof ApiError ? e.message : 'Could not delete');
+      setShowDeleteConfirm(false); // back to the main view so the error is visible next to the fields, not stranded on a confirm screen
+    } finally { setDeleting(false); }
   }
 
   const load = useCallback(() => {
@@ -915,66 +935,101 @@ function Farmers() {
       </div>
 
       {editing && (
-        <div className="modal-backdrop" onClick={() => setEditing(null)}>
+        <div className="modal-backdrop" onClick={() => !deleting && setEditing(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0 }}>Edit farmer</h3>
-            <p className="muted" style={{ fontSize: 13, marginTop: -4 }}>
-              {editing.cluster_name ?? 'No cluster'}
-              {editing.registration_complete
-                ? ' · Registration complete'
-                : ` · Needs ${[!editing.phone && 'phone', !editing.national_id && 'ID'].filter(Boolean).join(' + ')} before loans`}
-            </p>
-            {editErr && <div className="err">{editErr}</div>}
+            {!showDeleteConfirm ? (
+              <>
+                <h3 style={{ marginTop: 0 }}>Edit farmer</h3>
+                <p className="muted" style={{ fontSize: 13, marginTop: -4 }}>
+                  {editing.cluster_name ?? 'No cluster'}
+                  {editing.registration_complete
+                    ? ' · Registration complete'
+                    : ` · Needs ${[!editing.phone && 'phone', !editing.national_id && 'ID'].filter(Boolean).join(' + ')} before loans`}
+                </p>
+                {editErr && <div className="err">{editErr}</div>}
 
-            <div className="field">
-              <label>Full name</label>
-              <input className="input" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="e.g. Jane Achieng" />
-            </div>
-            <div className="field">
-              <label>Phone</label>
-              <input className="input" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="0712 345 678" />
-            </div>
-            <div className="field">
-              <label>National ID</label>
-              <input className="input" value={editId} onChange={(e) => setEditId(e.target.value)} placeholder="12345678" />
-            </div>
-            <div className="field">
-              <label>Member no.</label>
-              {editSplit ? (
-                <div style={{ display: 'flex', alignItems: 'stretch' }}>
-                  <div style={{
-                    display: 'flex', alignItems: 'center', padding: '0 10px', borderRadius: '10px 0 0 10px',
-                    background: 'var(--g-tint2)', border: '1px solid var(--line)', borderRight: 'none',
-                    color: 'var(--mut)', fontSize: 14, whiteSpace: 'nowrap',
-                  }}>
-                    {editSplit.prefix}
-                  </div>
-                  <input
-                    className="input"
-                    style={{ borderRadius: '0 10px 10px 0' }}
-                    value={editMemberNo}
-                    onChange={(e) => setEditMemberNo(e.target.value)}
-                    placeholder="003"
-                  />
+                <div className="field">
+                  <label>Full name</label>
+                  <input className="input" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="e.g. Jane Achieng" />
                 </div>
-              ) : (
-                <input className="input" value={editMemberNo} onChange={(e) => setEditMemberNo(e.target.value)} placeholder="ORD-001" />
-              )}
-              {memberNoPrefix && !editSplit && (
-                <span className="hint">Doesn't match your cooperative's prefix ({memberNoPrefix}) — editing the full value.</span>
-              )}
-            </div>
-            <div className="field">
-              <label>Credit limit</label>
-              <div className="muted" style={{ fontSize: 14, paddingTop: 4 }}>
-                {editing.credit_limit_cents ? kes(editing.credit_limit_cents) : 'Not yet set by Grofunder'}
-              </div>
-            </div>
+                <div className="field">
+                  <label>Phone</label>
+                  <input className="input" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="0712 345 678" />
+                </div>
+                <div className="field">
+                  <label>National ID</label>
+                  <input className="input" value={editId} onChange={(e) => setEditId(e.target.value)} placeholder="12345678" />
+                </div>
+                <div className="field">
+                  <label>Member no.</label>
+                  {editSplit ? (
+                    <div style={{ display: 'flex', alignItems: 'stretch' }}>
+                      <div style={{
+                        display: 'flex', alignItems: 'center', padding: '0 10px', borderRadius: '10px 0 0 10px',
+                        background: 'var(--g-tint2)', border: '1px solid var(--line)', borderRight: 'none',
+                        color: 'var(--mut)', fontSize: 14, whiteSpace: 'nowrap',
+                      }}>
+                        {editSplit.prefix}
+                      </div>
+                      <input
+                        className="input"
+                        style={{ borderRadius: '0 10px 10px 0' }}
+                        value={editMemberNo}
+                        onChange={(e) => setEditMemberNo(e.target.value)}
+                        placeholder="003"
+                      />
+                    </div>
+                  ) : (
+                    <input className="input" value={editMemberNo} onChange={(e) => setEditMemberNo(e.target.value)} placeholder="ORD-001" />
+                  )}
+                  {memberNoPrefix && !editSplit && (
+                    <span className="hint">Doesn't match your cooperative's prefix ({memberNoPrefix}) — editing the full value.</span>
+                  )}
+                </div>
+                <div className="field">
+                  <label>Credit limit</label>
+                  <div className="muted" style={{ fontSize: 14, paddingTop: 4 }}>
+                    {editing.credit_limit_cents ? kes(editing.credit_limit_cents) : 'Not yet set by Grofunder'}
+                  </div>
+                </div>
 
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-              <button className="btn btn-ghost" onClick={() => setEditing(null)}>Close</button>
-              <button className="btn btn-primary" disabled={savingEdit || !editName.trim()} onClick={saveComplete}>{savingEdit ? <span className="spin" /> : 'Save changes'}</button>
-            </div>
+                <div style={{ borderTop: '1px solid var(--line)', paddingTop: 16, marginTop: 4 }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--clay-ink)', marginBottom: 8 }}>Danger zone</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span className="muted" style={{ fontSize: 13 }}>Removes this farmer from your active records.</span>
+                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--clay-ink)', borderColor: 'var(--clay-line)' }}
+                      onClick={() => { setShowDeleteConfirm(true); setDeleteAgreed(false); setEditErr(''); }}>
+                      Delete…
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+                  <button className="btn btn-ghost" onClick={() => setEditing(null)}>Close</button>
+                  <button className="btn btn-primary" disabled={savingEdit || !editName.trim()} onClick={saveComplete}>{savingEdit ? <span className="spin" /> : 'Save changes'}</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 style={{ marginTop: 0 }}>Confirm delete</h3>
+                {editErr && <div className="err">{editErr}</div>}
+                <p style={{ fontSize: 13.5 }}>
+                  Delete <strong>{editing.full_name}</strong>? Their records aren't erased — loan history and past
+                  activity stay intact — but they'll no longer show up in your active farmer list, and they'll drop
+                  out of any cluster they're currently in.
+                </p>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={deleteAgreed} onChange={(e) => setDeleteAgreed(e.target.checked)} />
+                  I agree, delete this farmer
+                </label>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+                  <button className="btn btn-ghost" disabled={deleting} onClick={() => setShowDeleteConfirm(false)}>Back</button>
+                  <button className="btn btn-primary" disabled={!deleteAgreed || deleting} onClick={confirmDeleteFarmer}>
+                    {deleting ? <span className="spin" /> : 'Proceed'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -1085,6 +1140,12 @@ function Settings({ captureTypes, onCaptureChange, onProfileChange }: { captureT
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(''); const [ok, setOk] = useState('');
+  // Branding and Member numbers each get their own feedback state — they're
+  // separate cards on a long page, so sharing one message with "Primary
+  // contacts" at the top would either duplicate it three times over or leave
+  // it invisible wherever the person actually is on the page.
+  const [brandErr, setBrandErr] = useState(''); const [brandOk, setBrandOk] = useState('');
+  const [prefixErr, setPrefixErr] = useState(''); const [prefixOk, setPrefixOk] = useState('');
   // Member-number prefix
   const [memberNoPrefix, setMemberNoPrefix] = useState('');
   const [savingPrefix, setSavingPrefix] = useState(false);
@@ -1121,44 +1182,47 @@ function Settings({ captureTypes, onCaptureChange, onProfileChange }: { captureT
   }
 
   async function savePrefix() {
-    setSavingPrefix(true); setErr(''); setOk('');
+    setSavingPrefix(true); setPrefixErr(''); setPrefixOk('');
     try {
       const r = await coopApi.updateMemberNoPrefix(memberNoPrefix.trim() || null);
       setMemberNoPrefix(r.member_no_prefix ?? '');
-      setOk(r.member_no_prefix
+      setPrefixOk(r.member_no_prefix
         ? `New member numbers will now start with "${r.member_no_prefix}".`
         : 'Cleared — member numbers will go back to being detected from your existing records.');
       loadPreview();
     } catch (e) {
-      setErr(e instanceof ApiError ? e.message : 'Could not save');
+      console.error('Save member number prefix failed:', e);
+      setPrefixErr(e instanceof ApiError ? e.message : 'Could not save');
     } finally { setSavingPrefix(false); }
   }
 
   async function saveTheme(color: string) {
-    setSavingTheme(true); setErr(''); setOk('');
+    setSavingTheme(true); setBrandErr(''); setBrandOk('');
     try {
       const r = await coopApi.updateTheme(color);
       setProfile((p) => p ? { ...p, theme_color: r.theme_color } : p);
       lastSavedTheme.current = r.theme_color ?? DEFAULT_ACCENT;
-      setOk('Saved — that\u2019s now live across the portal for everyone at your cooperative.');
+      setBrandOk('Saved — that\u2019s now live across the portal for everyone at your cooperative.');
       onProfileChange();
     } catch (e) {
-      setErr(e instanceof ApiError ? e.message : 'Could not save');
+      console.error('Save theme color failed:', e);
+      setBrandErr(e instanceof ApiError ? e.message : 'Could not save');
       applyCoopTheme(lastSavedTheme.current); // the preview got ahead of reality — pull it back
     } finally { setSavingTheme(false); }
   }
 
   async function resetTheme() {
     setThemeColor(DEFAULT_ACCENT);
-    setSavingTheme(true); setErr(''); setOk('');
+    setSavingTheme(true); setBrandErr(''); setBrandOk('');
     try {
       await coopApi.updateTheme(null);
       setProfile((p) => p ? { ...p, theme_color: null } : p);
       lastSavedTheme.current = DEFAULT_ACCENT;
-      setOk('Back to the default Grofunder green.');
+      setBrandOk('Back to the default Grofunder green.');
       onProfileChange();
     } catch (e) {
-      setErr(e instanceof ApiError ? e.message : 'Could not save');
+      console.error('Reset theme color failed:', e);
+      setBrandErr(e instanceof ApiError ? e.message : 'Could not save');
     } finally { setSavingTheme(false); }
   }
 
@@ -1219,6 +1283,8 @@ function Settings({ captureTypes, onCaptureChange, onProfileChange }: { captureT
       <div className="card">
         <div className="card-head"><h3>Branding</h3></div>
         <div className="card-body">
+          {brandErr && <div className="err">{brandErr}</div>}
+          {brandOk && <div className="ok">{brandOk}</div>}
           <p className="muted" style={{ fontSize: 13.5, marginBottom: 18 }}>
             Pick a color and watch the sidebar on the left change right now — that's exactly what your farmers'
             officers and staff will see. Nothing saves until you click "Save color".
@@ -1261,6 +1327,8 @@ function Settings({ captureTypes, onCaptureChange, onProfileChange }: { captureT
       <div className="card">
         <div className="card-head"><h3>Member numbers</h3></div>
         <div className="card-body">
+          {prefixErr && <div className="err">{prefixErr}</div>}
+          {prefixOk && <div className="ok">{prefixOk}</div>}
           <p className="muted" style={{ fontSize: 13.5, marginBottom: 18 }}>
             Set a prefix and new farmers get their member number suggested automatically — e.g. "GFA-OFCS" gives
             {' '}GFA-OFCS101, GFA-OFCS102, and so on. Leave this blank and Grofunder will detect a pattern from your

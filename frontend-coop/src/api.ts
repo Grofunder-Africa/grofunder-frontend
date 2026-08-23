@@ -70,6 +70,7 @@ export const coopApi = {
     api.post<Farmer>('/farmers', { fullName, clusterName, phone, nationalId, coopMemberNo }),
   updateFarmer: (id: string, fields: { fullName?: string; phone?: string; nationalId?: string; coopMemberNo?: string; clusterName?: string }) =>
     api.patch<Farmer>(`/farmers/${id}`, fields),
+  deleteFarmer: (id: string) => api.del<{ ok: true; id: string; full_name: string }>(`/farmers/${id}`),
   importFarmers: (rows: Record<string, string>[]) =>
     api.post<{ imported: number; errors: { row: number; message: string }[] }>('/farmers/import', { rows }),
   nextMemberNo: () => api.get<MemberNoPattern>('/farmers/next-member-no'),
