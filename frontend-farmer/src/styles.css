@@ -138,6 +138,17 @@ h1, h2, h3, .brand { font-family: var(--serif); font-weight: 500; letter-spacing
 .pill .amt { font-size: 11px; color: var(--mut); margin-top: 2px; }
 .pill-active .amt { color: var(--g-dark); }
 
+/* Setup walkthrough — tappable option chips (crops, activities, income,
+   cluster-mates to tick, circle vouching) */
+.tick-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+.tick-chip {
+  border: 1.5px solid var(--line); border-radius: 20px; padding: 8px 14px;
+  background: #fff; font-family: inherit; font-size: 13px; cursor: pointer;
+  transition: all 0.12s ease;
+}
+.tick-chip-on { border-color: var(--g); background: var(--g-tint); color: var(--g-dark); font-weight: 600; }
+.tick-chip-row { display: block; width: 100%; text-align: left; border-radius: 10px; margin-bottom: 6px; }
+
 /* slider */
 .slider { width: 100%; -webkit-appearance: none; height: 6px; border-radius: 3px;
   background: var(--g-tint); outline: none; margin: 8px 0; }

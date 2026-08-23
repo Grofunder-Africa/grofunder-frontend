@@ -105,7 +105,40 @@ export const farmerApi = {
   createPost: (body: { imageBase64: string; contentType: string; caption?: string; toCluster: boolean; toCircle: boolean; toCooperative: boolean; toWebsite: boolean }) =>
     api.post<{ id: string; imageUrl: string; websiteStatus: string | null }>('/posts', body),
   deletePost: (id: string) => api.del<{ ok: boolean }>(`/posts/${id}`),
+
+  // Gro's walkthrough
+  onboardingStatus: () => api.get<OnboardingStatus>('/farmer-onboarding/status'),
+  confirmRecord: () => api.post<{ ok: boolean }>('/farmer-onboarding/confirm', {}),
+  raiseDiscrepancy: (field: string, details?: string) =>
+    api.post<{ id: string; status: string }>('/farmer-onboarding/discrepancies', { field, details }),
+  setEconomicProfile: (crops: string[], activities: string[], incomeFreq?: string) =>
+    api.post<{ ok: boolean }>('/farmer-onboarding/economic-profile', { crops, activities, incomeFreq }),
+  setHomeLocation: (lat: number, lng: number, text?: string) =>
+    api.put<{ ok: boolean }>('/farmer-onboarding/home-location', { lat, lng, text }),
+  myCircleStatus: () => api.get<MyCircleStatus>('/circles/my-circle'),
+  clusterMates: () => api.get<{ data: { id: string; fullName: string }[] }>('/circles/cluster-mates'),
+  createCircle: (name: string, memberFarmerIds: string[]) =>
+    api.post<{ circleId: string; state: string }>('/circles', { name, memberFarmerIds }),
+  submitVouches: (circleId: string, declineFarmerIds?: string[]) =>
+    api.post<{ state: string }>(`/circles/${circleId}/vouches`, { declineFarmerIds }),
 };
+
+export interface OnboardingStatus {
+  recordConfirmed: boolean;
+  hasEconomicProfile: boolean;
+  hasHomeLocation: boolean;
+  circleId: string | null;
+  circleState: string | null;
+}
+export interface MyCircleStatus {
+  hasCircle: boolean;
+  circle?: {
+    id: string; name: string; state: string; member_count: number;
+    confirmed_pairs: number; total_pairs: number;
+    isHead: boolean; myVouchDone: boolean;
+    members: { farmerId: string; fullName: string; isHead: boolean; myVouchStatus: string }[];
+  };
+}
 
 export interface FeedPost {
   id: string; author_name: string; is_mine: boolean;

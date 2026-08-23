@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { farmerApi, setToken, getToken, kes, ApiError } from './api';
-import type { ScoreInfo, FarmerRecord, Quote, Instalment, FarmerInboxMessage, CaptureRecord, FeedPost } from './api';
+import type { ScoreInfo, FarmerRecord, Quote, Instalment, FarmerInboxMessage, CaptureRecord, FeedPost, MyCircleStatus } from './api';
 import { Gro } from './Gro';
+import { Setup } from './Setup';
 import logo from './assets/grofunder-logo.png';
 
 /* SVG icons — replaces emoji, matching the grofunder visual identity. */
@@ -21,12 +22,39 @@ function Icon({ name }: { name: string }) {
   );
 }
 
-type Screen = 'signin' | 'home' | 'apply' | 'schedule' | 'messages' | 'records' | 'community';
+type Screen = 'signin' | 'setup' | 'home' | 'apply' | 'schedule' | 'messages' | 'records' | 'community';
+
+/** All of onboarding done? Record confirmed, home location + about-you set,
+ *  and in an ACTIVE circle. Anything short of that sends the farmer to Setup
+ *  instead of the main app, resuming exactly where they left off. */
+async function isFullySetUp(): Promise<boolean> {
+  try {
+    const s = await farmerApi.onboardingStatus();
+    return s.recordConfirmed && s.hasHomeLocation && s.hasEconomicProfile && !!s.circleId && s.circleState === 'ACTIVE';
+  } catch {
+    return true; // don't trap a farmer in Setup on a network hiccup — let Home's own error handling take over
+  }
+}
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>(getToken() ? 'home' : 'signin');
+  const [screen, setScreen] = useState<Screen>('signin');
+  const [checkingSetup, setCheckingSetup] = useState(!!getToken());
   const [activeLoanId, setActiveLoanId] = useState<string | null>(null);
   const [unread, setUnread] = useState(0);
+
+  // On load, a returning (already-signed-in) farmer resumes Setup if they
+  // dropped off mid-walkthrough, rather than always landing on Home.
+  useEffect(() => {
+    if (!getToken()) return;
+    isFullySetUp().then((done) => setScreen(done ? 'home' : 'setup')).finally(() => setCheckingSetup(false));
+  }, []);
+
+  async function afterSignIn() {
+    setCheckingSetup(true);
+    const done = await isFullySetUp();
+    setScreen(done ? 'home' : 'setup');
+    setCheckingSetup(false);
+  }
 
   const refreshUnread = useCallback(() => {
     if (!getToken()) return;
@@ -38,13 +66,19 @@ export default function App() {
     return () => clearInterval(t);
   }, [refreshUnread, screen]);
 
+  if (checkingSetup) {
+    return <div className="app"><div className="screen center" style={{ paddingTop: 100 }}><span className="spin" /></div></div>;
+  }
+
   return (
     <div className="app">
-      {screen === 'signin' && <SignIn onDone={() => setScreen('home')} />}
+      {screen === 'signin' && <SignIn onDone={afterSignIn} />}
+      {screen === 'setup' && <Setup onComplete={() => setScreen('home')} />}
       {screen === 'home' && (
         <Home
           onApply={() => setScreen('apply')}
           onSignOut={() => { setToken(null); setScreen('signin'); }}
+          onContinueSetup={() => setScreen('setup')}
         />
       )}
       {screen === 'apply' && (
@@ -56,7 +90,7 @@ export default function App() {
       {screen === 'messages' && <Messages onRead={refreshUnread} />}
       {screen === 'records' && <Records />}
       {screen === 'community' && <Community />}
-      {screen !== 'signin' && (
+      {screen !== 'signin' && screen !== 'setup' && (
         <nav className="tabbar">
           <button className={`tab ${screen === 'home' ? 'active' : ''}`} onClick={() => setScreen('home')}>
             <span className="dot"><Icon name="home" /></span>Home
@@ -158,11 +192,12 @@ function SignIn({ onDone }: { onDone: () => void }) {
 }
 
 /* ---------------- Home / dashboard ---------------- */
-function Home({ onApply, onSignOut }: {
-  onApply: () => void; onSignOut: () => void;
+function Home({ onApply, onSignOut, onContinueSetup }: {
+  onApply: () => void; onSignOut: () => void; onContinueSetup: () => void;
 }) {
   const [record, setRecord] = useState<FarmerRecord | null>(null);
   const [score, setScore] = useState<ScoreInfo | null>(null);
+  const [circle, setCircle] = useState<MyCircleStatus['circle'] | null>(null);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -171,6 +206,9 @@ function Home({ onApply, onSignOut }: {
     try {
       const [r, s] = await Promise.all([farmerApi.records(), farmerApi.score()]);
       setRecord(r); setScore(s);
+      // Circle status is used just for the Home banner — best-effort, not
+      // worth failing the whole dashboard load over.
+      farmerApi.myCircleStatus().then((cs) => setCircle(cs.hasCircle ? cs.circle ?? null : null)).catch(() => {});
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) { onSignOut(); return; }
       setErr(e instanceof ApiError ? e.message : 'Could not load your dashboard');
@@ -229,9 +267,26 @@ function Home({ onApply, onSignOut }: {
             <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>
               Your seed is planted
             </p>
-            <p className="muted" style={{ fontSize: 13 }}>
-              Once your Growth Circle is active, your first loan of up to {kes(500000)} opens up. Repay well and your limit grows.
-            </p>
+            {circle ? (
+              <>
+                <p className="muted" style={{ fontSize: 13 }}>
+                  {circle.name} is confirming: {circle.confirmed_pairs} of {circle.total_pairs} confirmations so far.
+                  Your first loan of up to {kes(500000)} opens the moment every member has confirmed every member.
+                </p>
+                <button className="btn-ghost" style={{ width: '100%', fontSize: 12.5, marginTop: 8 }} onClick={onContinueSetup}>
+                  View my circle
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="muted" style={{ fontSize: 13 }}>
+                  Once your Growth Circle is active, your first loan of up to {kes(500000)} opens up. Repay well and your limit grows.
+                </p>
+                <button className="btn-ghost" style={{ width: '100%', fontSize: 12.5, marginTop: 8 }} onClick={onContinueSetup}>
+                  Continue with Gro
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <div className="card">

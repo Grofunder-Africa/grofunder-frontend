@@ -32,3 +32,62 @@ export function Gro({ mood = 'happy' }: { mood?: 'happy' | 'celebrating' | 'enco
     </svg>
   );
 }
+
+/**
+ * Gro's script. Scripted, not AI (Master Build Document 5) — every line is a
+ * message key, so this is the one place Gro's voice lives and the one place
+ * a translator would work from. `default` is the EN/SW code-switched voice
+ * the mockup specifies; pure single-language variants can be added per key
+ * later without touching anything that calls GRO_LINES.
+ *
+ * Lines marked verbatim are taken directly from grofunder_farmer_app_mockup.html,
+ * not approximated — Melanie's own words, not a rewrite of them.
+ */
+export type GroMood = 'happy' | 'celebrating' | 'encouraging';
+export const GRO_LINES: Record<string, { text: string; mood: GroMood }> = {
+  // Explainer cards (verbatim from the mockup)
+  welcome: { text: "Sasa, I'm Gro — I'll walk with you. Kwanza, let me tell you what Grofunder is. Ready?", mood: 'happy' },
+  explainerWhat: { text: 'Grofunder ni nini? Simple: your cooperative already knows your harvests. We turn that history into credit — no collateral needed.', mood: 'happy' },
+  explainerProgress: { text: "And this is how you'll see your progress — your tree grows as you repay well, together with your circle, cluster, and cooperative.", mood: 'happy' },
+  explainerTogether: { text: "One more thing — the most important one. You never grow alone here. Your Growth Circle stands with you, and you with them.", mood: 'happy' },
+
+  // Record confirmation (verbatim)
+  recordConfirm: { text: "Vizuri! Here's what Orinde told us about you. Is this you?", mood: 'happy' },
+  recordFlagged: { text: 'Asante for telling me. Sent to your cooperative to fix — you can continue, but loan applications will wait until your records match.', mood: 'encouraging' },
+
+  // Home location (verbatim)
+  homeLocation: { text: 'Hongera Akinyi! Karibu. Now — where is home? This helps me know your community. Your circle only ever sees rough distance.', mood: 'celebrating' },
+
+  // About you (verbatim)
+  aboutCrops: { text: 'Asante! Sasa, tell me about yourself. What do you grow?', mood: 'happy' },
+  aboutActivities: { text: 'Do you earn from anything else? Kila kitu counts.', mood: 'happy' },
+  aboutIncome: { text: 'And money — how does it usually come in?', mood: 'happy' },
+
+  // Basics done (verbatim)
+  seedPlanted: { text: 'Your seed is planted. From here we grow together — mimi na wewe, kila wiki.', mood: 'celebrating' },
+
+  // Circle formation (paraphrased from the mockup's circle-FAQ copy)
+  circleIntro: { text: 'One last thing, and it matters most. Pick 5 to 10 farmers from your cluster you trust — your Growth Circle. You choose each other; no one joins without everyone\u2019s yes.', mood: 'happy' },
+  circleWaiting: { text: 'Hongera, Akinyi — your seed is planted. Your circle is confirming — your first loan opens the moment every member has confirmed every member.', mood: 'celebrating' },
+  circleVouch: { text: 'Someone started a circle with you in it. Take a look — stand with the members you trust.', mood: 'happy' },
+  circleContested: { text: "Some members haven't accepted everyone yet. Talk as a group — loans open once every member has confirmed every member.", mood: 'encouraging' },
+
+  // Closing (verbatim)
+  allDone: { text: "Hongera Akinyi! Tuko pamoja — we're in this together. Whenever it's hard, tell me, and we'll find a way.", mood: 'celebrating' },
+};
+
+/** Gro + his speech bubble, reusable anywhere he needs to say something. */
+export function GroSays({ line, children }: { line: keyof typeof GRO_LINES; children?: React.ReactNode }) {
+  const { text, mood } = GRO_LINES[line];
+  return (
+    <div className="gro-hero">
+      <div className="gro-scene">
+        <Gro mood={mood} />
+        <div className="gro-msg">
+          <p style={{ margin: 0 }}>{text}</p>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
