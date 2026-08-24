@@ -109,6 +109,8 @@ export const farmerApi = {
   // Gro's walkthrough
   onboardingStatus: () => api.get<OnboardingStatus>('/farmer-onboarding/status'),
   confirmRecord: () => api.post<{ ok: boolean }>('/farmer-onboarding/confirm', {}),
+  confirmNationalId: (nationalId: string) =>
+    api.post<{ verified: boolean; reason?: 'MISMATCH' | 'PENDING_VERIFICATION' }>('/farmer-onboarding/confirm-id', { nationalId }),
   raiseDiscrepancy: (field: string, details?: string) =>
     api.post<{ id: string; status: string }>('/farmer-onboarding/discrepancies', { field, details }),
   setEconomicProfile: (crops: string[], activities: string[], incomeFreq?: string) =>
@@ -125,6 +127,8 @@ export const farmerApi = {
 
 export interface OnboardingStatus {
   recordConfirmed: boolean;
+  idAttempted: boolean;
+  idVerified: boolean;
   hasEconomicProfile: boolean;
   hasHomeLocation: boolean;
   circleId: string | null;

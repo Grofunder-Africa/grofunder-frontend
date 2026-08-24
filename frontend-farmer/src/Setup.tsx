@@ -19,6 +19,7 @@ type Step =
   | 'loading'
   | 'welcome' | 'explainer1' | 'explainer2' | 'explainer3'
   | 'record'
+  | 'idConfirm'
   | 'location'
   | 'aboutCrops' | 'aboutActivities' | 'aboutIncome'
   | 'seedPlanted'
@@ -40,6 +41,9 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
   const [flagged, setFlagged] = useState(false);
   const [flagDetails, setFlagDetails] = useState('');
 
+  const [idInput, setIdInput] = useState('');
+  const [idResult, setIdResult] = useState<'MATCHED' | 'MISMATCH' | 'PENDING_VERIFICATION' | null>(null);
+
   const [locating, setLocating] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [locationText, setLocationText] = useState('');
@@ -59,6 +63,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
     try {
       const status = await farmerApi.onboardingStatus();
       if (!status.recordConfirmed) { setStep('welcome'); return; }
+      if (!status.idAttempted) { setStep('idConfirm'); return; }
       if (!status.hasHomeLocation) { setStep('location'); return; }
       if (!status.hasEconomicProfile) { setStep('aboutCrops'); return; }
       if (!status.circleId) {
@@ -89,7 +94,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
 
   async function confirmRecordYes() {
     setBusy(true); setErr('');
-    try { await farmerApi.confirmRecord(); setStep('location'); }
+    try { await farmerApi.confirmRecord(); setStep('idConfirm'); }
     catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not save'); }
     finally { setBusy(false); }
   }
@@ -100,6 +105,16 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
       await farmerApi.raiseDiscrepancy('record', flagDetails.trim() || undefined);
       setFlagged(true); setShowFlag(false);
     } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not send that'); }
+    finally { setBusy(false); }
+  }
+
+  async function submitIdConfirm() {
+    if (!idInput.trim()) { setErr('Enter your ID number.'); return; }
+    setBusy(true); setErr('');
+    try {
+      const r = await farmerApi.confirmNationalId(idInput.trim());
+      setIdResult(r.verified ? 'MATCHED' : (r.reason ?? 'MISMATCH'));
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not check that'); }
     finally { setBusy(false); }
   }
 
@@ -129,7 +144,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
   async function finishAboutYou() {
     setBusy(true); setErr('');
     try {
-      await farmerApi.setEconomicProfile(crops, activities, incomeFreq ?? undefined);
+      await farmerApi.setEconomicProfile(crops, activities, incomeFreq ? incomeFreq.toUpperCase() : undefined);
       setStep('seedPlanted');
     } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not save'); }
     finally { setBusy(false); }
@@ -243,6 +258,42 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
           <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={busy} onClick={confirmRecordYes}>
             {busy ? <span className="spin" /> : "Ndiyo, that's me"}
           </button>
+        </>
+      )}
+
+      {step === 'idConfirm' && (
+        <>
+          <GroSays line="idConfirm" />
+          {idResult === null && (
+            <>
+              <div className="card" style={{ marginTop: 12 }}>
+                <input
+                  className="input" inputMode="numeric" placeholder="Your ID number"
+                  value={idInput} onChange={(e) => setIdInput(e.target.value)}
+                />
+              </div>
+              <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={busy || !idInput.trim()} onClick={submitIdConfirm}>
+                {busy ? <span className="spin" /> : 'Endelea -- continue'}
+              </button>
+            </>
+          )}
+          {idResult === 'MATCHED' && (
+            <>
+              <div className="ok" style={{ marginTop: 12 }}>Vizuri! That matches.</div>
+              <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => setStep('location')}>Endelea -- continue</button>
+            </>
+          )}
+          {(idResult === 'MISMATCH' || idResult === 'PENDING_VERIFICATION') && (
+            <>
+              <div className="err" style={{ marginTop: 12 }}>
+                {idResult === 'MISMATCH'
+                  ? "That doesn't quite match what your cooperative has on file. I've told them so they can help you sort it out."
+                  : "Noted — your cooperative didn't have an ID on file yet, so I've sent them what you entered to confirm."}
+                {' '}You can keep going for now, but you'll need this fixed before applying for a loan.
+              </div>
+              <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => setStep('location')}>Endelea -- continue</button>
+            </>
+          )}
         </>
       )}
 

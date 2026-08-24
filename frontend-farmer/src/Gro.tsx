@@ -49,14 +49,19 @@ export const GRO_LINES: Record<string, { text: string; mood: GroMood }> = {
   welcome: { text: "Sasa, I'm Gro — I'll walk with you. Kwanza, let me tell you what Grofunder is. Ready?", mood: 'happy' },
   explainerWhat: { text: 'Grofunder ni nini? Simple: your cooperative already knows your harvests. We turn that history into credit — no collateral needed.', mood: 'happy' },
   explainerProgress: { text: "And this is how you'll see your progress — your tree grows as you repay well, together with your circle, cluster, and cooperative.", mood: 'happy' },
-  explainerTogether: { text: "One more thing — the most important one. You never grow alone here. Your Growth Circle stands with you, and you with them.", mood: 'happy' },
+  explainerTogether: { text: 'One more thing — the most important one. You never grow alone here. The farmers around you matter just as much as your own harvest.', mood: 'happy' },
 
   // Record confirmation (verbatim)
   recordConfirm: { text: "Vizuri! Here's what Orinde told us about you. Is this you?", mood: 'happy' },
   recordFlagged: { text: 'Asante for telling me. Sent to your cooperative to fix — you can continue, but loan applications will wait until your records match.', mood: 'encouraging' },
 
-  // Home location (verbatim)
-  homeLocation: { text: 'Hongera Akinyi! Karibu. Now — where is home? This helps me know your community. Your circle only ever sees rough distance.', mood: 'celebrating' },
+  // National ID confirmation
+  idConfirm: { text: "Now, type your ID number so I can make sure it matches what your cooperative has on file.", mood: 'happy' },
+  idMatched: { text: 'Vizuri! That matches.', mood: 'celebrating' },
+  idMismatch: { text: "That doesn't quite match what your cooperative has on file. I've told them so they can help you sort it out. You can keep going for now — but you'll need this fixed before applying for a loan.", mood: 'encouraging' },
+
+  // Home location (adjusted — no "circle" reference before it's ever explained)
+  homeLocation: { text: 'Hongera Akinyi! Karibu. Now — where is home? This helps me know your community. Only rough distance is ever shared with anyone else.', mood: 'celebrating' },
 
   // About you (verbatim)
   aboutCrops: { text: 'Asante! Sasa, tell me about yourself. What do you grow?', mood: 'happy' },
