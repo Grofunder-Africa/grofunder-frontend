@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { coopApi, setToken, getToken, kes, ApiError } from './api';
-import type { Cluster, Farmer, Product, Loan, CoopProfile, InboxMessage, CaptureTypeState, LedgerFarmer, AudienceGroup, OutreachLogItem, TrashedCluster, MemberNoPattern, TrashedFarmer, TrashedEntry } from './api';
+import type { Cluster, Farmer, Product, Loan, CoopProfile, InboxMessage, CaptureTypeState, LedgerFarmer, AudienceGroup, OutreachLogItem, TrashedCluster, MemberNoPattern, TrashedFarmer, TrashedEntry, DiscrepancyItem } from './api';
 import logo from './assets/grofunder-logo.png';
 
 type Tab = 'overview' | 'clusters' | 'farmers' | 'products' | 'approvals' | 'messages' | 'settings' | string;
@@ -219,6 +219,7 @@ function NavIcon({ name }: { name: string }) {
 function Portal({ onSignOut }: { onSignOut: () => void }) {
   const [tab, setTab] = useState<Tab>('overview');
   const [unread, setUnread] = useState(0);
+  const [openDiscrepancies, setOpenDiscrepancies] = useState(0);
   const [captureTypes, setCaptureTypes] = useState<CaptureTypeState[]>([]);
   const [profile, setProfile] = useState<CoopProfile | null>(null);
   const refreshProfile = useCallback(() => {
@@ -227,10 +228,14 @@ function Portal({ onSignOut }: { onSignOut: () => void }) {
   const refreshUnread = useCallback(() => {
     coopApi.inboxUnread().then((r) => setUnread(r.count)).catch(() => {});
   }, []);
+  const refreshDiscrepancies = useCallback(() => {
+    coopApi.discrepancies().then((r) => setOpenDiscrepancies(r.data.length)).catch(() => {});
+  }, []);
   const refreshCapture = useCallback(() => {
     coopApi.captureTypes().then((r) => setCaptureTypes(r.data)).catch(() => {});
   }, []);
   useEffect(() => { refreshUnread(); const t = setInterval(refreshUnread, 60000); return () => clearInterval(t); }, [refreshUnread]);
+  useEffect(() => { refreshDiscrepancies(); const t = setInterval(refreshDiscrepancies, 60000); return () => clearInterval(t); }, [refreshDiscrepancies]);
   useEffect(() => { refreshCapture(); }, [refreshCapture]);
   useEffect(() => { refreshProfile(); }, [refreshProfile]);
   // Re-applies the moment the coop saves a new color in Settings, too —
@@ -267,6 +272,7 @@ function Portal({ onSignOut }: { onSignOut: () => void }) {
             <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>
               <span className="ico"><NavIcon name={ico} /></span><span>{label}</span>
               {t === 'messages' && unread > 0 && <span className="badge">{unread}</span>}
+              {t === 'farmers' && openDiscrepancies > 0 && <span className="badge">{openDiscrepancies}</span>}
             </button>
           ))}
         </nav>
@@ -278,7 +284,7 @@ function Portal({ onSignOut }: { onSignOut: () => void }) {
       <main className="main">
         {tab === 'overview' && <Overview onGo={setTab} />}
         {tab === 'clusters' && <Clusters />}
-        {tab === 'farmers' && <Farmers />}
+        {tab === 'farmers' && <Farmers onDiscrepancyChange={refreshDiscrepancies} />}
         {tab === 'products' && <Products />}
         {tab === 'approvals' && <Approvals />}
         {tab === 'outreach' && <Outreach />}
@@ -683,7 +689,7 @@ function Clusters() {
 }
 
 /* ------------- Farmers ------------- */
-function Farmers() {
+function Farmers({ onDiscrepancyChange }: { onDiscrepancyChange: () => void }) {
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [clusters, setClusters] = useState<Cluster[]>([]);
   const [form, setForm] = useState({ fullName: '', clusterName: '', phone: '', nationalId: '', coopMemberNo: '' });
@@ -735,6 +741,12 @@ function Farmers() {
   const [trash, setTrash] = useState<TrashedFarmer[]>([]);
   const [trashLoading, setTrashLoading] = useState(false);
   const [restoringId, setRestoringId] = useState('');
+  // Record discrepancies — a farmer flagged something wrong, or their
+  // re-entered ID didn't match (or nothing was on file to match against).
+  const [discOpen, setDiscOpen] = useState(false);
+  const [discs, setDiscs] = useState<DiscrepancyItem[]>([]);
+  const [discLoading, setDiscLoading] = useState(false);
+  const [resolvingId, setResolvingId] = useState('');
 
   // If the cooperative has an established prefix (set manually, or detected
   // from other farmers) and this farmer's number either starts with it or is
@@ -809,6 +821,20 @@ function Farmers() {
     finally { setRestoringId(''); }
   }
 
+  function openDiscrepancies() {
+    setDiscOpen(true); setDiscLoading(true); setErr(''); setOk('');
+    coopApi.discrepancies().then((r) => setDiscs(r.data)).catch(() => setErr('Could not load record issues')).finally(() => setDiscLoading(false));
+  }
+  async function resolveDisc(id: string) {
+    setResolvingId(id); setErr('');
+    try {
+      await coopApi.resolveDiscrepancy(id);
+      setDiscs((d) => d.filter((x) => x.id !== id));
+      onDiscrepancyChange();
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not resolve that'); }
+    finally { setResolvingId(''); }
+  }
+
   const load = useCallback(() => {
     Promise.all([coopApi.farmers(), coopApi.clusters()])
       .then(([f, c]) => { setFarmers(f.data); setClusters(c.data); if (!form.clusterName && c.data[0]) setForm((s) => ({ ...s, clusterName: c.data[0].name })); })
@@ -872,7 +898,10 @@ function Farmers() {
     <>
       <div className="page-head">
         <div><div className="h1">Farmers</div><div className="sub">Everyone registered under your cooperative</div></div>
-        <button className="btn btn-ghost btn-sm" onClick={openTrash}>Trash</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-ghost btn-sm" onClick={openDiscrepancies}>Record issues</button>
+          <button className="btn btn-ghost btn-sm" onClick={openTrash}>Trash</button>
+        </div>
       </div>
       {err && <div className="err">{err}</div>}{ok && <div className="ok">{ok}</div>}
       <div className="card">
@@ -1088,6 +1117,45 @@ function Farmers() {
             )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
               <button className="btn btn-ghost" onClick={() => setTrashOpen(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {discOpen && (
+        <div className="modal-backdrop" onClick={() => setDiscOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>Record issues</h3>
+            <p className="muted" style={{ fontSize: 13 }}>
+              Things farmers have flagged as wrong, or an ID they re-entered that didn't match what's on file.
+              A farmer's loan applications are held automatically until the matching issue here is resolved.
+            </p>
+            {discLoading ? <div className="empty"><span className="spin" /></div> : discs.length === 0 ? (
+              <div className="empty">No open issues.</div>
+            ) : (
+              <table>
+                <thead><tr><th>Farmer</th><th>What</th><th style={{ textAlign: 'right' }}>Action</th></tr></thead>
+                <tbody>{discs.map((d) => (
+                  <tr key={d.id}>
+                    <td style={{ fontWeight: 500 }}>{d.full_name}</td>
+                    <td style={{ fontSize: 13 }}>
+                      <div style={{ fontWeight: 500 }}>{d.field === 'national_id' ? 'National ID' : d.field === 'record' ? 'Something on their record' : d.field}</div>
+                      {d.details && <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{d.details}</div>}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button className="btn btn-ghost btn-sm" disabled={resolvingId === d.id} onClick={() => resolveDisc(d.id)}>
+                        {resolvingId === d.id ? <span className="spin" /> : 'Mark resolved'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            )}
+            <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+              For a national ID issue, correct it via that farmer's "View" first if needed, then mark it resolved here.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+              <button className="btn btn-ghost" onClick={() => setDiscOpen(false)}>Close</button>
             </div>
           </div>
         </div>

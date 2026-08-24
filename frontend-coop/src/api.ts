@@ -73,6 +73,8 @@ export const coopApi = {
   deleteFarmer: (id: string) => api.del<{ ok: true; id: string; full_name: string }>(`/farmers/${id}`),
   farmerTrash: () => api.get<{ data: TrashedFarmer[] }>('/farmers/trash'),
   restoreFarmer: (id: string) => api.post<{ id: string; full_name: string }>(`/farmers/${id}/restore`, {}),
+  discrepancies: () => api.get<{ data: DiscrepancyItem[] }>('/farmers/discrepancies'),
+  resolveDiscrepancy: (id: string) => api.post<{ id: string }>(`/farmers/discrepancies/${id}/resolve`, {}),
   importFarmers: (rows: Record<string, string>[]) =>
     api.post<{ imported: number; errors: { row: number; message: string }[] }>('/farmers/import', { rows }),
   nextMemberNo: () => api.get<MemberNoPattern>('/farmers/next-member-no'),
@@ -140,6 +142,9 @@ export interface TrashedCluster {
 // ever make a deletion permanent).
 export interface TrashedFarmer {
   id: string; full_name: string; coop_member_no: string | null; deleted_at: string;
+}
+export interface DiscrepancyItem {
+  id: string; farmer_id: string; full_name: string; field: string; details: string | null; created_at: string;
 }
 export interface MemberNoPattern {
   prefix: string | null; suggested: string | null; source: 'MANUAL' | 'DETECTED' | 'NONE';
