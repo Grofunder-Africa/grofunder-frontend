@@ -108,6 +108,11 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
   const [faqReturnTo, setFaqReturnTo] = useState<'circleForm' | 'circleVouch'>('circleForm');
   const [myCircle, setMyCircle] = useState<MyCircleStatus['circle'] | null>(null);
   const [declined, setDeclined] = useState<string[]>([]);
+  // Both circle screens land minimal — a short line and two buttons — and
+  // only reveal the actual form/list once the farmer chooses to. Nothing
+  // shows everything at once.
+  const [formExpanded, setFormExpanded] = useState(false);
+  const [vouchExpanded, setVouchExpanded] = useState(false);
 
   const resume = useCallback(async () => {
     setErr('');
@@ -447,51 +452,56 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
       {step === 'circleForm' && (
         <>
           <GroSays line="circleIntro" />
-          <button className="btn-ghost" style={{ width: '100%', marginBottom: 12 }} onClick={() => { setFaqReturnTo('circleForm'); setStep('circleFaq'); }}>
+          <button className="btn-ghost" style={{ width: '100%', marginBottom: 10 }} onClick={() => { setFaqReturnTo('circleForm'); setStep('circleFaq'); }}>
             More about Growth Circles
           </button>
-          <div className="card">
-            <input className="input" placeholder="Name your circle (optional)" value={circleName} onChange={(e) => setCircleName(e.target.value)} style={{ marginBottom: 10 }} />
-            <div className="label" style={{ marginBottom: 8 }}>Add cluster-mates \u2014 pick 4 to 9</div>
-            {mates.filter((m) => !chosenMates.includes(m.id)).length === 0 && chosenMates.length === 0 ? (
-              <p className="muted" style={{ fontSize: 13 }}>No cluster-mates available to pick yet -- check back once more farmers in your cluster have registered.</p>
-            ) : (
-              <select
-                className="input"
-                value=""
-                onChange={(e) => { if (e.target.value) setChosenMates([...chosenMates, e.target.value]); }}
-              >
-                <option value="">Choose a cluster-mate to add\u2026</option>
-                {mates.filter((m) => !chosenMates.includes(m.id)).map((m) => (
-                  <option key={m.id} value={m.id}>{m.fullName}</option>
-                ))}
-              </select>
-            )}
-            {chosenMates.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 10 }}>
-                {chosenMates.map((id) => {
-                  const m = mates.find((x) => x.id === id);
-                  if (!m) return null;
-                  return (
-                    <div key={id} className="row" style={{ background: 'var(--g-tint)', borderRadius: 8, padding: '8px 10px', fontSize: 13 }}>
-                      <span>{m.fullName}</span>
-                      <button
-                        onClick={() => setChosenMates(chosenMates.filter((x) => x !== id))}
-                        style={{ border: 'none', background: 'none', color: 'var(--mut)', cursor: 'pointer', fontSize: 15, padding: 0 }}
-                        aria-label={`Remove ${m.fullName}`}
-                      >
-                        \u00d7
-                      </button>
-                    </div>
-                  );
-                })}
+          {!formExpanded ? (
+            <button className="btn btn-primary" onClick={() => setFormExpanded(true)}>Form a Growth Circle</button>
+          ) : (
+            <>
+              <div className="card">
+                <input className="input" placeholder="Name your circle (optional)" value={circleName} onChange={(e) => setCircleName(e.target.value)} style={{ marginBottom: 10 }} />
+                {mates.filter((m) => !chosenMates.includes(m.id)).length === 0 && chosenMates.length === 0 ? (
+                  <p className="muted" style={{ fontSize: 13 }}>No cluster-mates available yet — check back once more of your cluster has registered.</p>
+                ) : (
+                  <select
+                    className="input"
+                    value=""
+                    onChange={(e) => { if (e.target.value) setChosenMates([...chosenMates, e.target.value]); }}
+                  >
+                    <option value="">Add a cluster-mate\u2026</option>
+                    {mates.filter((m) => !chosenMates.includes(m.id)).map((m) => (
+                      <option key={m.id} value={m.id}>{m.fullName}</option>
+                    ))}
+                  </select>
+                )}
+                {chosenMates.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 10 }}>
+                    {chosenMates.map((id) => {
+                      const m = mates.find((x) => x.id === id);
+                      if (!m) return null;
+                      return (
+                        <div key={id} className="row" style={{ background: 'var(--g-tint)', borderRadius: 8, padding: '8px 10px', fontSize: 13 }}>
+                          <span>{m.fullName}</span>
+                          <button
+                            onClick={() => setChosenMates(chosenMates.filter((x) => x !== id))}
+                            style={{ border: 'none', background: 'none', color: 'var(--mut)', cursor: 'pointer', fontSize: 15, padding: 0 }}
+                            aria-label={`Remove ${m.fullName}`}
+                          >
+                            \u00d7
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <p className="tiny muted" style={{ marginTop: 8 }}>{chosenMates.length} of 4\u20139 \u00b7 you're the 1st</p>
               </div>
-            )}
-            <p className="tiny muted" style={{ marginTop: 8 }}>{chosenMates.length} chosen \u00b7 you'll be the 1st, making {chosenMates.length + 1} in total</p>
-          </div>
-          <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={busy || chosenMates.length < 4} onClick={createMyCircle}>
-            {busy ? <span className="spin" /> : 'I stand with these members'}
-          </button>
+              <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={busy || chosenMates.length < 4} onClick={createMyCircle}>
+                {busy ? <span className="spin" /> : 'I stand with these members'}
+              </button>
+            </>
+          )}
         </>
       )}
 
@@ -517,31 +527,42 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
       {step === 'circleVouch' && myCircle && (
         <>
           <GroSays line={myCircle.state === 'CONTESTED' ? 'circleContested' : 'circleVouch'} />
-          <button className="btn-ghost" style={{ width: '100%', marginBottom: 12 }} onClick={() => { setFaqReturnTo('circleVouch'); setStep('circleFaq'); }}>
+          <button className="btn-ghost" style={{ width: '100%', marginBottom: 10 }} onClick={() => { setFaqReturnTo('circleVouch'); setStep('circleFaq'); }}>
             More about Growth Circles
           </button>
-          <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
-            {(() => { const founder = myCircle.members.find((m) => m.isHead); return founder ? `${founder.fullName} named you in ${myCircle.name}.` : `You've been named in ${myCircle.name}.`; })()}
-            {' '}If any member repays late, it affects everyone \u2014 untick anyone you don't stand with.
-          </p>
-          <div className="card">
-            <div className="label" style={{ marginBottom: 8 }}>{myCircle.name}</div>
-            {myCircle.members.filter((m) => m.myVouchStatus !== 'SELF').map((m) => (
-              <button
-                key={m.farmerId}
-                className={`tick-chip tick-chip-row ${!declined.includes(m.farmerId) ? 'tick-chip-on' : ''}`}
-                onClick={() => toggle(declined, setDeclined, m.farmerId)}
-              >
-                {m.fullName}{m.isHead ? ' \u00b7 head' : ''} {!declined.includes(m.farmerId) ? '\u2713' : ''}
+          {!vouchExpanded ? (
+            <>
+              <div className="card" style={{ marginBottom: 12 }}>
+                <p style={{ margin: 0, fontSize: 14 }}>
+                  {(() => { const founder = myCircle.members.find((m) => m.isHead); return founder ? `${founder.fullName} named you in ` : 'You\u2019ve been named in '; })()}
+                  <strong>{myCircle.name}</strong>.
+                </p>
+              </div>
+              <button className="btn btn-primary" onClick={() => setVouchExpanded(true)}>Join circle</button>
+            </>
+          ) : (
+            <>
+              <div className="card">
+                <div className="label" style={{ marginBottom: 8 }}>{myCircle.name}</div>
+                {myCircle.members.filter((m) => m.myVouchStatus !== 'SELF').map((m) => (
+                  <button
+                    key={m.farmerId}
+                    className={`tick-chip tick-chip-row ${!declined.includes(m.farmerId) ? 'tick-chip-on' : ''}`}
+                    onClick={() => toggle(declined, setDeclined, m.farmerId)}
+                  >
+                    {m.fullName}{m.isHead ? ' \u00b7 head' : ''} {!declined.includes(m.farmerId) ? '\u2713' : ''}
+                  </button>
+                ))}
+                <p className="tiny muted" style={{ marginTop: 8 }}>Untick anyone you don't stand with.</p>
+              </div>
+              <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={busy} onClick={submitMyVouches}>
+                {busy ? <span className="spin" /> : 'I stand with these members'}
               </button>
-            ))}
-          </div>
-          <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={busy} onClick={submitMyVouches}>
-            {busy ? <span className="spin" /> : 'I stand with these members'}
-          </button>
-          <p className="tiny muted" style={{ textAlign: 'center', marginTop: 8 }}>
-            {myCircle.confirmed_pairs} of {myCircle.total_pairs} confirmations so far
-          </p>
+              <p className="tiny muted" style={{ textAlign: 'center', marginTop: 8 }}>
+                {myCircle.confirmed_pairs} of {myCircle.total_pairs} confirmations so far
+              </p>
+            </>
+          )}
         </>
       )}
     </div>

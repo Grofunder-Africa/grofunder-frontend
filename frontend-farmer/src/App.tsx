@@ -200,6 +200,9 @@ function Home({ onApply, onSignOut, onContinueSetup }: {
   const [circle, setCircle] = useState<MyCircleStatus['circle'] | null>(null);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
+  // The full record already showed once during setup confirmation — Home
+  // doesn't need to repeat all five rows every visit, just offer it.
+  const [showRecord, setShowRecord] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true); setErr('');
@@ -310,14 +313,25 @@ function Home({ onApply, onSignOut, onContinueSetup }: {
           {isNew ? 'Apply · unlocks with your circle' : 'Apply for a loan'}
         </button>
 
-        {/* record confirmation summary */}
+        {/* record confirmation summary — collapsed by default; already
+            shown in full once during setup, so Home only offers it */}
         <div className="card" style={{ marginTop: 12 }}>
-          <div className="label" style={{ marginBottom: 8 }}>Your cooperative record</div>
-          <RecordRow label="Name" value={record?.full_name ?? '—'} />
-          <RecordRow label="Member no." value={record?.coop_member_no ?? '—'} />
-          <RecordRow label="Cluster" value={record?.cluster_name ?? '—'} />
-          <RecordRow label="Cluster head" value={record?.cluster_head ?? '—'} />
-          <RecordRow label="Deliveries recorded" value={String(record?.delivery_count ?? 0)} last />
+          <button
+            onClick={() => setShowRecord((s) => !s)}
+            style={{ width: '100%', border: 'none', background: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 0, cursor: 'pointer' }}
+          >
+            <span className="label">Your cooperative record</span>
+            <span className="muted" aria-hidden>{showRecord ? '\u2303' : '\u2304'}</span>
+          </button>
+          {showRecord && (
+            <div style={{ marginTop: 8 }}>
+              <RecordRow label="Name" value={record?.full_name ?? '—'} />
+              <RecordRow label="Member no." value={record?.coop_member_no ?? '—'} />
+              <RecordRow label="Cluster" value={record?.cluster_name ?? '—'} />
+              <RecordRow label="Cluster head" value={record?.cluster_head ?? '—'} />
+              <RecordRow label="Deliveries recorded" value={String(record?.delivery_count ?? 0)} last />
+            </div>
+          )}
         </div>
       </div>
     </>

@@ -72,7 +72,7 @@ export const GRO_LINES: Record<string, { text: string; mood: GroMood }> = {
   seedPlanted: { text: 'Your seed is planted. From here we grow together — mimi na wewe, kila wiki.', mood: 'celebrating' },
 
   // Circle formation (paraphrased from the mockup's circle-FAQ copy)
-  circleIntro: { text: 'One last thing, and it matters most \u2014 your Growth Circle. Pick farmers from your cluster you trust to stand with you.', mood: 'happy' },
+  circleIntro: { text: 'One last thing, and it matters most: your Growth Circle.', mood: 'happy' },
   circleWaiting: { text: 'Hongera, Akinyi — your seed is planted. Your circle is confirming — your first loan opens the moment every member has confirmed every member.', mood: 'celebrating' },
   circleVouch: { text: 'Take a look, then tick who you stand with.', mood: 'happy' },
   circleContested: { text: "Some members haven't accepted everyone yet. Talk as a group — loans open once every member has confirmed every member.", mood: 'encouraging' },
