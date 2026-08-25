@@ -24,6 +24,17 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Registered once by App.tsx so that ANY expired-session response, from ANY
+ * screen, routes back to sign-in consistently — rather than each screen
+ * needing to remember to check for a 401 itself (which is exactly the kind
+ * of thing that's easy to do on one screen and forget on the next five).
+ */
+let sessionExpiredHandler: (() => void) | null = null;
+export function onSessionExpired(handler: () => void): void {
+  sessionExpiredHandler = handler;
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   const token = getToken();
@@ -40,6 +51,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
   if (!res.ok) {
     const err = data?.error ?? {};
+    if (res.status === 401) {
+      setToken(null);
+      sessionExpiredHandler?.();
+    }
     throw new ApiError(err.code ?? 'ERROR', err.message ?? 'Something went wrong', res.status);
   }
   return data as T;

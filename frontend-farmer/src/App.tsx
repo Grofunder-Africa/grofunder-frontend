@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { farmerApi, setToken, getToken, kes, ApiError } from './api';
+import { farmerApi, setToken, getToken, kes, ApiError, onSessionExpired } from './api';
 import type { ScoreInfo, FarmerRecord, Quote, Instalment, FarmerInboxMessage, CaptureRecord, FeedPost, MyCircleStatus } from './api';
 import { Gro } from './Gro';
 import { Setup } from './Setup';
@@ -24,13 +24,19 @@ function Icon({ name }: { name: string }) {
 
 type Screen = 'signin' | 'setup' | 'home' | 'apply' | 'schedule' | 'messages' | 'records' | 'community';
 
-/** All of onboarding done? Record confirmed, home location + about-you set,
- *  and in an ACTIVE circle. Anything short of that sends the farmer to Setup
- *  instead of the main app, resuming exactly where they left off. */
+/** All of onboarding done? Record confirmed, ID at least attempted (not
+ *  necessarily matched — a mismatch still blocks loans separately, via the
+ *  discrepancy it raises, but shouldn't trap someone out of the app entirely),
+ *  home location + about-you set, and in an ACTIVE circle. Anything short of
+ *  that sends the farmer to Setup instead of the main app, resuming exactly
+ *  where they left off. Deliberately mirrors Setup.tsx's own resume() step
+ *  order — if the two ever disagree, a farmer could end up permanently
+ *  skipping a step (e.g. tapping "Skip for now" on ID confirmation, then
+ *  never being asked again once everything else is done). */
 async function isFullySetUp(): Promise<boolean> {
   try {
     const s = await farmerApi.onboardingStatus();
-    return s.recordConfirmed && s.hasHomeLocation && s.hasEconomicProfile && !!s.circleId && s.circleState === 'ACTIVE';
+    return s.recordConfirmed && s.idAttempted && s.hasHomeLocation && s.hasEconomicProfile && !!s.circleId && s.circleState === 'ACTIVE';
   } catch {
     return true; // don't trap a farmer in Setup on a network hiccup — let Home's own error handling take over
   }
@@ -47,6 +53,12 @@ export default function App() {
   useEffect(() => {
     if (!getToken()) return;
     isFullySetUp().then((done) => setScreen(done ? 'home' : 'setup')).finally(() => setCheckingSetup(false));
+  }, []);
+
+  // Registered once, here — any expired session, from any screen, lands
+  // back on sign-in consistently. See onSessionExpired in api.ts.
+  useEffect(() => {
+    onSessionExpired(() => setScreen('signin'));
   }, []);
 
   async function afterSignIn() {
@@ -151,7 +163,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
           <div className="gro-msg">
             {mode === 'signin'
               ? 'Karibu tena! Enter your phone and PIN to continue.'
-              : 'Karibu! Let\u2019s set up your account with the phone your cooperative registered.'}
+              : "Karibu! Let's set up your account with the phone your cooperative registered."}
           </div>
         </div>
       </div>
@@ -213,10 +225,12 @@ function Home({ onApply, onSignOut, onContinueSetup }: {
       // worth failing the whole dashboard load over.
       farmerApi.myCircleStatus().then((cs) => setCircle(cs.hasCircle ? cs.circle ?? null : null)).catch(() => {});
     } catch (e) {
-      if (e instanceof ApiError && e.status === 401) { onSignOut(); return; }
+      // An expired session is already handled centrally (api.ts's
+      // onSessionExpired routes back to sign-in for every screen) — this
+      // catch only needs to cover a genuinely failed load.
       setErr(e instanceof ApiError ? e.message : 'Could not load your dashboard');
     } finally { setLoading(false); }
-  }, [onSignOut]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
@@ -242,7 +256,7 @@ function Home({ onApply, onSignOut, onContinueSetup }: {
             <Gro mood={isNew ? 'encouraging' : 'happy'} />
             <div>
               <h2>Habari, {firstName}!</h2>
-              <p>{isNew ? 'Your seed is planted. Let\u2019s grow.' : 'Twende tukue pamoja'}</p>
+              <p>{isNew ? "Your seed is planted. Let's grow." : 'Twende tukue pamoja'}</p>
             </div>
           </div>
         </div>
@@ -276,7 +290,7 @@ function Home({ onApply, onSignOut, onContinueSetup }: {
                   {circle.name} is confirming: {circle.confirmed_pairs} of {circle.total_pairs} confirmations so far.
                   Your first loan of up to {kes(500000)} opens the moment every member has confirmed every member.
                 </p>
-                <button className="btn-ghost" style={{ width: '100%', fontSize: 12.5, marginTop: 8 }} onClick={onContinueSetup}>
+                <button className="btn btn-ghost" style={{ width: '100%', fontSize: 12.5, marginTop: 8 }} onClick={onContinueSetup}>
                   View my circle
                 </button>
               </>
@@ -285,7 +299,7 @@ function Home({ onApply, onSignOut, onContinueSetup }: {
                 <p className="muted" style={{ fontSize: 13 }}>
                   Once your Growth Circle is active, your first loan of up to {kes(500000)} opens up. Repay well and your limit grows.
                 </p>
-                <button className="btn-ghost" style={{ width: '100%', fontSize: 12.5, marginTop: 8 }} onClick={onContinueSetup}>
+                <button className="btn btn-ghost" style={{ width: '100%', fontSize: 12.5, marginTop: 8 }} onClick={onContinueSetup}>
                   Continue with Gro
                 </button>
               </>
@@ -321,7 +335,7 @@ function Home({ onApply, onSignOut, onContinueSetup }: {
             style={{ width: '100%', border: 'none', background: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 0, cursor: 'pointer' }}
           >
             <span className="label">Your cooperative record</span>
-            <span className="muted" aria-hidden>{showRecord ? '\u2303' : '\u2304'}</span>
+            <span className="muted" aria-hidden>{showRecord ? '⌃' : '⌄'}</span>
           </button>
           {showRecord && (
             <div style={{ marginTop: 8 }}>
@@ -462,7 +476,7 @@ function Apply({ onBack, onApplied }: { onBack: () => void; onApplied: (id: stri
         <summary>What do I need to know before I apply? <span className="muted">＋</span></summary>
         <div className="body">
           You repay every Friday. If a payment is missed, your Growth Circle is notified so you can support
-          each other. After 7 days a 2% late fee applies and your cooperative is informed. Your circle can\u2019t
+          each other. After 7 days a 2% late fee applies and your cooperative is informed. Your circle can't
           take new loans until the balance is settled — so pay first when the money lands.
         </div>
       </details>
@@ -548,7 +562,7 @@ function Schedule({ loanId, onBack }: { loanId: string; onBack: () => void }) {
         <div className="card center" style={{ padding: 24 }}>
           <Gro mood="encouraging" />
           <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
-            We\u2019ll let you know as soon as your application moves forward. Gro will keep you posted.
+            We'll let you know as soon as your application moves forward. Gro will keep you posted.
           </p>
         </div>
       )}
