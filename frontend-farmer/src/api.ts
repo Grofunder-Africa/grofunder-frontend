@@ -115,8 +115,8 @@ export const farmerApi = {
     api.post<{ id: string; status: string }>('/farmer-onboarding/discrepancies', { field, details }),
   setEconomicProfile: (crops: string[], activities: string[], incomeFreq?: string) =>
     api.post<{ ok: boolean }>('/farmer-onboarding/economic-profile', { crops, activities, incomeFreq }),
-  setHomeLocation: (lat: number, lng: number, text?: string) =>
-    api.put<{ ok: boolean }>('/farmer-onboarding/home-location', { lat, lng, text }),
+  setHomeLocation: (lat: number | null, lng: number | null, text?: string) =>
+    api.put<{ ok: boolean }>('/farmer-onboarding/home-location', { lat: lat ?? undefined, lng: lng ?? undefined, text }),
   myCircleStatus: () => api.get<MyCircleStatus>('/circles/my-circle'),
   clusterMates: () => api.get<{ data: { id: string; fullName: string }[] }>('/circles/cluster-mates'),
   createCircle: (name: string, memberFarmerIds: string[]) =>

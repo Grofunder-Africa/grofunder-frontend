@@ -24,12 +24,56 @@ type Step =
   | 'aboutCrops' | 'aboutActivities' | 'aboutIncome'
   | 'seedPlanted'
   | 'circleForm'
+  | 'circleFaq'
   | 'circleWaiting'
   | 'circleVouch';
 
 const CROP_OPTIONS = ['Coffee', 'Tea', 'Maize', 'Beans', 'Bananas', 'Sugarcane', 'Dairy', 'Poultry'];
 const ACTIVITY_OPTIONS = ['Boda boda', 'Small shop', 'Casual work', 'Tailoring', 'Mama mboga', 'Nothing else'];
 const INCOME_OPTIONS = ['Daily', 'Weekly', 'Monthly', 'Seasonal'];
+
+/**
+ * Collapsed by default — a brief mention is all the intro screen gets;
+ * the full explanation (verbatim from grofunder_farmer_app_mockup.html)
+ * is one tap away for anyone who wants it, never forced reading.
+ */
+function CircleFaq() {
+  return (
+    <>
+      <div className="card" style={{ marginBottom: 10 }}>
+        <div className="label" style={{ marginBottom: 6 }}>What is a Growth Circle?</div>
+        <p className="muted" style={{ fontSize: 13, margin: 0 }}>
+          5–10 farmers from your cluster who vouch for each other. You choose each other — every member confirms
+          every member, so no one is in a circle they didn't pick, and no one joins yours without your yes.
+        </p>
+      </div>
+      <div className="card" style={{ marginBottom: 10 }}>
+        <div className="label" style={{ marginBottom: 6 }}>Why does it exist?</div>
+        <p className="muted" style={{ fontSize: 13, margin: 0 }}>
+          Grofunder lends without collateral. Your circle standing behind you — the way your community already
+          does — is what makes that possible.
+        </p>
+      </div>
+      <div className="card" style={{ marginBottom: 10 }}>
+        <div className="label" style={{ marginBottom: 6 }}>Why does it matter?</div>
+        <p className="muted" style={{ fontSize: 13, margin: 0 }}>
+          The circle opens the door: loans only start once it's fully confirmed and active, and your first limit
+          unlocks with it. If a member misses a payment, the circle is told that day and has 5 days to help follow
+          up or cover it — after that a late fee applies and your cooperative steps in. While it's unpaid, no one in
+          the circle can take a new loan.
+        </p>
+      </div>
+      <div className="card">
+        <div className="label" style={{ marginBottom: 6 }}>How does it work?</div>
+        <p className="muted" style={{ fontSize: 13, margin: 0 }}>
+          You form one when you set up, or someone names you in theirs. Either way, you see exactly who's in it and
+          choose to stand with each of them. Strong circles earn champion recognition every Friday, and every
+          member's tree grows faster.
+        </p>
+      </div>
+    </>
+  );
+}
 
 export function Setup({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState<Step>('loading');
@@ -49,12 +93,19 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
   const [locationText, setLocationText] = useState('');
 
   const [crops, setCrops] = useState<string[]>([]);
+  const [showOtherCrop, setShowOtherCrop] = useState(false);
+  const [otherCropText, setOtherCropText] = useState('');
   const [activities, setActivities] = useState<string[]>([]);
+  const [showOtherActivity, setShowOtherActivity] = useState(false);
+  const [otherActivityText, setOtherActivityText] = useState('');
   const [incomeFreq, setIncomeFreq] = useState<string | null>(null);
 
   const [mates, setMates] = useState<{ id: string; fullName: string }[]>([]);
   const [chosenMates, setChosenMates] = useState<string[]>([]);
   const [circleName, setCircleName] = useState('');
+  // Which step "More about Growth Circles" should return to — the FAQ is
+  // its own page now, not an inline expand, so it needs to know the way back.
+  const [faqReturnTo, setFaqReturnTo] = useState<'circleForm' | 'circleVouch'>('circleForm');
   const [myCircle, setMyCircle] = useState<MyCircleStatus['circle'] | null>(null);
   const [declined, setDeclined] = useState<string[]>([]);
 
@@ -128,10 +179,10 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
   }
 
   async function saveLocation() {
-    if (!coords) { setErr('Share your location, or describe where you live.'); return; }
+    if (!coords && !locationText.trim()) { setErr('Share your location, or describe where you live.'); return; }
     setBusy(true); setErr('');
     try {
-      await farmerApi.setHomeLocation(coords.lat, coords.lng, locationText.trim() || undefined);
+      await farmerApi.setHomeLocation(coords?.lat ?? null, coords?.lng ?? null, locationText.trim() || undefined);
       setStep('aboutCrops');
     } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not save'); }
     finally { setBusy(false); }
@@ -144,7 +195,9 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
   async function finishAboutYou() {
     setBusy(true); setErr('');
     try {
-      await farmerApi.setEconomicProfile(crops, activities, incomeFreq ? incomeFreq.toUpperCase() : undefined);
+      const finalCrops = otherCropText.trim() ? [...crops, otherCropText.trim()] : crops;
+      const finalActivities = otherActivityText.trim() ? [...activities, otherActivityText.trim()] : activities;
+      await farmerApi.setEconomicProfile(finalCrops, finalActivities, incomeFreq ? incomeFreq.toUpperCase() : undefined);
       setStep('seedPlanted');
     } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not save'); }
     finally { setBusy(false); }
@@ -275,6 +328,9 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
               <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={busy || !idInput.trim()} onClick={submitIdConfirm}>
                 {busy ? <span className="spin" /> : 'Endelea -- continue'}
               </button>
+              <button className="btn-ghost" style={{ width: '100%', marginTop: 8 }} disabled={busy} onClick={() => setStep('location')}>
+                Skip for now -- I don't have it with me
+              </button>
             </>
           )}
           {idResult === 'MATCHED' && (
@@ -291,7 +347,10 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
                   : "Noted — your cooperative didn't have an ID on file yet, so I've sent them what you entered to confirm."}
                 {' '}You can keep going for now, but you'll need this fixed before applying for a loan.
               </div>
-              <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => setStep('location')}>Endelea -- continue</button>
+              <button className="btn-ghost" style={{ width: '100%', marginTop: 10 }} onClick={() => { setIdResult(null); }}>
+                Try again -- maybe I mistyped it
+              </button>
+              <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={() => setStep('location')}>Endelea -- continue</button>
             </>
           )}
         </>
@@ -309,7 +368,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
             </button>
             <input className="input" placeholder="Or describe where you live (e.g. near Kanyada market)" value={locationText} onChange={(e) => setLocationText(e.target.value)} />
           </div>
-          <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={busy || !coords} onClick={saveLocation}>
+          <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={busy || (!coords && !locationText.trim())} onClick={saveLocation}>
             {busy ? <span className="spin" /> : 'Endelea -- continue'}
           </button>
         </>
@@ -322,7 +381,14 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
             {CROP_OPTIONS.map((c) => (
               <button key={c} className={`tick-chip ${crops.includes(c) ? 'tick-chip-on' : ''}`} onClick={() => toggle(crops, setCrops, c)}>{c}</button>
             ))}
+            <button className={`tick-chip ${showOtherCrop ? 'tick-chip-on' : ''}`} onClick={() => setShowOtherCrop((s) => !s)}>Other</button>
           </div>
+          {showOtherCrop && (
+            <input
+              className="input" style={{ marginTop: 8 }} placeholder="What else do you grow?"
+              value={otherCropText} onChange={(e) => setOtherCropText(e.target.value)} autoFocus
+            />
+          )}
           <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => setStep('aboutActivities')}>Endelea -- continue</button>
         </>
       )}
@@ -334,7 +400,14 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
             {ACTIVITY_OPTIONS.map((a) => (
               <button key={a} className={`tick-chip ${activities.includes(a) ? 'tick-chip-on' : ''}`} onClick={() => toggle(activities, setActivities, a)}>{a}</button>
             ))}
+            <button className={`tick-chip ${showOtherActivity ? 'tick-chip-on' : ''}`} onClick={() => setShowOtherActivity((s) => !s)}>Other</button>
           </div>
+          {showOtherActivity && (
+            <input
+              className="input" style={{ marginTop: 8 }} placeholder="What else earns you money?"
+              value={otherActivityText} onChange={(e) => setOtherActivityText(e.target.value)} autoFocus
+            />
+          )}
           <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => setStep('aboutIncome')}>Endelea -- continue</button>
         </>
       )}
@@ -363,19 +436,55 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
         </>
       )}
 
+      {step === 'circleFaq' && (
+        <>
+          <h3 style={{ marginTop: 0, marginBottom: 12 }}>About Growth Circles</h3>
+          <CircleFaq />
+          <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => setStep(faqReturnTo)}>Back</button>
+        </>
+      )}
+
       {step === 'circleForm' && (
         <>
           <GroSays line="circleIntro" />
-          <div className="card" style={{ marginTop: 12 }}>
+          <button className="btn-ghost" style={{ width: '100%', marginBottom: 12 }} onClick={() => { setFaqReturnTo('circleForm'); setStep('circleFaq'); }}>
+            More about Growth Circles
+          </button>
+          <div className="card">
             <input className="input" placeholder="Name your circle (optional)" value={circleName} onChange={(e) => setCircleName(e.target.value)} style={{ marginBottom: 10 }} />
-            <div className="label" style={{ marginBottom: 8 }}>Your cluster-mates -- pick 4 to 9</div>
-            {mates.length === 0 ? (
+            <div className="label" style={{ marginBottom: 8 }}>Add cluster-mates \u2014 pick 4 to 9</div>
+            {mates.filter((m) => !chosenMates.includes(m.id)).length === 0 && chosenMates.length === 0 ? (
               <p className="muted" style={{ fontSize: 13 }}>No cluster-mates available to pick yet -- check back once more farmers in your cluster have registered.</p>
             ) : (
-              <div className="tick-wrap">
-                {mates.map((m) => (
-                  <button key={m.id} className={`tick-chip ${chosenMates.includes(m.id) ? 'tick-chip-on' : ''}`} onClick={() => toggle(chosenMates, setChosenMates, m.id)}>{m.fullName}</button>
+              <select
+                className="input"
+                value=""
+                onChange={(e) => { if (e.target.value) setChosenMates([...chosenMates, e.target.value]); }}
+              >
+                <option value="">Choose a cluster-mate to add\u2026</option>
+                {mates.filter((m) => !chosenMates.includes(m.id)).map((m) => (
+                  <option key={m.id} value={m.id}>{m.fullName}</option>
                 ))}
+              </select>
+            )}
+            {chosenMates.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 10 }}>
+                {chosenMates.map((id) => {
+                  const m = mates.find((x) => x.id === id);
+                  if (!m) return null;
+                  return (
+                    <div key={id} className="row" style={{ background: 'var(--g-tint)', borderRadius: 8, padding: '8px 10px', fontSize: 13 }}>
+                      <span>{m.fullName}</span>
+                      <button
+                        onClick={() => setChosenMates(chosenMates.filter((x) => x !== id))}
+                        style={{ border: 'none', background: 'none', color: 'var(--mut)', cursor: 'pointer', fontSize: 15, padding: 0 }}
+                        aria-label={`Remove ${m.fullName}`}
+                      >
+                        \u00d7
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
             <p className="tiny muted" style={{ marginTop: 8 }}>{chosenMates.length} chosen \u00b7 you'll be the 1st, making {chosenMates.length + 1} in total</p>
@@ -408,7 +517,14 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
       {step === 'circleVouch' && myCircle && (
         <>
           <GroSays line={myCircle.state === 'CONTESTED' ? 'circleContested' : 'circleVouch'} />
-          <div className="card" style={{ marginTop: 12 }}>
+          <button className="btn-ghost" style={{ width: '100%', marginBottom: 12 }} onClick={() => { setFaqReturnTo('circleVouch'); setStep('circleFaq'); }}>
+            More about Growth Circles
+          </button>
+          <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
+            {(() => { const founder = myCircle.members.find((m) => m.isHead); return founder ? `${founder.fullName} named you in ${myCircle.name}.` : `You've been named in ${myCircle.name}.`; })()}
+            {' '}If any member repays late, it affects everyone \u2014 untick anyone you don't stand with.
+          </p>
+          <div className="card">
             <div className="label" style={{ marginBottom: 8 }}>{myCircle.name}</div>
             {myCircle.members.filter((m) => m.myVouchStatus !== 'SELF').map((m) => (
               <button
@@ -423,6 +539,9 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
           <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={busy} onClick={submitMyVouches}>
             {busy ? <span className="spin" /> : 'I stand with these members'}
           </button>
+          <p className="tiny muted" style={{ textAlign: 'center', marginTop: 8 }}>
+            {myCircle.confirmed_pairs} of {myCircle.total_pairs} confirmations so far
+          </p>
         </>
       )}
     </div>
