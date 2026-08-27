@@ -138,6 +138,9 @@ export const farmerApi = {
     api.post<{ circleId: string; state: string }>('/circles', { name, memberFarmerIds }),
   submitVouches: (circleId: string, declineFarmerIds?: string[]) =>
     api.post<{ state: string }>(`/circles/${circleId}/vouches`, { declineFarmerIds }),
+  removeCircleMember: (circleId: string, farmerId: string) =>
+    api.del<{ state: string }>(`/circles/${circleId}/members/${farmerId}`),
+  leaveCircle: () => api.post<{ ok: boolean }>('/circles/leave', {}),
 };
 
 export interface OnboardingStatus {

@@ -110,11 +110,11 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
   const [faqReturnTo, setFaqReturnTo] = useState<'circleForm' | 'circleVouch'>('circleForm');
   const [myCircle, setMyCircle] = useState<MyCircleStatus['circle'] | null>(null);
   const [declined, setDeclined] = useState<string[]>([]);
-  // Both circle screens land minimal — a short line and two buttons — and
-  // only reveal the actual form/list once the farmer chooses to. Nothing
-  // shows everything at once.
+  // The circle *formation* screen lands minimal and reveals the form only
+  // when the farmer taps "Form a Growth Circle". The vouching screen does
+  // NOT do this — it matches the mockup exactly, showing the roster straight
+  // away, since someone who's been named in a circle is there to act on it.
   const [formExpanded, setFormExpanded] = useState(false);
-  const [vouchExpanded, setVouchExpanded] = useState(false);
 
   const resume = useCallback(async () => {
     setErr('');
@@ -247,6 +247,31 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
       setStep(r.state === 'CONTESTED' ? 'circleVouch' : 'circleWaiting');
     } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not save'); }
     finally { setBusy(false); }
+  }
+
+  const [removingId, setRemovingId] = useState('');
+  async function removeMember(farmerId: string) {
+    if (!myCircle) return;
+    setRemovingId(farmerId); setErr('');
+    try {
+      await farmerApi.removeCircleMember(myCircle.id, farmerId);
+      const cs = await farmerApi.myCircleStatus();
+      if (cs.hasCircle && cs.circle) { setMyCircle(cs.circle); if (cs.circle.state === 'ACTIVE') onComplete(); }
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not remove that member'); }
+    finally { setRemovingId(''); }
+  }
+
+  const [leaving, setLeaving] = useState(false);
+  async function startNewCircleInstead() {
+    setLeaving(true); setErr('');
+    try {
+      await farmerApi.leaveCircle();
+      setMyCircle(null); setChosenMates([]); setCircleName(''); setFormExpanded(false); setDeclined([]);
+      const [r, m] = await Promise.all([record ? Promise.resolve(record) : farmerApi.records(), farmerApi.clusterMates()]);
+      setRecord(r); setMates(m.data);
+      setStep('circleForm');
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not leave that circle'); }
+    finally { setLeaving(false); }
   }
 
   if (step === 'loading') {
@@ -521,7 +546,18 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
             {myCircle.members.map((m) => (
               <div key={m.farmerId} className="row" style={{ padding: '4px 0', fontSize: 13 }}>
                 <span>{m.fullName}{m.isHead ? ' · head' : ''}</span>
-                <span className="muted tiny">{m.myVouchStatus === 'SELF' ? 'you' : m.myVouchStatus === 'ACCEPTED' ? '✓ confirmed' : m.myVouchStatus === 'DECLINED' ? 'declined' : 'waiting'}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="muted tiny">{m.myVouchStatus === 'SELF' ? 'you' : m.myVouchStatus === 'ACCEPTED' ? '✓ confirmed' : m.myVouchStatus === 'DECLINED' ? 'declined' : 'waiting'}</span>
+                  {myCircle.isHead && m.myVouchStatus !== 'SELF' && m.myVouchStatus !== 'ACCEPTED' && (
+                    <button
+                      onClick={() => removeMember(m.farmerId)}
+                      disabled={removingId === m.farmerId}
+                      style={{ border: 'none', background: 'none', color: 'var(--clay)', fontSize: 11, textDecoration: 'underline', cursor: 'pointer', padding: 0 }}
+                    >
+                      {removingId === m.farmerId ? '…' : 'Remove'}
+                    </button>
+                  )}
+                </span>
               </div>
             ))}
           </div>
@@ -531,43 +567,50 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
 
       {step === 'circleVouch' && myCircle && (
         <>
-          <GroSays line={myCircle.state === 'CONTESTED' ? 'circleContested' : 'circleVouch'} />
-          <button className="btn btn-ghost" style={{ width: '100%', marginBottom: 10 }} onClick={() => { setFaqReturnTo('circleVouch'); setStep('circleFaq'); }}>
-            More about Growth Circles
+          <h2 style={{ fontSize: 16, fontWeight: 500, marginBottom: 4 }}>Confirm your circle</h2>
+          <button
+            className="card"
+            onClick={() => { setFaqReturnTo('circleVouch'); setStep('circleFaq'); }}
+            style={{
+              width: '100%', padding: '10px 12px', marginBottom: 10, display: 'flex',
+              justifyContent: 'space-between', alignItems: 'center', textAlign: 'left',
+              fontSize: 12.5, fontWeight: 500, fontFamily: 'inherit', color: 'var(--ink)', cursor: 'pointer',
+            }}
+          >
+            <span>What do I need to know about Growth Circles?</span>
+            <span aria-hidden>⌄</span>
           </button>
-          {!vouchExpanded ? (
-            <>
-              <div className="card" style={{ marginBottom: 12 }}>
-                <p style={{ margin: 0, fontSize: 14 }}>
-                  {(() => { const founder = myCircle.members.find((m) => m.isHead); return founder ? `${founder.fullName} named you in ` : "You've been named in "; })()}
-                  <strong>{myCircle.name}</strong>.
-                </p>
-              </div>
-              <button className="btn btn-primary" onClick={() => setVouchExpanded(true)}>Join circle</button>
-            </>
-          ) : (
-            <>
-              <div className="card">
-                <div className="label" style={{ marginBottom: 8 }}>{myCircle.name}</div>
-                {myCircle.members.filter((m) => m.myVouchStatus !== 'SELF').map((m) => (
-                  <button
-                    key={m.farmerId}
-                    className={`tick-chip tick-chip-row ${!declined.includes(m.farmerId) ? 'tick-chip-on' : ''}`}
-                    onClick={() => toggle(declined, setDeclined, m.farmerId)}
-                  >
-                    {m.fullName}{m.isHead ? ' · head' : ''} {!declined.includes(m.farmerId) ? '✓' : ''}
-                  </button>
-                ))}
-                <p className="tiny muted" style={{ marginTop: 8 }}>Untick anyone you don't stand with.</p>
-              </div>
-              <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={busy} onClick={submitMyVouches}>
-                {busy ? <span className="spin" /> : 'I stand with these members'}
-              </button>
-              <p className="tiny muted" style={{ textAlign: 'center', marginTop: 8 }}>
-                {myCircle.confirmed_pairs} of {myCircle.total_pairs} confirmations so far
-              </p>
-            </>
+          <p className="muted" style={{ marginBottom: 12 }}>
+            {(() => { const founder = myCircle.members.find((m) => m.isHead); return founder ? `${founder.fullName} named you in ${myCircle.name}.` : `You've been named in ${myCircle.name}.`; })()}
+            {' '}If any member repays late, it affects everyone. Untick anyone you don't stand with.
+          </p>
+          {myCircle.state === 'CONTESTED' && (
+            <div className="err" style={{ marginBottom: 12 }}>
+              Some members haven't accepted everyone yet. Talk as a group — loans open once every member has confirmed every member.
+            </div>
           )}
+          {myCircle.members.filter((m) => m.myVouchStatus !== 'SELF').map((m) => (
+            <button
+              key={m.farmerId}
+              className={`tick-chip tick-chip-row ${!declined.includes(m.farmerId) ? 'tick-chip-on' : ''}`}
+              onClick={() => toggle(declined, setDeclined, m.farmerId)}
+            >
+              {m.fullName}{m.isHead ? ' · head' : ''} {!declined.includes(m.farmerId) ? '✓' : ''}
+            </button>
+          ))}
+          <button className="btn btn-primary" style={{ marginTop: 2 }} disabled={busy} onClick={submitMyVouches}>
+            {busy ? <span className="spin" /> : 'I stand with these members'}
+          </button>
+          <p className="tiny muted" style={{ textAlign: 'center', marginTop: 8 }}>
+            {myCircle.confirmed_pairs} of {myCircle.total_pairs} confirmations so far ·{' '}
+            <button
+              onClick={startNewCircleInstead}
+              disabled={leaving}
+              style={{ border: 'none', background: 'none', color: 'inherit', fontSize: 'inherit', fontFamily: 'inherit', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}
+            >
+              {leaving ? 'leaving…' : 'start a new circle instead'}
+            </button>
+          </p>
         </>
       )}
     </div>

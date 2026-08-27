@@ -162,8 +162,8 @@ function SignIn({ onDone }: { onDone: () => void }) {
           <Gro mood="encouraging" />
           <div className="gro-msg">
             {mode === 'signin'
-              ? 'Karibu tena! Enter your phone and PIN to continue.'
-              : "Karibu! Let's set up your account with the phone your cooperative registered."}
+              ? 'Karibu tena! Phone and PIN to continue.'
+              : "Karibu! Use the phone your cooperative registered."}
           </div>
         </div>
       </div>
@@ -405,9 +405,9 @@ function Apply({ onBack, onApplied }: { onBack: () => void; onApplied: (id: stri
   if (score && score.canBorrow === false) {
     const m = score.missing;
     const items = [
-      { done: score.registrationComplete, label: 'Complete your registration', hint: m?.phone && m?.nationalId ? 'Your phone and ID are needed' : m?.phone ? 'Your phone number is needed' : m?.nationalId ? 'Your ID number is needed' : 'Your details are complete', ask: 'Ask your cooperative to add your phone and ID.' },
-      { done: !!score.circleActive, label: 'Join an active Growth Circle', hint: m?.circle ? 'You are not in a circle yet' : m?.circleNotActive ? 'Your circle is not active yet' : 'Your circle is active', ask: 'Form or join a circle with farmers you trust, then activate it together.' },
-      { done: !!score.hasLimit, label: 'Have a credit limit', hint: m?.limit ? 'Grofunder sets this once you are established' : 'You have a limit', ask: 'This is set by Grofunder — keep building your record.' },
+      { done: score.registrationComplete, label: 'Complete your registration', hint: m?.phone && m?.nationalId ? 'Your phone and ID are needed' : m?.phone ? 'Your phone number is needed' : m?.nationalId ? 'Your ID number is needed' : 'Your details are complete', ask: 'Ask your cooperative to add these.' },
+      { done: !!score.circleActive, label: 'Join an active Growth Circle', hint: m?.circle ? 'You are not in a circle yet' : m?.circleNotActive ? 'Your circle is not active yet' : 'Your circle is active', ask: 'Form or join one with farmers you trust.' },
+      { done: !!score.hasLimit, label: 'Have a credit limit', hint: m?.limit ? 'Set once you are established' : 'You have a limit', ask: 'Set by Grofunder as your record grows.' },
     ];
     return (
       <div className="screen screen-pad-top">
@@ -425,9 +425,6 @@ function Apply({ onBack, onApplied }: { onBack: () => void; onApplied: (id: stri
             </div>
           ))}
         </div>
-        <p className="muted" style={{ fontSize: 13, textAlign: 'center', marginTop: 18 }}>
-          Once these are ready, come back here to apply.
-        </p>
       </div>
     );
   }
@@ -475,9 +472,9 @@ function Apply({ onBack, onApplied }: { onBack: () => void; onApplied: (id: stri
       <details className="accordion">
         <summary>What do I need to know before I apply? <span className="muted">＋</span></summary>
         <div className="body">
-          You repay every Friday. If a payment is missed, your Growth Circle is notified so you can support
-          each other. After 7 days a 2% late fee applies and your cooperative is informed. Your circle can't
-          take new loans until the balance is settled — so pay first when the money lands.
+          You repay every Friday. Miss one and your circle is told, so you can support each other.
+          After 7 days a 2% late fee applies, your cooperative is informed, and no one in your circle
+          can borrow again until it's settled.
         </div>
       </details>
 
@@ -562,7 +559,7 @@ function Schedule({ loanId, onBack }: { loanId: string; onBack: () => void }) {
         <div className="card center" style={{ padding: 24 }}>
           <Gro mood="encouraging" />
           <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
-            We'll let you know as soon as your application moves forward. Gro will keep you posted.
+            We'll let you know as soon as it moves forward.
           </p>
         </div>
       )}
@@ -604,7 +601,7 @@ function Messages({ onRead }: { onRead: () => void }) {
       {loading ? (
         <div className="loading"><span className="spin" /></div>
       ) : msgs.length === 0 ? (
-        <div className="empty-note">No messages yet. Notices from your cooperative and Grofunder will appear here.</div>
+        <div className="empty-note">No messages yet.</div>
       ) : (
         <div className="msg-list">
           {msgs.map((m) => (
@@ -647,7 +644,7 @@ function Records() {
       {loading ? (
         <div className="loading"><span className="spin" /></div>
       ) : recs.length === 0 ? (
-        <div className="empty-note">Your cooperative hasn't set up records yet. When they do, your produce and shares will show here.</div>
+        <div className="empty-note">No records yet. Your cooperative adds these.</div>
       ) : (
         <div className="stack">
           {recs.map((rec) => (
@@ -671,7 +668,7 @@ function Records() {
             </div>
           ))}
           <p className="muted" style={{ fontSize: 12, textAlign: 'center', marginTop: 4 }}>
-            These records are kept by your cooperative. If something looks wrong, talk to them.
+            Kept by your cooperative. Something wrong? Talk to them.
           </p>
         </div>
       )}
@@ -708,7 +705,7 @@ function Community() {
       {loading ? (
         <div className="loading"><span className="spin" /></div>
       ) : feed.length === 0 ? (
-        <div className="empty-note">Nothing shared yet. Be the first — tap “+ Share” to post a photo from a circle meetup or your farm.</div>
+        <div className="empty-note">Nothing shared yet. Tap “+ Share” to post the first photo.</div>
       ) : (
         <div className="feed">
           {feed.map((p) => (
@@ -809,7 +806,7 @@ function Compose({ onDone, onCancel }: { onDone: () => void; onCancel: () => voi
       <div className="card">
         <div className="label" style={{ marginBottom: 6 }}>Grofunder website</div>
         <p className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>
-          You can offer this photo for the public Grofunder website. Grofunder will review it first and decide whether to publish.
+          Offer this photo for the Grofunder website. Reviewed before publishing.
         </p>
         <label className="share-opt"><input type="checkbox" checked={toWebsite} onChange={(e) => setToWebsite(e.target.checked)} /> Send to Grofunder for the website</label>
       </div>
