@@ -133,7 +133,7 @@ export const farmerApi = {
   setHomeLocation: (lat: number | null, lng: number | null, text?: string) =>
     api.put<{ ok: boolean }>('/farmer-onboarding/home-location', { lat: lat ?? undefined, lng: lng ?? undefined, text }),
   myCircleStatus: () => api.get<MyCircleStatus>('/circles/my-circle'),
-  clusterMates: () => api.get<{ data: { id: string; fullName: string }[] }>('/circles/cluster-mates'),
+  clusterMates: () => api.get<{ data: { id: string; fullName: string }[]; diagnostics?: Record<string, unknown> }>('/circles/cluster-mates'),
   createCircle: (name: string, memberFarmerIds: string[]) =>
     api.post<{ circleId: string; state: string }>('/circles', { name, memberFarmerIds }),
   submitVouches: (circleId: string, declineFarmerIds?: string[]) =>

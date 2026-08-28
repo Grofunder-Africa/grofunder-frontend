@@ -103,6 +103,9 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
   const [incomeFreq, setIncomeFreq] = useState<string | null>(null);
 
   const [mates, setMates] = useState<{ id: string; fullName: string }[]>([]);
+  // Why the list is empty, straight from the server — so an empty dropdown
+  // can be explained on screen instead of guessed at.
+  const [mateDiag, setMateDiag] = useState<Record<string, unknown> | null>(null);
   const [chosenMates, setChosenMates] = useState<string[]>([]);
   const [circleName, setCircleName] = useState('');
   // Which step "More about Growth Circles" should return to — the FAQ is
@@ -217,7 +220,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
     setBusy(true); setErr('');
     try {
       const [r, m] = await Promise.all([record ? Promise.resolve(record) : farmerApi.records(), farmerApi.clusterMates()]);
-      setRecord(r); setMates(m.data);
+      setRecord(r); setMates(m.data); setMateDiag(m.diagnostics ?? null);
       setStep('circleForm');
     } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not load your cluster'); }
     finally { setBusy(false); }
@@ -268,7 +271,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
       await farmerApi.leaveCircle();
       setMyCircle(null); setChosenMates([]); setCircleName(''); setFormExpanded(false); setDeclined([]);
       const [r, m] = await Promise.all([record ? Promise.resolve(record) : farmerApi.records(), farmerApi.clusterMates()]);
-      setRecord(r); setMates(m.data);
+      setRecord(r); setMates(m.data); setMateDiag(m.diagnostics ?? null);
       setStep('circleForm');
     } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not leave that circle'); }
     finally { setLeaving(false); }
@@ -492,7 +495,16 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
               <div className="card">
                 <input className="input" placeholder="Name your circle (optional)" value={circleName} onChange={(e) => setCircleName(e.target.value)} style={{ marginBottom: 10 }} />
                 {mates.filter((m) => !chosenMates.includes(m.id)).length === 0 && chosenMates.length === 0 ? (
-                  <p className="muted" style={{ fontSize: 13 }}>No cluster-mates available yet — check back once more of your cluster has registered.</p>
+                  <>
+                    <p className="muted" style={{ fontSize: 13 }}>No cluster-mates available yet — check back once more of your cluster has registered.</p>
+                    {mateDiag && (
+                      <p className="tiny muted" style={{ marginTop: 6, fontFamily: 'monospace', fontSize: 10.5 }}>
+                        {mateDiag.reason === 'CALLER_HAS_NO_CLUSTER'
+                          ? 'diagnostic: you are not assigned to a cluster'
+                          : `diagnostic: ${mateDiag.othersInCluster} others in your cluster, ${mateDiag.excludedAlreadyInCircle} already in a circle`}
+                      </p>
+                    )}
+                  </>
                 ) : (
                   <select
                     className="input"
@@ -530,6 +542,13 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
               <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={busy || chosenMates.length < 4} onClick={createMyCircle}>
                 {busy ? <span className="spin" /> : 'I stand with these members'}
               </button>
+              {chosenMates.length < 4 && (
+                <p className="tiny muted" style={{ textAlign: 'center', marginTop: 8 }}>
+                  {mates.length === 0
+                    ? 'Waiting on more of your cluster to register before you can form a circle.'
+                    : `Add ${4 - chosenMates.length} more to continue.`}
+                </p>
+              )}
             </>
           )}
         </>
