@@ -115,6 +115,11 @@ export const farmerApi = {
   inboxUnread: () => api.get<{ count: number }>('/farmer-inbox/unread'),
   markRead: (id: string) => api.post<{ ok: boolean }>(`/farmer-inbox/${id}/read`, {}),
   markAllRead: () => api.post<{ ok: boolean; marked: number }>('/farmer-inbox/read-all', {}),
+  farmerMessages: () => api.get<{ data: FarmerMessage[] }>('/farmer-messages'),
+  sendFarmerMessage: (audience: FarmerAudience, body: string) =>
+    api.post<{ id: string }>('/farmer-messages', { audience, body }),
+  logGroRequest: (category: string, freeText?: string) =>
+    api.post<{ id: string }>('/farmer-messages/requests', { category, freeText }),
   myRecords: () => api.get<{ data: CaptureRecord[] }>('/my-records/records'),
   feed: () => api.get<{ data: FeedPost[] }>('/posts/feed'),
   createPost: (body: { imageBase64: string; contentType: string; caption?: string; toCluster: boolean; toCircle: boolean; toCooperative: boolean; toWebsite: boolean }) =>
@@ -180,6 +185,16 @@ export interface FarmerInboxMessage {
   senderName: string;
   sentAt: string | null;
   readAt: string | null;
+}
+
+export type FarmerAudience = 'CIRCLE' | 'CLUSTER' | 'COOPERATIVE' | 'EVERYONE' | 'GROFUNDER_ADMIN';
+export interface FarmerMessage {
+  id: string;
+  body: string;
+  audience: FarmerAudience;
+  senderName: string;
+  isMine: boolean;
+  createdAt: string;
 }
 
 /** KES cents -> "KES 5,000" */

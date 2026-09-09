@@ -96,3 +96,62 @@ export function GroSays({ line, children }: { line: keyof typeof GRO_LINES; chil
     </div>
   );
 }
+
+/**
+ * Gro's chat script — the quick-asks from the mockup's Gro tab, with his
+ * verbatim answers. Scripted, not AI (Master Build Document 5): predictable,
+ * translatable, works offline, costs nothing per message.
+ *
+ * `logs` marks the asks Gro can't actually solve — an agronomist, insurance,
+ * input loans, leaving the cooperative. Rather than pretend, he records the
+ * request (farmer_requests) so enough of the same ask becomes a signal
+ * Grofunder can act on. That's the demand-sensing the mockup describes.
+ */
+export interface QuickAsk {
+  id: string;
+  label: string;
+  reply: string;
+  logs?: string; // farmer_requests category, when this ask is a demand signal
+}
+
+export const GRO_OPENING = 'Niambie — what do you need?';
+export const GRO_FREETEXT_REPLY =
+  "Nimepokea — I've passed your message to Grofunder. Asante for telling me. Tuko pamoja.";
+export const GRO_RECEIPT = 'Request sent to Grofunder';
+
+export const GRO_QUICK_ASKS: QuickAsk[] = [
+  {
+    id: 'inputs',
+    label: 'Input loan badala ya pesa?',
+    reply: "Not yet — but I've told Grofunder you want inputs instead of cash. The more farmers ask, the sooner it comes. Nitakuambia when it's ready.",
+    logs: 'input_loans',
+  },
+  {
+    id: 'agro',
+    label: 'I need an agronomist',
+    reply: "We don't have an agronomist yet — lakini nimepeleka ombi lako to Grofunder. When one joins for your area, you'll be first to know. Asante for telling me.",
+    logs: 'agronomist',
+  },
+  {
+    id: 'money',
+    label: 'How do I manage my money?',
+    reply: 'Rahisi: when your money comes on Friday, pay your instalment kwanza — then the rest is truly yours. Farmers who pay first thing never fall behind.',
+  },
+  {
+    id: 'insure',
+    label: 'Insurance ya mazao?',
+    reply: "Crop insurance si bado — but Grofunder is listening. I've added your voice. The more farmers ask, the faster it comes.",
+    logs: 'insurance',
+  },
+  {
+    id: 'leave',
+    label: 'What happens when I leave the cooperative?',
+    reply: 'Sikiliza — your track record is YOURS. Every payment, every leaf on your tree, it follows you, not the cooperative. New loans would pause until we connect your work in a new way. Na mimi? Naenda popote unapoenda. Tuko pamoja — always.',
+    logs: 'leaving_cooperative',
+  },
+  {
+    id: 'defaultq',
+    label: 'What happens if a member defaults?',
+    reply: 'Niambie ukweli — here is how it works. On the repayment day the circle is told and has 5 days to help: a call, a visit, or covering it together. From the 7th day a flat 2% late fee applies and your cooperative steps in to follow up. While it stays unpaid, no one in the circle can take a new loan until it is settled. Ndiyo maana you choose your circle carefully. Tuko pamoja.',
+  },
+];

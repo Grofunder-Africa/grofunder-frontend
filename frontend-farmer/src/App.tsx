@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { farmerApi, setToken, getToken, kes, ApiError, onSessionExpired } from './api';
-import type { ScoreInfo, FarmerRecord, Quote, Instalment, FarmerInboxMessage, CaptureRecord, FeedPost, MyCircleStatus } from './api';
-import { Gro } from './Gro';
+import type { ScoreInfo, FarmerRecord, Quote, Instalment, FarmerInboxMessage, CaptureRecord, FeedPost, MyCircleStatus, FarmerMessage, FarmerAudience } from './api';
+import { Gro, GRO_QUICK_ASKS, GRO_OPENING, GRO_FREETEXT_REPLY, GRO_RECEIPT } from './Gro';
 import { Setup } from './Setup';
 import logo from './assets/grofunder-logo.png';
 
@@ -569,12 +569,18 @@ function Schedule({ loanId, onBack }: { loanId: string; onBack: () => void }) {
 
 /* ---------------- Messages ---------------- */
 function Messages({ onRead }: { onRead: () => void }) {
+  // Three views behind one tab: the landing choice, Gro's chat, and compose.
+  const [view, setView] = useState<'home' | 'gro' | 'compose'>('home');
   const [msgs, setMsgs] = useState<FarmerInboxMessage[]>([]);
+  const [sent, setSent] = useState<FarmerMessage[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
     setLoading(true);
-    farmerApi.inbox().then((r) => setMsgs(r.data)).catch(() => {}).finally(() => setLoading(false));
+    Promise.all([
+      farmerApi.inbox().then((r) => r.data).catch(() => [] as FarmerInboxMessage[]),
+      farmerApi.farmerMessages().then((r) => r.data).catch(() => [] as FarmerMessage[]),
+    ]).then(([inbox, mine]) => { setMsgs(inbox); setSent(mine); }).finally(() => setLoading(false));
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -590,6 +596,9 @@ function Messages({ onRead }: { onRead: () => void }) {
     catch { /* ignore */ }
   }
 
+  if (view === 'gro') return <GroChat onBack={() => setView('home')} />;
+  if (view === 'compose') return <ComposeMessage onBack={() => { setView('home'); load(); }} />;
+
   const anyUnread = msgs.some((m) => !m.readAt);
 
   return (
@@ -598,9 +607,23 @@ function Messages({ onRead }: { onRead: () => void }) {
         <h1>Messages</h1>
         {anyUnread && <button className="link-btn" onClick={markAll}>Mark all read</button>}
       </div>
+
+      <button className="card" onClick={() => setView('gro')}
+        style={{ width: '100%', textAlign: 'left', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center' }}>
+        <Gro mood="happy" />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 500, marginBottom: 2 }}>Chat with Gro</div>
+          <div className="muted" style={{ fontSize: 13 }}>Hi, I am Gro. Have questions? Tuongee</div>
+        </div>
+      </button>
+
+      <button className="btn btn-primary" style={{ marginBottom: 18 }} onClick={() => setView('compose')}>
+        Create message
+      </button>
+
       {loading ? (
         <div className="loading"><span className="spin" /></div>
-      ) : msgs.length === 0 ? (
+      ) : msgs.length === 0 && sent.length === 0 ? (
         <div className="empty-note">No messages yet.</div>
       ) : (
         <div className="msg-list">
@@ -614,8 +637,132 @@ function Messages({ onRead }: { onRead: () => void }) {
               {m.sentAt && <div className="msg-time">{new Date(m.sentAt).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' })}</div>}
             </button>
           ))}
+          {sent.map((m) => (
+            <div key={m.id} className="msg-card">
+              <div className="msg-top">
+                <span className="msg-from from-coop">{m.isMine ? `You → ${AUDIENCE_LABEL[m.audience]}` : m.senderName}</span>
+              </div>
+              <div className="msg-body">{m.body}</div>
+              <div className="msg-time">{new Date(m.createdAt).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' })}</div>
+            </div>
+          ))}
         </div>
       )}
+    </div>
+  );
+}
+
+const AUDIENCE_LABEL: Record<FarmerAudience, string> = {
+  CIRCLE: 'My circle',
+  CLUSTER: 'My cluster',
+  COOPERATIVE: 'My cooperative',
+  EVERYONE: 'Everyone',
+  GROFUNDER_ADMIN: 'Grofunder',
+};
+
+/* ---------------- Gro chat (scripted, never AI) ---------------- */
+function GroChat({ onBack }: { onBack: () => void }) {
+  type Line = { text: string; mine: boolean; receipt?: boolean };
+  const [log, setLog] = useState<Line[]>([{ text: GRO_OPENING, mine: false }]);
+  const [asked, setAsked] = useState<string[]>([]);
+  const [text, setText] = useState('');
+
+  function ask(q: typeof GRO_QUICK_ASKS[number]) {
+    setAsked((a) => [...a, q.id]);
+    setLog((l) => [...l, { text: q.label, mine: true }]);
+    if (q.logs) farmerApi.logGroRequest(q.logs).catch(() => {});
+    setTimeout(() => setLog((l) => [...l, { text: q.reply, mine: false, receipt: !!q.logs }]), 350);
+  }
+
+  function sendFree() {
+    const t = text.trim();
+    if (!t) return;
+    setLog((l) => [...l, { text: t, mine: true }]);
+    setText('');
+    farmerApi.logGroRequest('other', t).catch(() => {});
+    setTimeout(() => setLog((l) => [...l, { text: GRO_FREETEXT_REPLY, mine: false, receipt: true }]), 350);
+  }
+
+  const remaining = GRO_QUICK_ASKS.filter((q) => !asked.includes(q.id));
+
+  return (
+    <div className="screen">
+      <button className="back" onClick={onBack}>← Back</button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0 12px' }}>
+        <Gro mood="happy" />
+        <p style={{ fontSize: 14, fontWeight: 500 }}>Gro</p>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10, minHeight: 110 }}>
+        {log.map((l, i) => (
+          <div key={i} style={{
+            alignSelf: l.mine ? 'flex-end' : 'flex-start', maxWidth: '88%',
+            background: l.mine ? 'var(--g)' : 'var(--g-tint2)',
+            color: l.mine ? '#fff' : 'var(--ink)',
+            border: l.mine ? 'none' : '1px solid var(--line)',
+            borderRadius: l.mine ? '12px 12px 2px 12px' : '2px 12px 12px 12px',
+            padding: '9px 12px', fontSize: 12.5, lineHeight: 1.45,
+          }}>
+            {l.text}
+            {l.receipt && <div className="tiny" style={{ marginTop: 5, opacity: 0.85 }}>✓ {GRO_RECEIPT}</div>}
+          </div>
+        ))}
+      </div>
+
+      {remaining.length > 0 && (
+        <div className="tick-wrap" style={{ marginBottom: 10 }}>
+          {remaining.map((q) => (
+            <button key={q.id} className="tick-chip" onClick={() => ask(q)}>{q.label}</button>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input className="input" style={{ flex: 1 }} placeholder="Andika kitu kingine…"
+          value={text} onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') sendFree(); }} />
+        <button className="btn btn-primary" style={{ width: 'auto', padding: '9px 16px' }}
+          disabled={!text.trim()} onClick={sendFree}>Send</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Compose a farmer message ---------------- */
+function ComposeMessage({ onBack }: { onBack: () => void }) {
+  const [audience, setAudience] = useState<FarmerAudience>('CIRCLE');
+  const [body, setBody] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function send() {
+    setBusy(true); setErr('');
+    try { await farmerApi.sendFarmerMessage(audience, body); onBack(); }
+    catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not send'); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="screen">
+      <button className="back" onClick={onBack}>← Back</button>
+      <h1 className="h1" style={{ marginTop: 8 }}>New message</h1>
+      {err && <div className="err">{err}</div>}
+      <div className="field">
+        <label>Send to</label>
+        <select className="input" value={audience} onChange={(e) => setAudience(e.target.value as FarmerAudience)}>
+          {(Object.keys(AUDIENCE_LABEL) as FarmerAudience[]).map((a) => (
+            <option key={a} value={a}>{AUDIENCE_LABEL[a]}</option>
+          ))}
+        </select>
+      </div>
+      <div className="field">
+        <label>Message</label>
+        <textarea className="input" rows={5} value={body} onChange={(e) => setBody(e.target.value)}
+          placeholder="Andika ujumbe wako…" />
+      </div>
+      <button className="btn btn-primary" disabled={busy || !body.trim()} onClick={send}>
+        {busy ? <span className="spin" /> : 'Send'}
+      </button>
     </div>
   );
 }
