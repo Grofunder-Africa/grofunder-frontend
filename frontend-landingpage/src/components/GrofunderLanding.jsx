@@ -1,8 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
 
 const GrofunderLanding = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  // Add more hero images here
+  const heroImages = [
+    '/hero-farmer.jpg',
+    // Add more image paths here when ready
+  ];
+
+  // Rotate images every 2 seconds
+  useEffect(() => {
+    if (heroImages.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % heroImages.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [heroImages.length]);
 
   const portals = {
     farmer: '/farmer-app',
@@ -44,9 +60,9 @@ const GrofunderLanding = () => {
       )}
 
       {/* Hero Section */}
-      <section className="relative px-6 sm:px-12 py-16 md:py-24" style={{ backgroundColor: '#FFFFFF' }}>
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+      <section className="relative px-6 sm:px-12 w-full" style={{ backgroundColor: '#FFFFFF', minHeight: '100vh', display: 'flex', alignItems: 'center' }}>
+        <div className="max-w-6xl mx-auto w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center h-full">
             {/* Left Content */}
             <div>
               <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight" style={{ color: '#000000' }}>
@@ -60,13 +76,19 @@ const GrofunderLanding = () => {
               </a>
             </div>
 
-            {/* Right Hero Image */}
-            <div className="h-96 md:h-full rounded-2xl overflow-hidden">
-              <img 
-                src="/hero-farmer.jpg" 
-                alt="Farmer woman in field" 
-                className="w-full h-full object-cover"
-              />
+            {/* Right Hero Image - Full Screen Carousel */}
+            <div className="h-screen md:h-full rounded-2xl overflow-hidden relative" style={{ backgroundColor: '#F5F5F5', minHeight: '500px' }}>
+              {heroImages.map((image, index) => (
+                <img 
+                  key={index}
+                  src={image} 
+                  alt="Farmer" 
+                  className="w-full h-full object-cover absolute top-0 left-0 transition-opacity duration-1000"
+                  style={{
+                    opacity: index === currentImageIndex ? 1 : 0,
+                  }}
+                />
+              ))}
             </div>
           </div>
         </div>
@@ -198,11 +220,11 @@ const GrofunderLanding = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center max-w-4xl mx-auto">
             {/* Farmer Image */}
             <div>
-              <div className="rounded-lg h-80 overflow-hidden">
+              <div className="rounded-lg h-96 w-full overflow-hidden">
                 <img 
                   src="/testimonial-farmer.png" 
                   alt="Mr. Wesonga, smallholder farmer" 
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover object-center"
                 />
               </div>
             </div>
