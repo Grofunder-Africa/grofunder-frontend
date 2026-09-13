@@ -60,9 +60,9 @@ const GrofunderLanding = () => {
       )}
 
       {/* Hero Section */}
-      <section className="relative px-6 sm:px-12 w-full" style={{ backgroundColor: '#FFFFFF', minHeight: '100vh', display: 'flex', alignItems: 'center' }}>
-        <div className="max-w-6xl mx-auto w-full">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center h-full">
+      <section className="relative px-6 sm:px-12 py-16 md:py-24" style={{ backgroundColor: '#FFFFFF' }}>
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
             {/* Left Content */}
             <div>
               <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight" style={{ color: '#000000' }}>
@@ -76,16 +76,19 @@ const GrofunderLanding = () => {
               </a>
             </div>
 
-            {/* Right Hero Image - Full Screen Carousel */}
-            <div className="h-screen md:h-full rounded-2xl overflow-hidden relative" style={{ backgroundColor: '#F5F5F5', minHeight: '500px' }}>
+            {/* Right Hero Image - Carousel */}
+            <div className="h-96 rounded-2xl overflow-hidden relative" style={{ backgroundColor: '#F5F5F5' }}>
               {heroImages.map((image, index) => (
                 <img 
                   key={index}
                   src={image} 
                   alt="Farmer" 
-                  className="w-full h-full object-cover absolute top-0 left-0 transition-opacity duration-1000"
+                  className="w-full h-full object-cover transition-opacity duration-1000"
                   style={{
                     opacity: index === currentImageIndex ? 1 : 0,
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
                   }}
                 />
               ))}
@@ -100,8 +103,22 @@ const GrofunderLanding = () => {
       </section>
 
       {/* How Grofunder Works Section */}
-      <section className="py-20 md:py-32 relative" style={{ backgroundColor: '#F5A623' }}>
-        <div className="max-w-6xl mx-auto px-6 sm:px-12">
+      <section className="py-20 md:py-32 relative overflow-hidden" style={{ backgroundColor: '#F5A623' }}>
+        {/* Left Leaf decoration */}
+        <div className="absolute left-0 top-0 opacity-10 w-80 h-80">
+          <svg viewBox="0 0 200 200" className="w-full h-full">
+            <path d="M 100 10 Q 150 50 150 150 Q 100 100 50 150 Q 50 50 100 10" fill="#FFFFFF" />
+          </svg>
+        </div>
+
+        {/* Right Leaf decoration */}
+        <div className="absolute right-0 bottom-0 opacity-10 w-96 h-96">
+          <svg viewBox="0 0 200 200" className="w-full h-full">
+            <path d="M 100 10 Q 150 50 150 150 Q 100 100 50 150 Q 50 50 100 10" fill="#FFFFFF" />
+          </svg>
+        </div>
+
+        <div className="max-w-6xl mx-auto px-6 sm:px-12 relative z-10">
           <div className="text-center mb-16">
             <h2 className="text-5xl md:text-6xl font-bold" style={{ color: '#000000' }}>
               How <span style={{ color: '#FFFFFF' }}>grofunder</span> works
@@ -113,7 +130,7 @@ const GrofunderLanding = () => {
             <div className="text-center">
               <div className="h-48 rounded-lg mb-6 overflow-hidden">
                 <img 
-                  src="/pillar-phone-access.jpg" 
+                  src="/pillar-access.jpg" 
                   alt="Mobile phone for financing access" 
                   className="w-full h-full object-cover"
                 />
@@ -128,7 +145,7 @@ const GrofunderLanding = () => {
             <div className="text-center">
               <div className="h-48 rounded-lg mb-6 overflow-hidden">
                 <img 
-                  src="/pillar-crops-grow.jpg" 
+                  src="/pillar-grow.jpg" 
                   alt="Growing crops with agronomy support" 
                   className="w-full h-full object-cover"
                 />
@@ -143,7 +160,7 @@ const GrofunderLanding = () => {
             <div className="text-center">
               <div className="h-48 rounded-lg mb-6 overflow-hidden">
                 <img 
-                  src="/pillar-farmer-thrive.jpg" 
+                  src="/pillar-thrive.png" 
                   alt="Thriving farmer with successful harvest" 
                   className="w-full h-full object-cover"
                 />
@@ -204,8 +221,15 @@ const GrofunderLanding = () => {
 
       {/* Testimonials Section */}
       <section className="py-20 md:py-32 relative overflow-hidden" style={{ backgroundColor: '#09AF0F' }}>
-        {/* Leaf decoration */}
-        <div className="absolute right-0 top-0 opacity-10 w-96 h-96">
+        {/* Left Leaf decoration */}
+        <div className="absolute left-0 top-0 opacity-10 w-80 h-80">
+          <svg viewBox="0 0 200 200" className="w-full h-full">
+            <path d="M 100 10 Q 150 50 150 150 Q 100 100 50 150 Q 50 50 100 10" fill="#FFFFFF" />
+          </svg>
+        </div>
+
+        {/* Right Leaf decoration */}
+        <div className="absolute right-0 bottom-0 opacity-10 w-96 h-96">
           <svg viewBox="0 0 200 200" className="w-full h-full">
             <path d="M 100 10 Q 150 50 150 150 Q 100 100 50 150 Q 50 50 100 10" fill="#FFFFFF" />
           </svg>
