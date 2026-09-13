@@ -77,7 +77,7 @@ const GrofunderLanding = () => {
             </div>
 
             {/* Right Hero Image - Carousel */}
-            <div className="h-96 rounded-2xl overflow-hidden relative" style={{ backgroundColor: '#F5F5F5' }}>
+            <div className="h-96 md:h-screen md:max-h-[600px] rounded-2xl overflow-hidden relative" style={{ backgroundColor: '#F5F5F5' }}>
               {heroImages.map((image, index) => (
                 <img 
                   key={index}
