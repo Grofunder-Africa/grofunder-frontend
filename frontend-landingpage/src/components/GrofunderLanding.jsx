@@ -59,40 +59,41 @@ const GrofunderLanding = () => {
         </div>
       )}
 
-      {/* Hero Section */}
-      <section className="relative px-6 sm:px-12 py-16 md:py-24" style={{ backgroundColor: '#FFFFFF' }}>
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            {/* Left Content */}
-            <div>
-              <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight" style={{ color: '#000000' }}>
-                Growing farmers.<br />Growing wealth.
-              </h1>
-              <p className="text-base md:text-lg mb-8 leading-relaxed" style={{ color: '#333333' }}>
-                Helping smallholder farmers in rural Kenya access the support they need to turn their hard work into better livelihoods for themselves and their families.
-              </p>
-              <a href={portals.farmer} className="inline-block text-white px-8 py-3 rounded-full font-semibold transition" style={{ backgroundColor: '#09AF0F' }}>
-                Get Started
-              </a>
-            </div>
+      {/* Hero Section - Full Background Image */}
+      <section className="relative w-full py-24 md:py-32" style={{ backgroundColor: '#FFFFFF', minHeight: '600px' }}>
+        {/* Background Carousel Images */}
+        <div className="absolute inset-0 overflow-hidden">
+          {heroImages.map((image, index) => (
+            <img 
+              key={index}
+              src={image} 
+              alt="Farmer" 
+              className="w-full h-full object-cover transition-opacity duration-1000"
+              style={{
+                opacity: index === currentImageIndex ? 1 : 0,
+              }}
+            />
+          ))}
+          {/* Dark overlay for text readability */}
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+          }}></div>
+        </div>
 
-            {/* Right Hero Image - Carousel */}
-            <div className="h-96 md:h-screen md:max-h-[600px] rounded-2xl overflow-hidden relative" style={{ backgroundColor: '#F5F5F5' }}>
-              {heroImages.map((image, index) => (
-                <img 
-                  key={index}
-                  src={image} 
-                  alt="Farmer" 
-                  className="w-full h-full object-cover transition-opacity duration-1000"
-                  style={{
-                    opacity: index === currentImageIndex ? 1 : 0,
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                  }}
-                />
-              ))}
-            </div>
+        {/* Content Overlay */}
+        <div className="max-w-6xl mx-auto px-6 sm:px-12 relative z-10">
+          <div className="max-w-xl">
+            <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight" style={{ color: '#FFFFFF' }}>
+              Growing farmers.<br />Growing wealth.
+            </h1>
+            <p className="text-base md:text-lg mb-8 leading-relaxed" style={{ color: '#FFFFFF' }}>
+              Helping smallholder farmers in rural Kenya access the support they need to turn their hard work into better livelihoods for themselves and their families.
+            </p>
+            <a href={portals.farmer} className="inline-block text-white px-8 py-3 rounded-full font-semibold transition" style={{ backgroundColor: '#09AF0F' }}>
+              Get Started
+            </a>
           </div>
         </div>
 
