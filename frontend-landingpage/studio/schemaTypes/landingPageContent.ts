@@ -39,6 +39,13 @@ export const landingPageContent = defineType({
       description: 'Color for buttons, icons, highlights',
     }),
     defineField({
+      name: 'description',
+      title: 'Section Description',
+      type: 'text',
+      rows: 3,
+      description: 'Main paragraph text for the section',
+    }),
+    defineField({
       name: 'items',
       title: 'Section Items',
       type: 'array',
