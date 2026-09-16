@@ -1,0 +1,139 @@
+import { getHeroSection, getLandingContent } from '@/lib/sanity.client'
+import Image from 'next/image'
+import TestimonialCarousel from '@/components/TestimonialCarousel'
+
+export default async function Home() {
+  const hero = await getHeroSection()
+  const howItWorks = await getLandingContent('how-it-works')
+  const impact = await getLandingContent('impact')
+  const testimonials = await getLandingContent('testimonials')
+  const footer = await getLandingContent('footer')
+
+  return (
+    <main>
+      {/* Hero Section */}
+      {hero && (
+        <section
+          className="relative min-h-screen flex items-center justify-center text-white"
+          style={{ backgroundColor: hero.backgroundColor }}
+        >
+          {hero.images && hero.images[0] && (
+            <div className="absolute inset-0">
+              <Image
+                src={hero.images[0].asset.url}
+                alt="Hero"
+                fill
+                className="object-cover"
+              />
+              <div
+                className="absolute inset-0"
+                style={{
+                  backgroundColor: hero.overlayColor,
+                  opacity: hero.overlayOpacity,
+                }}
+              />
+            </div>
+          )}
+
+          <div className="relative z-10 max-w-2xl text-center px-4">
+            <h1 className="text-5xl font-bold mb-6">{hero.heading}</h1>
+            <p className="text-xl mb-8">{hero.subheading}</p>
+            
+              href={hero.ctaLink}
+              className="inline-block bg-green-600 text-white px-8 py-3 rounded-full font-semibold hover:bg-green-700"
+            >
+              {hero.ctaText}
+            </a>
+          </div>
+        </section>
+      )}
+
+      {/* How It Works Section */}
+      {howItWorks && (
+        <section
+          className="py-16 px-4"
+          style={{ backgroundColor: howItWorks.backgroundColor }}
+        >
+          <div className="max-w-6xl mx-auto">
+            <h2
+              className="text-4xl font-bold text-center mb-12"
+              style={{ color: howItWorks.textColor }}
+            >
+              How Grofunder Works
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {howItWorks.items?.map((item: any, idx: number) => (
+                <div key={idx} className="text-center">
+                  <div className="text-5xl mb-4">{item.icon}</div>
+                  <h3
+                    className="text-2xl font-semibold mb-3"
+                    style={{ color: howItWorks.textColor }}
+                  >
+                    {item.title}
+                  </h3>
+                  <p style={{ color: howItWorks.textColor }}>{item.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Our Impact Section */}
+      {impact && (
+        <section
+          className="py-16 px-4"
+          style={{ backgroundColor: impact.backgroundColor }}
+        >
+          <div className="max-w-6xl mx-auto text-center">
+            <h2
+              className="text-4xl font-bold mb-8"
+              style={{ color: impact.textColor }}
+            >
+              Our Impact
+            </h2>
+            {impact.description && (
+              <p
+                className="mb-12 text-lg max-w-3xl mx-auto"
+                style={{ color: impact.textColor }}
+              >
+                {impact.description}
+              </p>
+            )}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {impact.items?.map((item: any, idx: number) => (
+                <div key={idx} className="text-6xl">{item.icon}</div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Testimonials Carousel */}
+      {testimonials && <TestimonialCarousel testimonials={testimonials} />}
+
+      {/* Footer */}
+      {footer && (
+        <footer
+          className="py-16 px-4"
+          style={{ backgroundColor: footer.backgroundColor, color: footer.textColor }}
+        >
+          <div className="max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+              {footer.items?.map((col: any, idx: number) => (
+                <div key={idx}>
+                  <h4 className="font-bold mb-4">{col.title}</h4>
+                  <p className="text-sm">{col.description}</p>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-opacity-20 pt-8 text-center text-sm">
+              <p>&copy; 2026 Grofunder. All rights reserved.</p>
+            </div>
+          </div>
+        </footer>
+      )}
+    </main>
+  )
+}
