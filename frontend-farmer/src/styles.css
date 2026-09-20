@@ -75,6 +75,21 @@ body::before {
   overflow: hidden;
 }
 
+/* Below ~700px this is a phone — 430px already fills it, matching how the
+   mockup's own card would look scaled down to a narrow screen: no visible
+   backdrop margin, the card is essentially the whole viewport.
+   Above that, this is very likely someone testing/demoing on a desktop
+   browser (exactly how this has been reviewed all along) — the card should
+   grow toward the mockup's actual measured proportion (42% of viewport
+   width, ~918px at the mockup's own 2198px canvas) instead of staying
+   pinned at phone width and looking small against the wide backdrop. */
+@media (min-width: 700px) {
+  .app { max-width: 640px; }
+}
+@media (min-width: 1400px) {
+  .app { max-width: 760px; }
+}
+
 .screen { flex: 1; padding: 18px 18px 106px; }
 /* Screens with no tab bar (sign-in, onboarding) don't need the 90px kept
    clear for it — without this they sit above a dead gap of empty page,
@@ -155,6 +170,16 @@ body::before {
 .input:focus { outline: none; border-color: var(--g); box-shadow: 0 0 0 3px var(--g-tint); }
 .pin-input { letter-spacing: 0.5em; text-align: center; font-size: 22px; padding-right: 78px; }
 .hint { display: block; font-size: 13px; color: var(--mut); margin-top: 5px; line-height: 1.4; }
+
+/* Same breakpoints as .app: the card grows wider on desktop, so its fields
+   grow with it — matching the mockup's generous proportions rather than
+   leaving small phone-sized text floating in a now-wider card. */
+@media (min-width: 700px) {
+  .field label { font-size: 18px; margin-bottom: 8px; }
+  .input { font-size: 17px; padding: 13px 15px; }
+  .btn { font-size: 15px; padding: 12px 18px; }
+  .btn-primary { font-size: 17px; padding: 15px; }
+}
 .hint-warn { color: var(--clay); }
 
 /* term pills */
@@ -203,6 +228,14 @@ body::before {
   width: 100%; max-width: 430px; background: #fff; border-top: 1px solid var(--line);
   display: flex; padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
   border-radius: 0 0 22px 22px;
+}
+/* Must track .app's own breakpoints exactly, or the tab bar stays
+   phone-width while the card above it grows wider on desktop. */
+@media (min-width: 700px) {
+  .tabbar { max-width: 640px; }
+}
+@media (min-width: 1400px) {
+  .tabbar { max-width: 760px; }
 }
 .tab {
   flex: 1; border: none; background: none; cursor: pointer; font-family: inherit;

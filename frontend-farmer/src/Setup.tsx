@@ -1,7 +1,7 @@
 /**
  * The Gro-guided setup walkthrough (grofunder_farmer_app_mockup.html v1.0):
  *   3 explainer cards -> record confirmation (+ mismatch flag) -> home location
- *   -> about-you (crops, activities, income) -> Growth Circle formation/vouching
+ *   -> about-you (crops, activities, income) -> Growth Chama formation/vouching
  *   -> main app.
  *
  * Resumable: on mount, asks the backend exactly which of these the farmer has
@@ -17,14 +17,15 @@ import { GroSays, SeedProgress } from './Gro';
 import type { SeedStage } from './Gro';
 
 // Restructured to Melanie's four-stage flow (handwritten Sept 2026):
-//   intro   — welcome, what Grofunder is, what a circle is (was 4 screens)
+//   intro   — welcome, what Grofunder is, what a chama is (was 4 screens)
 //   record  — cooperative record confirmation, then ID (was 2 screens)
 //   about   — crops, other income sources, and how often each pays (was 3)
-//   circle  — form or join a Growth Circle
+//   circle  — form or join a Growth Chama
 // Location moved OUT of onboarding entirely — now optional, from Home.
 type Step =
   | 'loading'
-  | 'intro'
+  | 'intro' | 'explainer1' | 'explainer2' | 'explainer3'
+  | 'grofunderFaq'
   | 'record'
   | 'idConfirm'
   | 'about'
@@ -36,7 +37,7 @@ type Step =
 
 // Which of the four seedling stages a step belongs to, for the progress bar.
 const STEP_STAGE: Partial<Record<Step, SeedStage>> = {
-  intro: 1,
+  intro: 1, explainer1: 1, explainer2: 1, explainer3: 1, grofunderFaq: 1,
   record: 2, idConfirm: 2,
   about: 3,
   seedPlanted: 4, circleForm: 4, circleFaq: 4, circleWaiting: 4, circleVouch: 4,
@@ -52,43 +53,77 @@ const FREQUENCIES: { value: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'SEASONAL'; label: 
 ];
 
 /**
- * The full Growth Circles explanation, verbatim in spirit from
+ * The full Growth Chama explanation, verbatim in spirit from
  * grofunder_farmer_app_mockup.html, reorganized into the four questions that
  * matter: what it is, why it exists, why it matters, how it works. Lives on
  * its own page (see the 'circleFaq' step below) — reached only when someone
- * taps "More about Growth Circles," never shown by default.
+ * taps "More about Growth Chama," never shown by default.
  */
+/**
+ * "More about Grofunder" — reached from explainer1, the same pattern as
+ * Growth Chama's own FAQ: a proper page of its own, not more text stacked
+ * onto the screen that links to it.
+ */
+function GrofunderFaq() {
+  return (
+    <>
+      <div className="card" style={{ marginBottom: 10 }}>
+        <div className="label" style={{ marginBottom: 6 }}>What does Grofunder actually do?</div>
+        <p className="muted" style={{ fontSize: 14.5, margin: 0 }}>
+          We help you access capital to grow fast and easy. We turn your records into credit — your deliveries
+          to your cooperative, your guarantors, and your transactions with Grofunder — into money you can use
+          to increase your income.
+        </p>
+      </div>
+      <div className="card" style={{ marginBottom: 10 }}>
+        <div className="label" style={{ marginBottom: 6 }}>Why no collateral?</div>
+        <p className="muted" style={{ fontSize: 14.5, margin: 0 }}>
+          Your history already proves you're reliable. Years of deliveries to your cooperative and people who
+          stand behind you are worth more here than a title deed.
+        </p>
+      </div>
+      <div className="card">
+        <div className="label" style={{ marginBottom: 6 }}>What happens as I use it?</div>
+        <p className="muted" style={{ fontSize: 14.5, margin: 0 }}>
+          Every loan you repay well grows your record — and your record is what unlocks bigger, cheaper loans
+          next time. Nothing here is one-off; it all builds.
+        </p>
+      </div>
+    </>
+  );
+}
+
 function CircleFaq() {
   return (
     <>
       <div className="card" style={{ marginBottom: 10 }}>
-        <div className="label" style={{ marginBottom: 6 }}>What is a Growth Circle?</div>
+        <div className="label" style={{ marginBottom: 6 }}>What is a Growth Chama?</div>
         <p className="muted" style={{ fontSize: 14.5, margin: 0 }}>
           5–10 farmers from your cluster who vouch for each other. You choose each other — every member confirms
-          every member, so no one is in a circle they didn't pick, and no one joins yours without your yes.
+          every member, so no one is in a chama they didn't pick, and no one joins yours without your yes.
         </p>
       </div>
       <div className="card" style={{ marginBottom: 10 }}>
         <div className="label" style={{ marginBottom: 6 }}>Why does it exist?</div>
         <p className="muted" style={{ fontSize: 14.5, margin: 0 }}>
-          Grofunder lends without collateral. Your circle standing behind you — the way your community already
+          Grofunder lends without collateral. Your chama standing behind you — the way your community already
           does — is what makes that possible.
         </p>
       </div>
       <div className="card" style={{ marginBottom: 10 }}>
         <div className="label" style={{ marginBottom: 6 }}>Why does it matter?</div>
         <p className="muted" style={{ fontSize: 14.5, margin: 0 }}>
-          The circle opens the door: loans only start once it's fully confirmed and active, and your first limit
-          unlocks with it. If a member misses a payment, the circle is told that day and has 5 days to help follow
+          The chama opens the door: loans only start once it's fully confirmed and active, and your first limit
+          unlocks with it. If a member misses a payment, the chama is told that day and has 5 days to help follow
           up or cover it — after that a late fee applies and your cooperative steps in. While it's unpaid, no one in
-          the circle can take a new loan.
+          the chama can take a new loan.
         </p>
       </div>
       <div className="card">
         <div className="label" style={{ marginBottom: 6 }}>How does it work?</div>
         <p className="muted" style={{ fontSize: 14.5, margin: 0 }}>
           You form one when you set up, or someone names you in theirs. Either way, you see exactly who's in it and
-          choose to stand with each of them. Strong circles earn champion recognition every Friday, and every
+          choose to stand with each of them. Strong chamas earn champion recognition every Friday, and every
           member's tree grows faster.
         </p>
       </div>
@@ -137,10 +172,11 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
   // Income sources: each is an activity plus how often it pays. A farmer has
   // several on different cycles (seasonal maize, weekly vegetables, monthly
   // job) — one frequency for the whole person was the wrong model.
-  type IncomeRow = { activity: string; frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'SEASONAL' };
+  type IncomeRow = { activity: string; frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'SEASONAL'; avgAmountKes?: number };
   const [incomeSources, setIncomeSources] = useState<IncomeRow[]>([]);
   const [newActivity, setNewActivity] = useState('');
   const [newFrequency, setNewFrequency] = useState<IncomeRow['frequency']>('MONTHLY');
+  const [newAmount, setNewAmount] = useState('');
 
   const [mates, setMates] = useState<{ id: string; fullName: string }[]>([]);
   // Why the list is empty, straight from the server — so an empty dropdown
@@ -148,15 +184,15 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
   const [mateDiag, setMateDiag] = useState<Record<string, unknown> | null>(null);
   const [chosenMates, setChosenMates] = useState<string[]>([]);
   const [circleName, setCircleName] = useState('');
-  // Which step "More about Growth Circles" should return to — the FAQ is
+  // Which step "More about Growth Chama" should return to — the FAQ is
   // its own page now, not an inline expand, so it needs to know the way back.
-  const [faqReturnTo, setFaqReturnTo] = useState<'circleForm' | 'circleVouch'>('circleForm');
+  const [faqReturnTo, setFaqReturnTo] = useState<'circleForm' | 'circleVouch' | 'explainer1'>('circleForm');
   const [myCircle, setMyCircle] = useState<MyCircleStatus['circle'] | null>(null);
   const [declined, setDeclined] = useState<string[]>([]);
   // The circle *formation* screen lands minimal and reveals the form only
-  // when the farmer taps "Form a Growth Circle". The vouching screen does
+  // when the farmer taps "Form a Growth Chama". The vouching screen does
   // NOT do this — it matches the mockup exactly, showing the roster straight
-  // away, since someone who's been named in a circle is there to act on it.
+  // away, since someone who's been named in a chama is there to act on it.
   const [formExpanded, setFormExpanded] = useState(false);
 
   const resume = useCallback(async () => {
@@ -223,8 +259,9 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
   function addIncomeSource() {
     const a = newActivity.trim();
     if (!a) return;
-    setIncomeSources((rows) => [...rows, { activity: a, frequency: newFrequency }]);
-    setNewActivity(''); setNewFrequency('MONTHLY');
+    const amt = newAmount.trim() ? Number(newAmount) : undefined;
+    setIncomeSources((rows) => [...rows, { activity: a, frequency: newFrequency, avgAmountKes: amt }]);
+    setNewActivity(''); setNewFrequency('MONTHLY'); setNewAmount('');
   }
 
   function toggle(list: string[], setList: (v: string[]) => void, item: string) {
@@ -235,7 +272,11 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
     setBusy(true); setErr('');
     try {
       const finalCrops = otherCropText.trim() ? [...crops, otherCropText.trim()] : crops;
-      await farmerApi.setEconomicProfile(finalCrops, [], incomeSources);
+      const apiSources = incomeSources.map((r) => ({
+        activity: r.activity, frequency: r.frequency,
+        avgAmountCents: r.avgAmountKes !== undefined ? Math.round(r.avgAmountKes * 100) : undefined,
+      }));
+      await farmerApi.setEconomicProfile(finalCrops, [], apiSources);
       setStep('seedPlanted');
     } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not save'); }
     finally { setBusy(false); }
@@ -260,7 +301,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
       const cs = await farmerApi.myCircleStatus();
       if (cs.hasCircle && cs.circle) setMyCircle(cs.circle);
       setStep('circleWaiting');
-    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not create your circle'); }
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not create your chama'); }
     finally { setBusy(false); }
   }
 
@@ -298,7 +339,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
       const [r, m] = await Promise.all([record ? Promise.resolve(record) : farmerApi.records(), farmerApi.clusterMates()]);
       setRecord(r); setMates(m.data); setMateDiag(m.diagnostics ?? null);
       setStep('circleForm');
-    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not leave that circle'); }
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not leave that chama'); }
     finally { setLeaving(false); }
   }
 
@@ -317,36 +358,72 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
       {step === 'intro' && (
         <>
           <GroSays line="welcome" />
-          <div className="card" style={{ marginTop: 14 }}>
-            <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5 }}>
-              <strong>Grofunder</strong> helps you grow your income and make farming easier — by turning your
-              harvests, your production, your Growth Chama and your repayments into a record that banks can trust.
-              That record is what unlocks loans, without collateral.
+          <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => setStep('explainer1')}>
+            Ready?
+          </button>
+        </>
+      )}
+
+      {step === 'explainer1' && (
+        <>
+          <GroSays line="explainerWhat" />
+          <div className="card" style={{ marginTop: 12 }}>
+            <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.5, fontWeight: 700, color: 'var(--g-dark)' }}>How?</p>
+            <p style={{ margin: '8px 0 0', fontSize: 14.5, lineHeight: 1.5 }}>
+              We turn your records into credit. We use your deliveries to your cooperative, your guarantors, and
+              your transactions with Grofunder to help you get money that you will use to increase your income.
             </p>
           </div>
-          <div className="card">
-            <div className="label" style={{ marginBottom: 6 }}>What is a Growth Chama?</div>
-            <p className="muted" style={{ margin: 0, fontSize: 14.5, lineHeight: 1.5 }}>
-              A group of team members you trust on this journey. They guarantee each other's loans. When members
-              repay on time, everyone is seen as lower risk and unlocks more, faster and cheaper. When members
-              repay late, everyone unlocks slower and dearer. If a member doesn't repay, the whole chama pauses.
-            </p>
-            <p style={{ margin: '8px 0 0', fontSize: 13.5, fontWeight: 600, color: 'var(--g-dark)' }}>
-              Choose only members you trust to keep you accountable.
+          <button className="btn btn-ghost" style={{ width: '100%', marginTop: 10 }}
+            onClick={() => { setFaqReturnTo('explainer1'); setStep('grofunderFaq'); }}>
+            More about Grofunder
+          </button>
+          <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={() => setStep('explainer2')}>
+            Endelea
+          </button>
+        </>
+      )}
+
+      {step === 'grofunderFaq' && (
+        <>
+          <h3 style={{ marginTop: 0, marginBottom: 12 }}>About Grofunder</h3>
+          <GrofunderFaq />
+          <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => setStep(faqReturnTo)}>Back</button>
+        </>
+      )}
+
+      {step === 'explainer2' && (
+        <>
+          <GroSays line="explainerProgress" />
+          <div className="card" style={{ marginTop: 12, textAlign: 'center' }}>
+            <svg viewBox="0 0 200 110" width="170" height="94" aria-hidden="true" style={{ margin: '4px auto 0' }}>
+              <ellipse cx="100" cy="100" rx="52" ry="7" fill="#D3D1C7" />
+              <path d="M100 98 L100 32" stroke="#067A0B" strokeWidth="4" strokeLinecap="round" />
+              <path d="M100 80 L76 66 M100 80 L124 66 M100 58 L80 46 M100 58 L120 46" stroke="#067A0B" strokeWidth="2.5" strokeLinecap="round" />
+              <ellipse cx="72" cy="64" rx="12" ry="6" fill="#09AF0F" transform="rotate(-25 72 64)" />
+              <ellipse cx="128" cy="64" rx="12" ry="6" fill="#09AF0F" transform="rotate(25 128 64)" />
+              <ellipse cx="76" cy="43" rx="11" ry="5.5" fill="#09AF0F" transform="rotate(-30 76 43)" />
+              <ellipse cx="124" cy="43" rx="11" ry="5.5" fill="#09AF0F" transform="rotate(30 124 43)" />
+              <ellipse cx="100" cy="27" rx="10" ry="6" fill="#5DCAA5" />
+              <circle cx="86" cy="60" r="4" fill="#E24B4A" />
+              <circle cx="114" cy="58" r="4" fill="#E24B4A" />
+              <circle cx="100" cy="40" r="4" fill="#E24B4A" />
+            </svg>
+            <p style={{ margin: '8px 0 0', fontSize: 14.5, lineHeight: 1.5 }}>
+              Pay on time — it grows. Finish loans — it bears fruit, and your limit grows with it.
             </p>
           </div>
-          <div className="card" style={{ background: 'var(--g-tint2)' }}>
-            <div className="label" style={{ marginBottom: 6 }}>What to expect</div>
-            <p className="muted" style={{ margin: 0, fontSize: 14, lineHeight: 1.6 }}>
-              1. Confirm your details from your cooperative<br />
-              2. Verify your ID<br />
-              3. Tell us about your activities<br />
-              4. Set up your Growth Chama<br />
-              Then — start applying for a loan.
-            </p>
-          </div>
-          <button className="btn btn-primary" style={{ marginTop: 4 }} onClick={loadRecord} disabled={busy}>
-            {busy ? <span className="spin" /> : 'Niko tayari — I\'m ready'}
+          <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => setStep('explainer3')}>
+            Endelea
+          </button>
+        </>
+      )}
+
+      {step === 'explainer3' && (
+        <>
+          <GroSays line="explainerTogether" />
+          <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={loadRecord} disabled={busy}>
+            {busy ? <span className="spin" /> : 'Nimeelewa — I understand'}
           </button>
         </>
       )}
@@ -443,41 +520,67 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
             )}
           </div>
 
-          <div className="card">
-            <div className="label" style={{ marginBottom: 4 }}>Your sources of income</div>
-            <p className="muted" style={{ fontSize: 13.5, marginBottom: 10 }}>
-              Add each way you earn — a crop, a side business, a job — and how often it pays. Cycles differ, and
-              that's the point: it helps us match repayments to when your money actually comes in.
-            </p>
-            {incomeSources.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
-                {incomeSources.map((row, i) => (
-                  <div key={i} className="row" style={{ background: 'var(--g-tint)', borderRadius: 8, padding: '9px 11px' }}>
-                    <span style={{ fontSize: 14.5 }}>{row.activity}</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span className="tiny" style={{ color: 'var(--g-dark)' }}>{FREQUENCIES.find((f) => f.value === row.frequency)?.label}</span>
-                      <button onClick={() => setIncomeSources((rows) => rows.filter((_, j) => j !== i))}
-                        style={{ border: 'none', background: 'none', color: 'var(--mut)', cursor: 'pointer', fontSize: 16, padding: 0 }}
-                        aria-label={`Remove ${row.activity}`}>×</button>
-                    </span>
-                  </div>
-                ))}
-              </div>
+          <GroSays line="aboutIncome" />
+          <div className="card" style={{ marginTop: 12 }}>
+            <div className="label" style={{ marginBottom: 8 }}>Your sources of income</div>
+            {incomeSources.length === 0 && (
+              <table style={{ width: '100%', fontSize: 13.5, marginBottom: 10, borderCollapse: 'collapse', opacity: 0.55 }}>
+                <thead>
+                  <tr className="muted" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <th style={{ textAlign: 'left', paddingBottom: 4 }}>Example</th><th></th><th style={{ textAlign: 'right', paddingBottom: 4 }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderTop: '1px solid var(--line)' }}>
+                    <td style={{ padding: '5px 0' }}>Dhania</td><td style={{ padding: '5px 0' }}>Daily</td><td style={{ padding: '5px 0', textAlign: 'right' }}>KES 300</td>
+                  </tr>
+                  <tr style={{ borderTop: '1px solid var(--line)' }}>
+                    <td style={{ padding: '5px 0' }}>Selling fish</td><td style={{ padding: '5px 0' }}>Daily</td><td style={{ padding: '5px 0', textAlign: 'right' }}>KES 2,000</td>
+                  </tr>
+                </tbody>
+              </table>
             )}
-            <input className="input" style={{ marginBottom: 8 }} placeholder="Activity (e.g. Vegetables, Boda boda, Salary)"
-              value={newActivity} onChange={(e) => setNewActivity(e.target.value)} list="activity-suggestions" />
+            {incomeSources.length > 0 && (
+              <table style={{ width: '100%', fontSize: 13.5, marginBottom: 10, borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr className="muted" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <th style={{ textAlign: 'left', paddingBottom: 4 }}>Activity</th>
+                    <th style={{ textAlign: 'left', paddingBottom: 4 }}>Frequency</th>
+                    <th style={{ textAlign: 'right', paddingBottom: 4 }}>Avg amount</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {incomeSources.map((row, i) => (
+                    <tr key={i} style={{ borderTop: '1px solid var(--line)' }}>
+                      <td style={{ padding: '7px 0' }}>{row.activity}</td>
+                      <td style={{ padding: '7px 0' }}>{FREQUENCIES.find((f) => f.value === row.frequency)?.label}</td>
+                      <td style={{ padding: '7px 0', textAlign: 'right' }}>{row.avgAmountKes !== undefined ? `KES ${row.avgAmountKes.toLocaleString()}` : '—'}</td>
+                      <td style={{ padding: '7px 0', textAlign: 'right' }}>
+                        <button onClick={() => setIncomeSources((rows) => rows.filter((_, j) => j !== i))}
+                          style={{ border: 'none', background: 'none', color: 'var(--mut)', cursor: 'pointer', fontSize: 16, padding: '0 0 0 8px' }}
+                          aria-label={`Remove ${row.activity}`}>×</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input className="input" style={{ flex: 2 }} placeholder="Crop / activity"
+                value={newActivity} onChange={(e) => setNewActivity(e.target.value)} list="activity-suggestions" />
+              <select className="input" style={{ flex: 1, padding: '9px 6px' }}
+                value={newFrequency} onChange={(e) => setNewFrequency(e.target.value as IncomeRow['frequency'])}>
+                {FREQUENCIES.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+              </select>
+              <input className="input" type="number" inputMode="numeric" style={{ flex: 1, minWidth: 0 }} placeholder="KES"
+                value={newAmount} onChange={(e) => setNewAmount(e.target.value)} />
+            </div>
             <datalist id="activity-suggestions">
               {ACTIVITY_OPTIONS.map((a) => <option key={a} value={a} />)}
             </datalist>
-            <div className="label" style={{ marginBottom: 6 }}>How often does it pay?</div>
-            <div className="tick-wrap" style={{ marginBottom: 10 }}>
-              {FREQUENCIES.map((f) => (
-                <button key={f.value} className={`tick-chip ${newFrequency === f.value ? 'tick-chip-on' : ''}`}
-                  onClick={() => setNewFrequency(f.value)}>{f.label}</button>
-              ))}
-            </div>
-            <button className="btn btn-ghost" style={{ width: '100%' }} disabled={!newActivity.trim()} onClick={addIncomeSource}>
-              + Add this source
+            <button className="btn btn-ghost" style={{ width: '100%', marginTop: 8 }} disabled={!newActivity.trim()} onClick={addIncomeSource}>
+              + Add
             </button>
           </div>
 
@@ -504,7 +607,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
 
       {step === 'circleFaq' && (
         <>
-          <h3 style={{ marginTop: 0, marginBottom: 12 }}>About Growth Circles</h3>
+          <h3 style={{ marginTop: 0, marginBottom: 12 }}>About Growth Chama</h3>
           <CircleFaq />
           <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => setStep(faqReturnTo)}>Back</button>
         </>
@@ -514,10 +617,10 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
         <>
           <GroSays line="circleIntro" />
           <button className="btn btn-ghost" style={{ width: '100%', marginBottom: 10 }} onClick={() => { setFaqReturnTo('circleForm'); setStep('circleFaq'); }}>
-            More about Growth Circles
+            More about Growth Chama
           </button>
           {!formExpanded ? (
-            <button className="btn btn-primary" onClick={() => setFormExpanded(true)}>Form a Growth Circle</button>
+            <button className="btn btn-primary" onClick={() => setFormExpanded(true)}>Form a Growth Chama</button>
           ) : (
             <>
               <div className="card">
@@ -529,7 +632,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
                       <p className="tiny muted" style={{ marginTop: 6, fontFamily: 'monospace', fontSize: 12 }}>
                         {mateDiag.reason === 'CALLER_HAS_NO_CLUSTER'
                           ? 'diagnostic: you are not assigned to a cluster'
-                          : `diagnostic: ${mateDiag.othersInCluster} others in your cluster, ${mateDiag.excludedAlreadyInCircle} already in a circle`}
+                          : `diagnostic: ${mateDiag.othersInCluster} others in your cluster, ${mateDiag.excludedAlreadyInCircle} already in a chama`}
                       </p>
                     )}
                   </>
@@ -573,7 +676,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
               {chosenMates.length < 4 && (
                 <p className="tiny muted" style={{ textAlign: 'center', marginTop: 8 }}>
                   {mates.length === 0
-                    ? 'Waiting on more of your cluster to register before you can form a circle.'
+                    ? 'Waiting on more of your cluster to register before you can form a chama.'
                     : `Add ${4 - chosenMates.length} more to continue.`}
                 </p>
               )}
@@ -614,7 +717,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
 
       {step === 'circleVouch' && myCircle && (
         <>
-          <h2 style={{ fontSize: 17, fontWeight: 500, marginBottom: 4 }}>Confirm your circle</h2>
+          <h2 style={{ fontSize: 17, fontWeight: 500, marginBottom: 4 }}>Confirm your chama</h2>
           <button
             className="card"
             onClick={() => { setFaqReturnTo('circleVouch'); setStep('circleFaq'); }}
@@ -624,7 +727,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
               fontSize: 14, fontWeight: 500, fontFamily: 'inherit', color: 'var(--ink)', cursor: 'pointer',
             }}
           >
-            <span>What do I need to know about Growth Circles?</span>
+            <span>What do I need to know about Growth Chama?</span>
             <span aria-hidden>⌄</span>
           </button>
           <p className="muted" style={{ marginBottom: 12 }}>
@@ -655,7 +758,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
               disabled={leaving}
               style={{ border: 'none', background: 'none', color: 'inherit', fontSize: 'inherit', fontFamily: 'inherit', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}
             >
-              {leaving ? 'leaving…' : 'start a new circle instead'}
+              {leaving ? 'leaving…' : 'start a new chama instead'}
             </button>
           </p>
         </>

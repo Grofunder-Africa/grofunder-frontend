@@ -99,9 +99,9 @@ export default function App() {
       {screen === 'schedule' && activeLoanId && (
         <Schedule loanId={activeLoanId} onBack={() => setScreen('home')} />
       )}
-      {screen === 'messages' && <Messages onRead={refreshUnread} />}
-      {screen === 'records' && <Records />}
-      {screen === 'community' && <Community />}
+      {screen === 'messages' && <Messages onRead={refreshUnread} onBack={() => setScreen('home')} />}
+      {screen === 'records' && <Records onBack={() => setScreen('home')} />}
+      {screen === 'community' && <Community onBack={() => setScreen('home')} />}
       {screen !== 'signin' && screen !== 'setup' && (
         <nav className="tabbar">
           <button className={`tab ${screen === 'home' ? 'active' : ''}`} onClick={() => setScreen('home')}>
@@ -231,20 +231,8 @@ function SignIn({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="screen screen-no-nav screen-pad-top">
-      <div className="center" style={{ marginBottom: 24 }}>
+      <div className="center" style={{ marginBottom: 28 }}>
         <div className="brand brand-lg"><img src={logo} alt="grofunder" /></div>
-        <p className="muted" style={{ fontSize: 14.5, marginTop: 4 }}>Twende tukue pamoja</p>
-      </div>
-
-      <div className="gro-hero" style={{ marginBottom: 20 }}>
-        <div className="gro-scene">
-          <Gro mood="encouraging" />
-          <div className="gro-msg">
-            {mode === 'signin'
-              ? 'Karibu tena! Phone and PIN to continue.'
-              : "Karibu! Use the phone your cooperative registered."}
-          </div>
-        </div>
       </div>
 
       {err && <div className="err">{err}</div>}
@@ -253,7 +241,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
         <label>Phone number:</label>
         <input className="input" inputMode="tel" placeholder="0722 000 000" value={phone}
           onChange={(e) => setPhone(e.target.value)} />
-        <span className="hint">The number your cooperative registered. 0722…, 0110… and 07/01 numbers all work.</span>
+        <span className="hint" style={{ fontSize: 12, marginTop: 4 }}>07.. or 01..</span>
       </div>
       {mode === 'register' && (
         <div className="field">
@@ -389,7 +377,7 @@ function Home({ onApply, onSignOut, onContinueSetup }: {
             ) : (
               <>
                 <p className="muted" style={{ fontSize: 14.5 }}>
-                  Once your Growth Circle is active, your first loan of up to {kes(500000)} opens up. Repay well and your limit grows.
+                  Once your Growth Chama is active, your first loan of up to {kes(500000)} opens up. Repay well and your limit grows.
                 </p>
                 <button className="btn btn-ghost" style={{ width: '100%', fontSize: 14, marginTop: 8 }} onClick={onContinueSetup}>
                   Continue with Gro
@@ -416,7 +404,7 @@ function Home({ onApply, onSignOut, onContinueSetup }: {
         <button className="btn btn-primary" style={{ marginTop: 4 }}
           disabled={isNew}
           onClick={onApply}>
-          {isNew ? 'Apply · unlocks with your circle' : 'Apply for a loan'}
+          {isNew ? 'Apply · unlocks with your chama' : 'Apply for a loan'}
         </button>
 
         {/* record confirmation summary — collapsed by default; already
@@ -498,7 +486,7 @@ function Apply({ onBack, onApplied }: { onBack: () => void; onApplied: (id: stri
     const m = score.missing;
     const items = [
       { done: score.registrationComplete, label: 'Complete your registration', hint: m?.phone && m?.nationalId ? 'Your phone and ID are needed' : m?.phone ? 'Your phone number is needed' : m?.nationalId ? 'Your ID number is needed' : 'Your details are complete', ask: 'Ask your cooperative to add these.' },
-      { done: !!score.circleActive, label: 'Join an active Growth Circle', hint: m?.circle ? 'You are not in a circle yet' : m?.circleNotActive ? 'Your circle is not active yet' : 'Your circle is active', ask: 'Form or join one with farmers you trust.' },
+      { done: !!score.circleActive, label: 'Join an active Growth Chama', hint: m?.circle ? 'You are not in a chama yet' : m?.circleNotActive ? 'Your chama is not active yet' : 'Your chama is active', ask: 'Form or join one with farmers you trust.' },
       { done: !!score.hasLimit, label: 'Have a credit limit', hint: m?.limit ? 'Set once you are established' : 'You have a limit', ask: 'Set by Grofunder as your record grows.' },
     ];
     return (
@@ -564,8 +552,8 @@ function Apply({ onBack, onApplied }: { onBack: () => void; onApplied: (id: stri
       <details className="accordion">
         <summary>What do I need to know before I apply? <span className="muted">＋</span></summary>
         <div className="body">
-          You repay every Friday. Miss one and your circle is told, so you can support each other.
-          After 7 days a 2% late fee applies, your cooperative is informed, and no one in your circle
+          You repay every Friday. Miss one and your chama is told, so you can support each other.
+          After 7 days a 2% late fee applies, your cooperative is informed, and no one in your chama
           can borrow again until it's settled.
         </div>
       </details>
@@ -660,7 +648,7 @@ function Schedule({ loanId, onBack }: { loanId: string; onBack: () => void }) {
 }
 
 /* ---------------- Messages ---------------- */
-function Messages({ onRead }: { onRead: () => void }) {
+function Messages({ onRead, onBack }: { onRead: () => void; onBack: () => void }) {
   // Three views behind one tab: the landing choice, Gro's chat, and compose.
   const [view, setView] = useState<'home' | 'gro' | 'compose'>('home');
   const [msgs, setMsgs] = useState<FarmerInboxMessage[]>([]);
@@ -695,6 +683,7 @@ function Messages({ onRead }: { onRead: () => void }) {
 
   return (
     <div className="screen">
+      <button className="back" onClick={onBack} style={{ marginBottom: 12 }}>← Back</button>
       <div className="screen-head">
         <h1>Messages</h1>
         {anyUnread && <button className="link-btn" onClick={markAll}>Mark all read</button>}
@@ -860,7 +849,7 @@ function ComposeMessage({ onBack }: { onBack: () => void }) {
 }
 
 /* ---------------- My records (capture, read-only) ---------------- */
-function Records() {
+function Records({ onBack }: { onBack: () => void }) {
   const [recs, setRecs] = useState<CaptureRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -877,6 +866,7 @@ function Records() {
 
   return (
     <div className="screen">
+      <button className="back" onClick={onBack} style={{ marginBottom: 8 }}>← Back</button>
       <div className="topbar"><span className="brand"><img src={logo} alt="grofunder" /></span></div>
       <h1 className="h1" style={{ marginTop: 8 }}>My records</h1>
       <p className="sub">What your cooperative has recorded for you</p>
@@ -916,7 +906,7 @@ function Records() {
 }
 
 /* ---------------- Community feed + image sharing ---------------- */
-function Community() {
+function Community({ onBack }: { onBack: () => void }) {
   const [feed, setFeed] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [composing, setComposing] = useState(false);
@@ -935,6 +925,7 @@ function Community() {
 
   return (
     <div className="screen">
+      <button className="back" onClick={onBack} style={{ marginBottom: 8 }}>← Back</button>
       <div className="topbar">
         <span className="brand"><img src={logo} alt="grofunder" /></span>
         <button className="btn-share" onClick={() => setComposing(true)}>+ Share</button>

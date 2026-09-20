@@ -144,7 +144,7 @@ export const farmerApi = {
   setEconomicProfile: (
     crops: string[],
     activities: string[],
-    incomeSources: { activity: string; frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'SEASONAL' }[],
+    incomeSources: { activity: string; frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'SEASONAL'; avgAmountCents?: number }[],
   ) =>
     api.post<{ ok: boolean }>('/farmer-onboarding/economic-profile', { crops, activities, incomeSources }),
   setHomeLocation: (lat: number | null, lng: number | null, text?: string) =>

@@ -46,10 +46,10 @@ export function Gro({ mood = 'happy' }: { mood?: 'happy' | 'celebrating' | 'enco
 export type GroMood = 'happy' | 'celebrating' | 'encouraging';
 export const GRO_LINES: Record<string, { text: string; mood: GroMood }> = {
   // Explainer cards (verbatim from the mockup)
-  welcome: { text: "Sasa, I'm Gro — I'll walk with you. Kwanza, let me tell you what Grofunder is. Ready?", mood: 'happy' },
-  explainerWhat: { text: 'Grofunder ni nini? Simple: your cooperative already knows your harvests. We turn that history into credit — no collateral needed.', mood: 'happy' },
-  explainerProgress: { text: "And this is how you'll see your progress — your tree grows as you repay well, together with your circle, cluster, and cooperative.", mood: 'happy' },
-  explainerTogether: { text: 'One more thing — the most important one. You never grow alone here. The farmers around you matter just as much as your own harvest.', mood: 'happy' },
+  welcome: { text: "Hi, I'm Gro. I will be your companion. Kwanza, let me tell you Grofunder Africa ni nani na wanafanya nini?", mood: 'happy' },
+  explainerWhat: { text: 'Grofunder is a company that is here to help you access capital to grow fast and easy.', mood: 'happy' },
+  explainerProgress: { text: "And this is how you'll see your progress — your tree grows as you repay well, together with your chama, cluster, and cooperative.", mood: 'happy' },
+  explainerTogether: { text: 'One more thing, and it matters most: your Growth Chama. 5 to 10 farmers who stand for each other — you choose them, they choose you. Every member\u2019s word counts.', mood: 'happy' },
 
   // Record confirmation (verbatim)
   recordConfirm: { text: "Vizuri! Here's what Orinde told us about you. Is this you?", mood: 'happy' },
@@ -65,14 +65,14 @@ export const GRO_LINES: Record<string, { text: string; mood: GroMood }> = {
 
   // About you (verbatim)
   aboutCrops: { text: 'Asante! Sasa, tell me about yourself. What do you grow?', mood: 'happy' },
+  aboutIncome: { text: 'Tell us, ni nini ingine wewe hupanda ama hufanya ndio upate pesa?', mood: 'happy' },
   aboutActivities: { text: 'Do you earn from anything else? Kila kitu counts.', mood: 'happy' },
-  aboutIncome: { text: 'And money — how does it usually come in?', mood: 'happy' },
 
   // Basics done (verbatim)
   seedPlanted: { text: 'Your seed is planted. From here we grow together — mimi na wewe, kila wiki.', mood: 'celebrating' },
 
   // Circle formation (paraphrased from the mockup's circle-FAQ copy)
-  circleIntro: { text: 'One last thing, and it matters most: your Growth Circle.', mood: 'happy' },
+  circleIntro: { text: 'One last thing, and it matters most: your Growth Chama.', mood: 'happy' },
   circleWaiting: { text: 'Hongera, Akinyi — your seed is planted. Your circle is confirming — your first loan opens the moment every member has confirmed every member.', mood: 'celebrating' },
   circleVouch: { text: 'Take a look, then tick who you stand with.', mood: 'happy' },
   circleContested: { text: "Some members haven't accepted everyone yet. Talk as a group — loans open once every member has confirmed every member.", mood: 'encouraging' },
@@ -152,7 +152,7 @@ export const GRO_QUICK_ASKS: QuickAsk[] = [
   {
     id: 'defaultq',
     label: 'What happens if a member defaults?',
-    reply: 'Niambie ukweli — here is how it works. On the repayment day the circle is told and has 5 days to help: a call, a visit, or covering it together. From the 7th day a flat 2% late fee applies and your cooperative steps in to follow up. While it stays unpaid, no one in the circle can take a new loan until it is settled. Ndiyo maana you choose your circle carefully. Tuko pamoja.',
+    reply: 'Niambie ukweli — here is how it works. On the repayment day the chama is told and has 5 days to help: a call, a visit, or covering it together. From the 7th day a flat 2% late fee applies and your cooperative steps in to follow up. While it stays unpaid, no one in the chama can take a new loan until it is settled. Ndiyo maana you choose your chama carefully. Tuko pamoja.',
   },
 ];
 
@@ -163,7 +163,7 @@ export const GRO_QUICK_ASKS: QuickAsk[] = [
  *   1. Get a Seed      — welcome + what Grofunder is
  *   2. Seed is Potted   — confirm your record and your ID
  *   3. Manure Added     — crops, other income, how often it pays
- *   4. Seed Planted     — your Growth Circle
+ *   4. Seed Planted     — your Growth Chama
  * A tiny, deliberately simple SVG per stage — legible at a glance on a small
  * screen, not a illustration to admire.
  */
