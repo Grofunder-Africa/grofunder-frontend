@@ -155,3 +155,74 @@ export const GRO_QUICK_ASKS: QuickAsk[] = [
     reply: 'Niambie ukweli — here is how it works. On the repayment day the circle is told and has 5 days to help: a call, a visit, or covering it together. From the 7th day a flat 2% late fee applies and your cooperative steps in to follow up. While it stays unpaid, no one in the circle can take a new loan until it is settled. Ndiyo maana you choose your circle carefully. Tuko pamoja.',
   },
 ];
+
+/**
+ * The seedling progress marker — Melanie's metaphor for onboarding: each
+ * completed stage advances the seedling. Four stages map to what actually
+ * has to happen (not four screens for their own sake):
+ *   1. Get a Seed      — welcome + what Grofunder is
+ *   2. Seed is Potted   — confirm your record and your ID
+ *   3. Manure Added     — crops, other income, how often it pays
+ *   4. Seed Planted     — your Growth Circle
+ * A tiny, deliberately simple SVG per stage — legible at a glance on a small
+ * screen, not a illustration to admire.
+ */
+export type SeedStage = 1 | 2 | 3 | 4;
+const SEED_LABELS: Record<SeedStage, string> = {
+  1: 'Get a Seed', 2: 'Seed is Potted', 3: 'Manure Added', 4: 'Seed Planted',
+};
+
+function SeedIcon({ stage, active, done }: { stage: SeedStage; active: boolean; done: boolean }) {
+  const stroke = done || active ? 'var(--g-dark)' : 'var(--line)';
+  const fill = done ? 'var(--g)' : active ? 'var(--g-tint)' : '#fff';
+  return (
+    <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden>
+      {stage === 1 && (
+        <circle cx="15" cy="15" r="7" fill={fill} stroke={stroke} strokeWidth="2" />
+      )}
+      {stage === 2 && (
+        <>
+          <path d="M8 15 L22 15 L20 26 L10 26 Z" fill={fill} stroke={stroke} strokeWidth="2" />
+          <circle cx="15" cy="12" r="4.5" fill={done ? 'var(--g)' : fill} stroke={stroke} strokeWidth="2" />
+        </>
+      )}
+      {stage === 3 && (
+        <>
+          <path d="M8 15 L22 15 L20 26 L10 26 Z" fill={fill} stroke={stroke} strokeWidth="2" />
+          <path d="M11 15 Q15 6 19 15" fill="none" stroke={stroke} strokeWidth="2" />
+          <circle cx="15" cy="10" r="2" fill={done ? 'var(--g)' : stroke} />
+        </>
+      )}
+      {stage === 4 && (
+        <>
+          <path d="M8 22 L22 22 L20 27 L10 27 Z" fill={fill} stroke={stroke} strokeWidth="2" />
+          <path d="M15 22 L15 10" stroke={stroke} strokeWidth="2" />
+          <path d="M15 14 Q9 12 8 6 Q15 7 15 14 Z" fill={done ? 'var(--g)' : fill} stroke={stroke} strokeWidth="1.5" />
+          <path d="M15 17 Q21 15 22 9 Q15 10 15 17 Z" fill={done ? 'var(--g)' : fill} stroke={stroke} strokeWidth="1.5" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+export function SeedProgress({ stage }: { stage: SeedStage }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+      {([1, 2, 3, 4] as SeedStage[]).map((s, i) => (
+        <div key={s} style={{ display: 'flex', alignItems: 'center', flex: i < 3 ? 1 : undefined }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+            <SeedIcon stage={s} active={s === stage} done={s < stage} />
+            <span style={{
+              fontSize: 9.5, textAlign: 'center', maxWidth: 54, lineHeight: 1.15,
+              color: s === stage ? 'var(--g-dark)' : 'var(--mut)',
+              fontWeight: s === stage ? 600 : 400,
+            }}>
+              {SEED_LABELS[s]}
+            </span>
+          </div>
+          {i < 3 && <div style={{ flex: 1, height: 2, background: s < stage ? 'var(--g)' : 'var(--line)', margin: '0 4px 18px' }} />}
+        </div>
+      ))}
+    </div>
+  );
+}

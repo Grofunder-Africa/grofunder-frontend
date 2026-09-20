@@ -70,6 +70,10 @@ export const api = {
 /* ---- typed endpoint helpers the app uses ---- */
 
 export interface LoginResponse { token: string; user: { id: string; role: string } }
+/** Step 1 of sign-in: either an OTP challenge, or the token when OTP is off. */
+export type LoginStart =
+  | { otpRequired: true; challengeId: string; sentTo: string }
+  | ({ otpRequired: false } & LoginResponse);
 export interface ScoreInfo {
   credit_score: number | null;
   credit_limit_cents: number | null;
@@ -98,8 +102,12 @@ export interface Loan {
 }
 
 export const farmerApi = {
+  // Step 1 of sign-in. Either returns a challenge (OTP sent) or, when OTP is
+  // turned off server-side, the token directly.
   login: (phone: string, pin: string) =>
-    api.post<LoginResponse>('/auth/farmer-login', { phone, pin }),
+    api.post<LoginStart>('/auth/farmer-login', { phone, pin }),
+  verifyOtp: (challengeId: string, code: string) =>
+    api.post<LoginResponse>('/auth/farmer-login/verify', { challengeId, code }),
   register: (phone: string, pin: string, coopMemberNo?: string) =>
     api.post<{ farmerId: string; userId: string }>('/farmer-onboarding/register', { phone, pin, coopMemberNo }),
   records: () => api.get<FarmerRecord>('/farmer-onboarding/records'),
@@ -133,8 +141,12 @@ export const farmerApi = {
     api.post<{ verified: boolean; reason?: 'MISMATCH' | 'PENDING_VERIFICATION' }>('/farmer-onboarding/confirm-id', { nationalId }),
   raiseDiscrepancy: (field: string, details?: string) =>
     api.post<{ id: string; status: string }>('/farmer-onboarding/discrepancies', { field, details }),
-  setEconomicProfile: (crops: string[], activities: string[], incomeFreq?: string) =>
-    api.post<{ ok: boolean }>('/farmer-onboarding/economic-profile', { crops, activities, incomeFreq }),
+  setEconomicProfile: (
+    crops: string[],
+    activities: string[],
+    incomeSources: { activity: string; frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'SEASONAL' }[],
+  ) =>
+    api.post<{ ok: boolean }>('/farmer-onboarding/economic-profile', { crops, activities, incomeSources }),
   setHomeLocation: (lat: number | null, lng: number | null, text?: string) =>
     api.put<{ ok: boolean }>('/farmer-onboarding/home-location', { lat: lat ?? undefined, lng: lng ?? undefined, text }),
   myCircleStatus: () => api.get<MyCircleStatus>('/circles/my-circle'),

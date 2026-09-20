@@ -79,7 +79,7 @@ export default function App() {
   }, [refreshUnread, screen]);
 
   if (checkingSetup) {
-    return <div className="app"><div className="screen center" style={{ paddingTop: 100 }}><span className="spin" /></div></div>;
+    return <div className="app"><div className="screen screen-no-nav center" style={{ paddingTop: 100 }}><span className="spin" /></div></div>;
   }
 
   return (
@@ -126,21 +126,59 @@ export default function App() {
 }
 
 /* ---------------- Sign in / register ---------------- */
+/** Rejects PINs that are trivially guessable. Returns null when the PIN is fine
+ *  (or still being typed), otherwise a plain-language reason. */
+function weakPinReason(pin: string): string | null {
+  if (pin.length !== 4) return null;
+  if (/^(\d)\1{3}$/.test(pin)) return 'Not 0000 or four repeated digits. Pick something harder to guess.';
+  if ('0123456789'.includes(pin) || '9876543210'.includes(pin)) return 'That is a run of digits. Pick something harder to guess.';
+  if (pin.slice(0, 2) === pin.slice(2)) return 'Avoid repeating pairs like 1212. Pick something harder to guess.';
+  return null;
+}
+
 function SignIn({ onDone }: { onDone: () => void }) {
   const [mode, setMode] = useState<'signin' | 'register'>('signin');
   const [phone, setPhone] = useState('');
   const [pin, setPin] = useState('');
+  const [showPin, setShowPin] = useState(false);
   const [memberNo, setMemberNo] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  // OTP step: set once phone + PIN check out and a code has been sent.
+  const [challenge, setChallenge] = useState<{ id: string; sentTo: string } | null>(null);
+  const [code, setCode] = useState('');
+
+  // A PIN guessable in three tries protects nothing. Blocked here AND on the
+  // server, since a client-side rule alone is not a rule.
+  const pinProblem = weakPinReason(pin);
 
   async function submit() {
+    if (mode === 'register' && pinProblem) { setErr(pinProblem); return; }
     setErr(''); setBusy(true);
     try {
       if (mode === 'register') {
         await farmerApi.register(phone, pin, memberNo || undefined);
       }
-      const { token } = await farmerApi.login(phone, pin);
+      const r = await farmerApi.login(phone, pin);
+      if (r.otpRequired) {
+        setChallenge({ id: r.challengeId, sentTo: r.sentTo });
+        setCode('');
+      } else {
+        setToken(r.token);
+        onDone();
+      }
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Something went wrong');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verify() {
+    if (!challenge) return;
+    setErr(''); setBusy(true);
+    try {
+      const { token } = await farmerApi.verifyOtp(challenge.id, code);
       setToken(token);
       onDone();
     } catch (e) {
@@ -150,11 +188,52 @@ function SignIn({ onDone }: { onDone: () => void }) {
     }
   }
 
+  // Asking for a new code re-runs step 1, which invalidates the previous one
+  // server-side so only the newest code ever works.
+  async function resend() {
+    setErr(''); setCode('');
+    await submit();
+  }
+
+  if (challenge) {
+    return (
+      <div className="screen screen-no-nav screen-pad-top">
+        <div className="center" style={{ marginBottom: 24 }}>
+          <div className="brand brand-lg"><img src={logo} alt="grofunder" /></div>
+        </div>
+        <div className="gro-hero" style={{ marginBottom: 20 }}>
+          <div className="gro-scene">
+            <Gro mood="happy" />
+            <div className="gro-msg">Nimetuma code to {challenge.sentTo}. Enter it to continue.</div>
+          </div>
+        </div>
+        {err && <div className="err">{err}</div>}
+        <div className="field">
+          <label>6-digit code</label>
+          <input className="input pin-input" inputMode="numeric" maxLength={6} placeholder="••••••"
+            value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} />
+        </div>
+        <button className="btn btn-primary" disabled={busy || code.length !== 6} onClick={verify}>
+          {busy ? <span className="spin" /> : 'Continue'}
+        </button>
+        <p className="center muted" style={{ fontSize: 14.5, marginTop: 16 }}>
+          Didn't get it?{' '}
+          <button className="back" style={{ color: 'var(--g)', fontWeight: 600, fontSize: 14.5 }}
+            disabled={busy} onClick={resend}>Send again</button>
+        </p>
+        <p className="center" style={{ marginTop: 4 }}>
+          <button className="back" style={{ color: 'var(--mut)', fontSize: 14 }}
+            onClick={() => { setChallenge(null); setErr(''); }}>Use a different number</button>
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="screen screen-pad-top">
+    <div className="screen screen-no-nav screen-pad-top">
       <div className="center" style={{ marginBottom: 24 }}>
         <div className="brand brand-lg"><img src={logo} alt="grofunder" /></div>
-        <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>Twende tukue pamoja</p>
+        <p className="muted" style={{ fontSize: 14.5, marginTop: 4 }}>Twende tukue pamoja</p>
       </div>
 
       <div className="gro-hero" style={{ marginBottom: 20 }}>
@@ -172,8 +251,9 @@ function SignIn({ onDone }: { onDone: () => void }) {
 
       <div className="field">
         <label>Phone number</label>
-        <input className="input" inputMode="tel" placeholder="+2547…" value={phone}
+        <input className="input" inputMode="tel" placeholder="0722 000 000" value={phone}
           onChange={(e) => setPhone(e.target.value)} />
+        <span className="hint">The number your cooperative registered. 0722…, 0110… and 07/01 numbers all work.</span>
       </div>
       {mode === 'register' && (
         <div className="field">
@@ -184,17 +264,28 @@ function SignIn({ onDone }: { onDone: () => void }) {
       )}
       <div className="field">
         <label>{mode === 'register' ? 'Choose a 4-digit PIN' : 'PIN'}</label>
-        <input className="input pin-input" inputMode="numeric" maxLength={4} placeholder="••••"
-          value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} />
+        <div style={{ position: 'relative' }}>
+          <input className="input pin-input" inputMode="numeric" maxLength={4} placeholder="••••"
+            type={showPin ? 'text' : 'password'}
+            value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} />
+          <button type="button" onClick={() => setShowPin((v) => !v)}
+            style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                     background: 'var(--g-tint)', border: '1px solid var(--line)', borderRadius: 8,
+                     color: 'var(--g-dark)', fontSize: 13.5, fontWeight: 500, padding: '6px 10px',
+                     cursor: 'pointer', fontFamily: 'inherit' }}>
+            {showPin ? 'Hide' : 'Show'}
+          </button>
+        </div>
+        {mode === 'register' && pinProblem && <span className="hint hint-warn">{pinProblem}</span>}
       </div>
 
-      <button className="btn btn-primary" disabled={busy || phone.length < 7 || pin.length !== 4} onClick={submit}>
+      <button className="btn btn-primary" disabled={busy || phone.length < 7 || pin.length !== 4 || (mode === 'register' && !!pinProblem)} onClick={submit}>
         {busy ? <span className="spin" /> : mode === 'signin' ? 'Sign in' : 'Create account'}
       </button>
 
-      <p className="center muted" style={{ fontSize: 13, marginTop: 16 }}>
+      <p className="center muted" style={{ fontSize: 14.5, marginTop: 16 }}>
         {mode === 'signin' ? 'New to Grofunder? ' : 'Already registered? '}
-        <button className="back" style={{ color: 'var(--g)', fontWeight: 600, fontSize: 13 }}
+        <button className="back" style={{ color: 'var(--g)', fontWeight: 600, fontSize: 14.5 }}
           onClick={() => { setErr(''); setMode(mode === 'signin' ? 'register' : 'signin'); }}>
           {mode === 'signin' ? 'Register' : 'Sign in'}
         </button>
@@ -281,25 +372,25 @@ function Home({ onApply, onSignOut, onContinueSetup }: {
 
         {isNew ? (
           <div className="card">
-            <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>
+            <p style={{ fontSize: 15.5, fontWeight: 600, marginBottom: 4 }}>
               Your seed is planted
             </p>
             {circle ? (
               <>
-                <p className="muted" style={{ fontSize: 13 }}>
+                <p className="muted" style={{ fontSize: 14.5 }}>
                   {circle.name} is confirming: {circle.confirmed_pairs} of {circle.total_pairs} confirmations so far.
                   Your first loan of up to {kes(500000)} opens the moment every member has confirmed every member.
                 </p>
-                <button className="btn btn-ghost" style={{ width: '100%', fontSize: 12.5, marginTop: 8 }} onClick={onContinueSetup}>
+                <button className="btn btn-ghost" style={{ width: '100%', fontSize: 14, marginTop: 8 }} onClick={onContinueSetup}>
                   View my circle
                 </button>
               </>
             ) : (
               <>
-                <p className="muted" style={{ fontSize: 13 }}>
+                <p className="muted" style={{ fontSize: 14.5 }}>
                   Once your Growth Circle is active, your first loan of up to {kes(500000)} opens up. Repay well and your limit grows.
                 </p>
-                <button className="btn btn-ghost" style={{ width: '100%', fontSize: 12.5, marginTop: 8 }} onClick={onContinueSetup}>
+                <button className="btn btn-ghost" style={{ width: '100%', fontSize: 14, marginTop: 8 }} onClick={onContinueSetup}>
                   Continue with Gro
                 </button>
               </>
@@ -308,7 +399,7 @@ function Home({ onApply, onSignOut, onContinueSetup }: {
         ) : (
           <div className="card">
             <div className="row" style={{ marginBottom: 6 }}>
-              <span style={{ fontSize: 14, fontWeight: 600 }}>Your growth</span>
+              <span style={{ fontSize: 15.5, fontWeight: 600 }}>Your growth</span>
               <span className="tiny muted">tree stage {score?.tree_stage}/5</span>
             </div>
             <div className="vine">
@@ -355,8 +446,8 @@ function Home({ onApply, onSignOut, onContinueSetup }: {
 function RecordRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
   return (
     <div className="row" style={{ padding: '8px 0', borderBottom: last ? 'none' : '1px solid var(--line)' }}>
-      <span className="muted" style={{ fontSize: 13 }}>{label}</span>
-      <span style={{ fontSize: 13.5, fontWeight: 500 }}>{value}</span>
+      <span className="muted" style={{ fontSize: 14.5 }}>{label}</span>
+      <span style={{ fontSize: 15, fontWeight: 500 }}>{value}</span>
     </div>
   );
 }
@@ -488,7 +579,7 @@ function Apply({ onBack, onApplied }: { onBack: () => void; onApplied: (id: stri
 function SummaryRow({ label, value, strong, last }: { label: string; value: string; strong?: boolean; last?: boolean }) {
   return (
     <div className="row" style={{ padding: '8px 0', borderBottom: last ? 'none' : '1px solid var(--line)' }}>
-      <span className="muted" style={{ fontSize: 13 }}>{label}</span>
+      <span className="muted" style={{ fontSize: 14.5 }}>{label}</span>
       <span style={{ fontSize: strong ? 16 : 14, fontWeight: strong ? 700 : 500, color: strong ? 'var(--g-dark)' : 'inherit' }}>{value}</span>
     </div>
   );
@@ -542,12 +633,12 @@ function Schedule({ loanId, onBack }: { loanId: string; onBack: () => void }) {
                   {i.status === 'PAID' ? '✓' : i.seq_no}
                 </div>
                 <div>
-                  <div style={{ fontSize: 13.5, fontWeight: 500 }}>Week {i.seq_no}</div>
+                  <div style={{ fontSize: 15, fontWeight: 500 }}>Week {i.seq_no}</div>
                   <div className="tiny muted">{new Date(i.due_date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}</div>
                 </div>
               </div>
               <div className="center">
-                <div style={{ fontSize: 13.5, fontWeight: 600 }}>{kes(i.amount_due_cents)}</div>
+                <div style={{ fontSize: 15, fontWeight: 600 }}>{kes(i.amount_due_cents)}</div>
                 <div className={`tiny ${i.status === 'PAID' ? '' : 'muted'}`} style={{ color: i.status === 'PAID' ? 'var(--g)' : undefined }}>
                   {i.status === 'PAID' ? 'paid' : i.status === 'OVERDUE' ? 'overdue' : 'due'}
                 </div>
@@ -558,7 +649,7 @@ function Schedule({ loanId, onBack }: { loanId: string; onBack: () => void }) {
       ) : (
         <div className="card center" style={{ padding: 24 }}>
           <Gro mood="encouraging" />
-          <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+          <p className="muted" style={{ fontSize: 14.5, marginTop: 8 }}>
             We'll let you know as soon as it moves forward.
           </p>
         </div>
@@ -613,7 +704,7 @@ function Messages({ onRead }: { onRead: () => void }) {
         <Gro mood="happy" />
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 500, marginBottom: 2 }}>Chat with Gro</div>
-          <div className="muted" style={{ fontSize: 13 }}>Hi, I am Gro. Have questions? Tuongee</div>
+          <div className="muted" style={{ fontSize: 14.5 }}>Hi, I am Gro. Have questions? Tuongee</div>
         </div>
       </button>
 
@@ -690,7 +781,7 @@ function GroChat({ onBack }: { onBack: () => void }) {
       <button className="back" onClick={onBack}>← Back</button>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0 12px' }}>
         <Gro mood="happy" />
-        <p style={{ fontSize: 14, fontWeight: 500 }}>Gro</p>
+        <p style={{ fontSize: 15.5, fontWeight: 500 }}>Gro</p>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10, minHeight: 110 }}>
@@ -701,7 +792,7 @@ function GroChat({ onBack }: { onBack: () => void }) {
             color: l.mine ? '#fff' : 'var(--ink)',
             border: l.mine ? 'none' : '1px solid var(--line)',
             borderRadius: l.mine ? '12px 12px 2px 12px' : '2px 12px 12px 12px',
-            padding: '9px 12px', fontSize: 12.5, lineHeight: 1.45,
+            padding: '9px 12px', fontSize: 14, lineHeight: 1.45,
           }}>
             {l.text}
             {l.receipt && <div className="tiny" style={{ marginTop: 5, opacity: 0.85 }}>✓ {GRO_RECEIPT}</div>}
@@ -801,7 +892,7 @@ function Records() {
                 <span className="rec-total">{fmt(rec, rec.total_units)}</span>
               </div>
               {rec.entries.length === 0 ? (
-                <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>No entries yet.</p>
+                <p className="muted" style={{ fontSize: 14.5, marginTop: 8 }}>No entries yet.</p>
               ) : (
                 <div className="rec-entries">
                   {rec.entries.map((e) => (
@@ -814,7 +905,7 @@ function Records() {
               )}
             </div>
           ))}
-          <p className="muted" style={{ fontSize: 12, textAlign: 'center', marginTop: 4 }}>
+          <p className="muted" style={{ fontSize: 13.5, textAlign: 'center', marginTop: 4 }}>
             Kept by your cooperative. Something wrong? Talk to them.
           </p>
         </div>
@@ -952,7 +1043,7 @@ function Compose({ onDone, onCancel }: { onDone: () => void; onCancel: () => voi
 
       <div className="card">
         <div className="label" style={{ marginBottom: 6 }}>Grofunder website</div>
-        <p className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>
+        <p className="muted" style={{ fontSize: 14, marginBottom: 10 }}>
           Offer this photo for the Grofunder website. Reviewed before publishing.
         </p>
         <label className="share-opt"><input type="checkbox" checked={toWebsite} onChange={(e) => setToWebsite(e.target.checked)} /> Send to Grofunder for the website</label>
