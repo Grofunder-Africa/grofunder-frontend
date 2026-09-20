@@ -155,6 +155,17 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
     setStep(history[history.length - 1]!);
     setHistory(history.slice(0, -1));
   }
+
+  // For "Back" buttons that return to a specific known step (the two FAQ
+  // pages) rather than popping the general history stack. Without marking
+  // goingBack, the effect above would treat this as a new forward move and
+  // push the FAQ page itself onto history — creating a loop where the
+  // shared "← Back" button sends you back into the FAQ you just left.
+  function goBackTo(target: Step) {
+    goingBack.current = true;
+    setErr('');
+    setStep(target);
+  }
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -165,6 +176,12 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
 
   const [idInput, setIdInput] = useState('');
   const [idResult, setIdResult] = useState<'MATCHED' | 'MISMATCH' | 'PENDING_VERIFICATION' | null>(null);
+  // Front/back ID photos — each uploads independently of the number check
+  // and of each other, since all three (number, front, back) are optional
+  // and can be done in any order or skipped entirely.
+  type IdPhotoSide = { preview: string; uploading: boolean; uploaded: boolean };
+  const [idFront, setIdFront] = useState<IdPhotoSide | null>(null);
+  const [idBack, setIdBack] = useState<IdPhotoSide | null>(null);
 
   const [crops, setCrops] = useState<string[]>([]);
   const [showOtherCrop, setShowOtherCrop] = useState(false);
@@ -256,6 +273,25 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
     finally { setBusy(false); }
   }
 
+  function uploadIdPhoto(side: 'front' | 'back', file: File | null) {
+    if (!file) return;
+    const setSide = side === 'front' ? setIdFront : setIdBack;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(',')[1] ?? '';
+      setSide({ preview: dataUrl, uploading: true, uploaded: false });
+      try {
+        await farmerApi.saveIdPhoto(side, base64, file.type || 'image/jpeg');
+        setSide({ preview: dataUrl, uploading: false, uploaded: true });
+      } catch (e) {
+        setErr(e instanceof ApiError ? e.message : `Could not save the ${side} photo`);
+        setSide(null);
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
   function addIncomeSource() {
     const a = newActivity.trim();
     if (!a) return;
@@ -330,6 +366,21 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
     finally { setRemovingId(''); }
   }
 
+  const [confirmDissolve, setConfirmDissolve] = useState(false);
+  const [dissolving, setDissolving] = useState(false);
+  async function dissolveMyCircle() {
+    if (!myCircle) return;
+    setDissolving(true); setErr('');
+    try {
+      await farmerApi.deleteCircle(myCircle.id);
+      setMyCircle(null); setChosenMates([]); setCircleName(''); setFormExpanded(false); setDeclined([]);
+      const [r, m] = await Promise.all([record ? Promise.resolve(record) : farmerApi.records(), farmerApi.clusterMates()]);
+      setRecord(r); setMates(m.data); setMateDiag(m.diagnostics ?? null);
+      setStep('circleForm');
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not delete this chama'); }
+    finally { setDissolving(false); setConfirmDissolve(false); }
+  }
+
   const [leaving, setLeaving] = useState(false);
   async function startNewCircleInstead() {
     setLeaving(true); setErr('');
@@ -388,7 +439,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
         <>
           <h3 style={{ marginTop: 0, marginBottom: 12 }}>About Grofunder</h3>
           <GrofunderFaq />
-          <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => setStep(faqReturnTo)}>Back</button>
+          <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => goBackTo(faqReturnTo)}>Back</button>
         </>
       )}
 
@@ -464,42 +515,66 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
       {step === 'idConfirm' && (
         <>
           <GroSays line="idConfirm" />
-          {idResult === null && (
-            <>
-              <div className="card" style={{ marginTop: 12 }}>
-                <input
-                  className="input" inputMode="numeric" placeholder="Your ID number"
-                  value={idInput} onChange={(e) => setIdInput(e.target.value)}
-                />
+          <div className="card" style={{ marginTop: 12 }}>
+            <div className="label" style={{ marginBottom: 6 }}>ID number</div>
+            {idResult === null ? (
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input className="input" style={{ flex: 1 }} inputMode="numeric" placeholder="Your ID number"
+                  value={idInput} onChange={(e) => setIdInput(e.target.value)} />
+                <button className="btn btn-primary" style={{ width: 'auto', padding: '9px 16px' }}
+                  disabled={busy || !idInput.trim()} onClick={submitIdConfirm}>
+                  {busy ? <span className="spin" /> : 'Check'}
+                </button>
               </div>
-              <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={busy || !idInput.trim()} onClick={submitIdConfirm}>
-                {busy ? <span className="spin" /> : 'Endelea — continue'}
-              </button>
-              <button className="btn btn-ghost" style={{ width: '100%', marginTop: 8 }} disabled={busy} onClick={() => setStep('about')}>
-                Skip for now — I don't have it with me
-              </button>
-            </>
-          )}
-          {idResult === 'MATCHED' && (
-            <>
-              <div className="ok" style={{ marginTop: 12 }}>Vizuri! That matches.</div>
-              <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => setStep('about')}>Endelea — continue</button>
-            </>
-          )}
-          {(idResult === 'MISMATCH' || idResult === 'PENDING_VERIFICATION') && (
-            <>
-              <div className="err" style={{ marginTop: 12 }}>
-                {idResult === 'MISMATCH'
-                  ? "That doesn't quite match what your cooperative has on file. I've told them so they can help you sort it out."
-                  : "Noted — your cooperative didn't have an ID on file yet, so I've sent them what you entered to confirm."}
-                {' '}You can keep going for now, but you'll need this fixed before applying for a loan.
-              </div>
-              <button className="btn btn-ghost" style={{ width: '100%', marginTop: 10 }} onClick={() => { setIdResult(null); }}>
-                Try again — maybe I mistyped it
-              </button>
-              <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={() => setStep('about')}>Endelea — continue</button>
-            </>
-          )}
+            ) : idResult === 'MATCHED' ? (
+              <div className="ok" style={{ margin: 0, fontSize: 13.5 }}>Vizuri! That matches.</div>
+            ) : (
+              <>
+                <div className="err" style={{ margin: 0, fontSize: 13.5 }}>
+                  {idResult === 'MISMATCH'
+                    ? "Doesn't quite match what your cooperative has on file — they've been told."
+                    : "Your cooperative didn't have an ID on file yet — they've been sent what you entered."}
+                </div>
+                <button className="btn btn-ghost" style={{ width: '100%', marginTop: 8 }} onClick={() => setIdResult(null)}>
+                  Try again — maybe I mistyped it
+                </button>
+              </>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="label" style={{ marginBottom: 8 }}>Photo of your ID</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              {(['front', 'back'] as const).map((side) => {
+                const state = side === 'front' ? idFront : idBack;
+                return (
+                  <label key={side} style={{ flex: 1, cursor: 'pointer' }}>
+                    <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+                      onChange={(e) => uploadIdPhoto(side, e.target.files?.[0] ?? null)} />
+                    {state?.preview ? (
+                      <div style={{ position: 'relative' }}>
+                        <img src={state.preview} alt={`ID ${side}`} style={{ width: '100%', borderRadius: 9, display: 'block', opacity: state.uploading ? 0.5 : 1 }} />
+                        {state.uploading && <span className="spin" style={{ position: 'absolute', top: '50%', left: '50%', marginTop: -8, marginLeft: -8 }} />}
+                        {state.uploaded && <span className="tiny" style={{ position: 'absolute', bottom: 4, right: 6, background: 'var(--g)', color: '#fff', borderRadius: 6, padding: '1px 6px' }}>✓</span>}
+                      </div>
+                    ) : (
+                      <div style={{ border: '1px dashed var(--line)', borderRadius: 9, padding: '18px 8px', textAlign: 'center' }}>
+                        <div className="muted tiny" style={{ textTransform: 'capitalize' }}>{side}</div>
+                        <div className="muted tiny" style={{ marginTop: 2 }}>Tap to add</div>
+                      </div>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <button className="btn btn-primary" onClick={() => setStep('about')}>
+            Endelea — continue
+          </button>
+          <button className="btn btn-ghost" style={{ width: '100%', marginTop: 4 }} onClick={() => setStep('about')}>
+            Skip for now — I'll finish this later
+          </button>
         </>
       )}
 
@@ -609,7 +684,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
         <>
           <h3 style={{ marginTop: 0, marginBottom: 12 }}>About Growth Chama</h3>
           <CircleFaq />
-          <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => setStep(faqReturnTo)}>Back</button>
+          <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => goBackTo(faqReturnTo)}>Back</button>
         </>
       )}
 
@@ -620,7 +695,12 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
             More about Growth Chama
           </button>
           {!formExpanded ? (
-            <button className="btn btn-primary" onClick={() => setFormExpanded(true)}>Form a Growth Chama</button>
+            <>
+              <button className="btn btn-primary" onClick={() => setFormExpanded(true)}>Form a Growth Chama</button>
+              <button className="btn btn-ghost" style={{ width: '100%', marginTop: 4 }} onClick={onComplete}>
+                Skip for now — I'll do this later
+              </button>
+            </>
           ) : (
             <>
               <div className="card">
@@ -680,6 +760,9 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
                     : `Add ${4 - chosenMates.length} more to continue.`}
                 </p>
               )}
+              <button className="btn btn-ghost" style={{ width: '100%', marginTop: 4 }} onClick={onComplete}>
+                Skip for now — I'll do this later
+              </button>
             </>
           )}
         </>
@@ -712,6 +795,25 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
             ))}
           </div>
           <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={onComplete}>Continue to app</button>
+          {myCircle.isHead && (
+            confirmDissolve ? (
+              <div className="card" style={{ marginTop: 12, borderColor: 'var(--clay)' }}>
+                <p style={{ margin: 0, fontSize: 13.5 }}>Delete this chama? Everyone in it is released and can form or join another. This can't be undone.</p>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setConfirmDissolve(false)}>Cancel</button>
+                  <button className="btn" style={{ flex: 1, background: 'var(--clay)', borderColor: 'var(--clay)', color: '#fff' }}
+                    disabled={dissolving} onClick={dissolveMyCircle}>
+                    {dissolving ? <span className="spin" /> : 'Delete'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button className="btn btn-ghost" style={{ width: '100%', marginTop: 8, color: 'var(--clay)' }}
+                onClick={() => setConfirmDissolve(true)}>
+                Delete this chama
+              </button>
+            )
+          )}
         </>
       )}
 
@@ -761,6 +863,9 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
               {leaving ? 'leaving…' : 'start a new chama instead'}
             </button>
           </p>
+          <button className="btn btn-ghost" style={{ width: '100%', marginTop: 4 }} onClick={onComplete}>
+            Skip for now — decide later
+          </button>
         </>
       )}
     </div>

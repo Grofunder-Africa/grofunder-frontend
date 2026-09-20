@@ -14,6 +14,7 @@ function Icon({ name }: { name: string }) {
     records: <><path d="M4 5h16v4H4zM4 11h16v4H4zM4 17h16v2H4z" /></>,
     community: <><circle cx="9" cy="8" r="3" /><path d="M15 11a3 3 0 1 0 0-6" /><path d="M3 20c0-3 3-5 6-5s6 2 6 5" /><path d="M17 15c2 0 4 1.5 4 5" /></>,
     signout: <><path d="M14 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" /><path d="M18 15l3-3-3-3M21 12H9" /></>,
+    settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 9 19.36a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.64 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.64 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.64a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.36 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1z" /></>,
   };
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -22,7 +23,7 @@ function Icon({ name }: { name: string }) {
   );
 }
 
-type Screen = 'signin' | 'setup' | 'home' | 'apply' | 'schedule' | 'messages' | 'records' | 'community';
+type Screen = 'signin' | 'setup' | 'home' | 'apply' | 'schedule' | 'messages' | 'records' | 'community' | 'settings';
 
 /** All of onboarding done? Record confirmed, ID at least attempted (not
  *  necessarily matched — a mismatch still blocks loans separately, via the
@@ -36,7 +37,13 @@ type Screen = 'signin' | 'setup' | 'home' | 'apply' | 'schedule' | 'messages' | 
 async function isFullySetUp(): Promise<boolean> {
   try {
     const s = await farmerApi.onboardingStatus();
-    return s.recordConfirmed && s.idAttempted && s.hasHomeLocation && s.hasEconomicProfile && !!s.circleId && s.circleState === 'ACTIVE';
+    // Home location was moved out of onboarding entirely (optional, set later
+    // from Home) — it must never gate this, or nobody could ever finish.
+    // Circle formation is skippable too (see 'circleForm' in Setup.tsx): a
+    // farmer with too few cluster-mates to form one yet shouldn't be stuck.
+    // Actual loan applications still require an active chama — that's
+    // enforced separately, in Apply's own readiness checklist.
+    return s.recordConfirmed && s.idAttempted && s.hasEconomicProfile;
   } catch {
     return true; // don't trap a farmer in Setup on a network hiccup — let Home's own error handling take over
   }
@@ -91,8 +98,10 @@ export default function App() {
           onApply={() => setScreen('apply')}
           onSignOut={() => { setToken(null); setScreen('signin'); }}
           onContinueSetup={() => setScreen('setup')}
+          onSettings={() => setScreen('settings')}
         />
       )}
+      {screen === 'settings' && <Settings onBack={() => setScreen('home')} />}
       {screen === 'apply' && (
         <Apply onBack={() => setScreen('home')} onApplied={(id) => { setActiveLoanId(id); setScreen('schedule'); }} />
       )}
@@ -140,6 +149,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
   const [mode, setMode] = useState<'signin' | 'register'>('signin');
   const [phone, setPhone] = useState('');
   const [pin, setPin] = useState('');
+  const [pinConfirm, setPinConfirm] = useState('');
   const [showPin, setShowPin] = useState(false);
   const [memberNo, setMemberNo] = useState('');
   const [err, setErr] = useState('');
@@ -154,6 +164,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
 
   async function submit() {
     if (mode === 'register' && pinProblem) { setErr(pinProblem); return; }
+    if (mode === 'register' && pinConfirm !== pin) { setErr("Your PINs don't match — check both."); return; }
     setErr(''); setBusy(true);
     try {
       if (mode === 'register') {
@@ -251,7 +262,10 @@ function SignIn({ onDone }: { onDone: () => void }) {
         </div>
       )}
       <div className="field">
-        <label>{mode === 'register' ? 'Choose a 4-digit password:' : 'Password:'}</label>
+        <label>{mode === 'register' ? 'Create PIN' : 'Password:'}</label>
+        {mode === 'register' && (
+          <span className="hint" style={{ marginBottom: 6 }}>You will use this to sign in to this app.</span>
+        )}
         <div style={{ position: 'relative' }}>
           <input className="input pin-input" inputMode="numeric" maxLength={4} placeholder="••••"
             type={showPin ? 'text' : 'password'}
@@ -267,16 +281,28 @@ function SignIn({ onDone }: { onDone: () => void }) {
         {mode === 'register' && pinProblem && <span className="hint hint-warn">{pinProblem}</span>}
       </div>
 
+      {mode === 'register' && (
+        <div className="field">
+          <label>Confirm PIN</label>
+          <input className="input pin-input" inputMode="numeric" maxLength={4} placeholder="••••"
+            type={showPin ? 'text' : 'password'}
+            value={pinConfirm} onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, ''))} />
+          {pinConfirm.length === 4 && pinConfirm !== pin && (
+            <span className="hint hint-warn">Doesn't match — check both.</span>
+          )}
+        </div>
+      )}
+
       <button className="btn btn-primary" style={{ textTransform: 'uppercase', letterSpacing: '0.03em', fontWeight: 700 }}
-        disabled={busy || phone.length < 7 || pin.length !== 4 || (mode === 'register' && !!pinProblem)} onClick={submit}>
+        disabled={busy || phone.length < 7 || pin.length !== 4 || (mode === 'register' && (!!pinProblem || pinConfirm !== pin))} onClick={submit}>
         {busy ? <span className="spin" /> : mode === 'signin' ? 'Login' : 'Create account'}
       </button>
 
       <p className="center muted" style={{ fontSize: 14.5, marginTop: 16 }}>
         {mode === 'signin' ? <>New to <strong style={{ color: 'var(--ink)' }}>Grofunder</strong>? </> : 'Already registered? '}
         <button className="back" style={{ color: 'var(--g)', fontWeight: 700, fontSize: 14.5, textDecoration: 'underline' }}
-          onClick={() => { setErr(''); setMode(mode === 'signin' ? 'register' : 'signin'); }}>
-          {mode === 'signin' ? 'Register' : 'Sign in'}
+          onClick={() => { setErr(''); setPin(''); setPinConfirm(''); setMode(mode === 'signin' ? 'register' : 'signin'); }}>
+          {mode === 'signin' ? 'Sign Up' : 'Sign in'}
         </button>
       </p>
     </div>
@@ -284,8 +310,8 @@ function SignIn({ onDone }: { onDone: () => void }) {
 }
 
 /* ---------------- Home / dashboard ---------------- */
-function Home({ onApply, onSignOut, onContinueSetup }: {
-  onApply: () => void; onSignOut: () => void; onContinueSetup: () => void;
+function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
+  onApply: () => void; onSignOut: () => void; onContinueSetup: () => void; onSettings: () => void;
 }) {
   const [record, setRecord] = useState<FarmerRecord | null>(null);
   const [score, setScore] = useState<ScoreInfo | null>(null);
@@ -325,6 +351,7 @@ function Home({ onApply, onSignOut, onContinueSetup }: {
         <span className="brand"><img src={logo} alt="grofunder" /></span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span className="chip">{record?.cluster_name ?? '—'}</span>
+          <button className="signout-btn" onClick={onSettings} title="Settings"><Icon name="settings" /></button>
           <button className="signout-btn" onClick={onSignOut} title="Sign out"><Icon name="signout" /></button>
         </div>
       </div>
@@ -437,6 +464,119 @@ function RecordRow({ label, value, last }: { label: string; value: string; last?
     <div className="row" style={{ padding: '8px 0', borderBottom: last ? 'none' : '1px solid var(--line)' }}>
       <span className="muted" style={{ fontSize: 14.5 }}>{label}</span>
       <span style={{ fontSize: 15, fontWeight: 500 }}>{value}</span>
+    </div>
+  );
+}
+
+/* ---------------- Settings: profile photo, username, change PIN ---------------- */
+function Settings({ onBack }: { onBack: () => void }) {
+  const [photoPreview, setPhotoPreview] = useState('');
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [username, setUsername] = useState('');
+  const [savingUsername, setSavingUsername] = useState(false);
+  const [usernameSaved, setUsernameSaved] = useState(false);
+  const [err, setErr] = useState('');
+
+  const [currentPin, setCurrentPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [newPinConfirm, setNewPinConfirm] = useState('');
+  const [pinBusy, setPinBusy] = useState(false);
+  const [pinSaved, setPinSaved] = useState(false);
+  const pinProblem = weakPinReason(newPin);
+
+  function onPhotoFile(file: File | null) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      setPhotoPreview(dataUrl);
+      setPhotoUploading(true); setErr('');
+      try {
+        await farmerApi.updateProfile({ photoBase64: dataUrl.split(',')[1] ?? '', photoContentType: file.type || 'image/jpeg' });
+      } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not save that photo'); }
+      finally { setPhotoUploading(false); }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function saveUsername() {
+    setSavingUsername(true); setErr(''); setUsernameSaved(false);
+    try {
+      await farmerApi.updateProfile({ username });
+      setUsernameSaved(true);
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not save that'); }
+    finally { setSavingUsername(false); }
+  }
+
+  async function submitPinChange() {
+    if (pinProblem) { setErr(pinProblem); return; }
+    if (newPin !== newPinConfirm) { setErr("Your new PINs don't match — check both."); return; }
+    setPinBusy(true); setErr(''); setPinSaved(false);
+    try {
+      await farmerApi.changePin(currentPin, newPin);
+      setCurrentPin(''); setNewPin(''); setNewPinConfirm('');
+      setPinSaved(true);
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not change your PIN'); }
+    finally { setPinBusy(false); }
+  }
+
+  return (
+    <div className="screen">
+      <button className="back" onClick={onBack} style={{ marginBottom: 12 }}>← Back</button>
+      <h1 className="h1">Settings</h1>
+      {err && <div className="err">{err}</div>}
+
+      <div className="card">
+        <div className="label" style={{ marginBottom: 8 }}>Profile photo</div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => onPhotoFile(e.target.files?.[0] ?? null)} />
+          <div style={{ width: 56, height: 56, borderRadius: '50%', overflow: 'hidden', background: 'var(--g-tint)', flexShrink: 0, display: 'grid', placeItems: 'center', position: 'relative' }}>
+            {photoPreview ? <img src={photoPreview} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: photoUploading ? 0.5 : 1 }} /> : <span className="muted tiny">Add</span>}
+            {photoUploading && <span className="spin" style={{ position: 'absolute' }} />}
+          </div>
+          <span className="link-btn">Change photo</span>
+        </label>
+      </div>
+
+      <div className="card">
+        <div className="label" style={{ marginBottom: 8 }}>Username</div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <input className="input" style={{ flex: 1 }} placeholder="Pick a username"
+            value={username} onChange={(e) => { setUsername(e.target.value); setUsernameSaved(false); }} />
+          <button className="btn btn-primary" style={{ width: 'auto', padding: '9px 16px' }}
+            disabled={savingUsername || !username.trim()} onClick={saveUsername}>
+            {savingUsername ? <span className="spin" /> : 'Save'}
+          </button>
+        </div>
+        {usernameSaved && <p className="tiny" style={{ color: 'var(--g-dark)', marginTop: 6 }}>Saved.</p>}
+      </div>
+
+      <div className="card">
+        <div className="label" style={{ marginBottom: 8 }}>Change PIN</div>
+        <div className="field">
+          <label>Current PIN</label>
+          <input className="input pin-input" inputMode="numeric" maxLength={4} type="password" placeholder="••••"
+            value={currentPin} onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ''))} />
+        </div>
+        <div className="field">
+          <label>New PIN</label>
+          <input className="input pin-input" inputMode="numeric" maxLength={4} type="password" placeholder="••••"
+            value={newPin} onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))} />
+          {pinProblem && newPin.length === 4 && <span className="hint hint-warn">{pinProblem}</span>}
+        </div>
+        <div className="field">
+          <label>Confirm new PIN</label>
+          <input className="input pin-input" inputMode="numeric" maxLength={4} type="password" placeholder="••••"
+            value={newPinConfirm} onChange={(e) => setNewPinConfirm(e.target.value.replace(/\D/g, ''))} />
+          {newPinConfirm.length === 4 && newPinConfirm !== newPin && <span className="hint hint-warn">Doesn't match — check both.</span>}
+        </div>
+        <button className="btn btn-primary"
+          disabled={pinBusy || currentPin.length !== 4 || newPin.length !== 4 || newPinConfirm !== newPin || !!pinProblem}
+          onClick={submitPinChange}>
+          {pinBusy ? <span className="spin" /> : 'Change PIN'}
+        </button>
+        {pinSaved && <p className="tiny" style={{ color: 'var(--g-dark)', marginTop: 6 }}>PIN changed.</p>}
+      </div>
     </div>
   );
 }

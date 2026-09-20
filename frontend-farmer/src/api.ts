@@ -65,6 +65,7 @@ export const api = {
   post: <T>(p: string, b?: unknown) => request<T>('POST', p, b),
   del: <T>(p: string) => request<T>('DELETE', p),
   put: <T>(p: string, b?: unknown) => request<T>('PUT', p, b),
+  patch: <T>(p: string, b?: unknown) => request<T>('PATCH', p, b),
 };
 
 /* ---- typed endpoint helpers the app uses ---- */
@@ -139,6 +140,12 @@ export const farmerApi = {
   confirmRecord: () => api.post<{ ok: boolean }>('/farmer-onboarding/confirm', {}),
   confirmNationalId: (nationalId: string) =>
     api.post<{ verified: boolean; reason?: 'MISMATCH' | 'PENDING_VERIFICATION' }>('/farmer-onboarding/confirm-id', { nationalId }),
+  saveIdPhoto: (side: 'front' | 'back', imageBase64: string, contentType: string) =>
+    api.post<{ url: string }>('/farmer-onboarding/id-photo', { side, imageBase64, contentType }),
+  updateProfile: (input: { username?: string; photoBase64?: string; photoContentType?: string }) =>
+    api.patch<{ username: string | null; photoUrl: string | null }>('/farmer-onboarding/profile', input),
+  changePin: (currentPin: string, newPin: string) =>
+    api.post<{ ok: boolean }>('/farmer-onboarding/change-pin', { currentPin, newPin }),
   raiseDiscrepancy: (field: string, details?: string) =>
     api.post<{ id: string; status: string }>('/farmer-onboarding/discrepancies', { field, details }),
   setEconomicProfile: (
@@ -158,6 +165,7 @@ export const farmerApi = {
   removeCircleMember: (circleId: string, farmerId: string) =>
     api.del<{ state: string }>(`/circles/${circleId}/members/${farmerId}`),
   leaveCircle: () => api.post<{ ok: boolean }>('/circles/leave', {}),
+  deleteCircle: (circleId: string) => api.del<{ ok: boolean }>(`/circles/${circleId}`),
 };
 
 export interface OnboardingStatus {
