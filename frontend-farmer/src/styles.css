@@ -39,17 +39,43 @@ h1, h2, h3 { font-weight: 500; letter-spacing: -0.01em; }
 .brand { color: var(--g); font-weight: 600; letter-spacing: -0.5px; }
 
 /* the app is mobile-first, centered on larger screens */
+/* ==========================================================================
+   Backdrop + floating card. Applies to every screen automatically, since
+   .app wraps all of them — no screen file needs individual changes.
+   PLACEHOLDER background below: swap the gradient for the real photo once
+   it's supplied (background-image: url(...) on .app-backdrop). Using a CSS
+   pseudo-element on body, not a JSX element, so this is purely a styling
+   change with nothing to wire up in App.tsx.
+   ========================================================================== */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(160deg, rgba(6,122,11,0.28) 0%, rgba(20,37,26,0.42) 100%),
+    url('./assets/signin-bg.jpg');
+  background-size: cover;
+  /* Weighted toward her face (upper-right of the frame) rather than plain
+     center, so a narrow phone viewport crops the empty field, not her. */
+  background-position: 72% 28%;
+  background-repeat: no-repeat;
+}
+
 .app {
   max-width: 430px;
-  margin: 0 auto;
-  min-height: 100%;
+  margin: 16px auto;
+  min-height: calc(100% - 32px);
   background: var(--bg);
   display: flex;
   flex-direction: column;
   position: relative;
+  border-radius: 22px;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.28);
+  overflow: hidden;
 }
 
-.screen { flex: 1; padding: 18px 18px 90px; }
+.screen { flex: 1; padding: 18px 18px 106px; }
 /* Screens with no tab bar (sign-in, onboarding) don't need the 90px kept
    clear for it — without this they sit above a dead gap of empty page,
    which is exactly what reads as unfinished on a short screen. */
@@ -120,7 +146,7 @@ h1, h2, h3 { font-weight: 500; letter-spacing: -0.01em; }
 
 /* forms */
 .field { margin-bottom: 14px; }
-.field label { display: block; font-size: 13.5px; color: var(--mut); margin-bottom: 3px; }
+.field label { display: block; font-size: 15px; font-weight: 600; color: var(--mut); margin-bottom: 6px; }
 .input {
   width: 100%; border: 1px solid var(--line); border-radius: var(--radius-sm);
   padding: 9px 11px; font-size: 15px; font-family: inherit; background: #fff; color: var(--ink);
@@ -173,9 +199,10 @@ h1, h2, h3 { font-weight: 500; letter-spacing: -0.01em; }
 
 /* bottom nav */
 .tabbar {
-  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
   width: 100%; max-width: 430px; background: #fff; border-top: 1px solid var(--line);
   display: flex; padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  border-radius: 0 0 22px 22px;
 }
 .tab {
   flex: 1; border: none; background: none; cursor: pointer; font-family: inherit;

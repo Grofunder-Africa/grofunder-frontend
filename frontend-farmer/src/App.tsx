@@ -250,7 +250,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
       {err && <div className="err">{err}</div>}
 
       <div className="field">
-        <label>Phone number</label>
+        <label>Phone number:</label>
         <input className="input" inputMode="tel" placeholder="0722 000 000" value={phone}
           onChange={(e) => setPhone(e.target.value)} />
         <span className="hint">The number your cooperative registered. 0722…, 0110… and 07/01 numbers all work.</span>
@@ -263,7 +263,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
         </div>
       )}
       <div className="field">
-        <label>{mode === 'register' ? 'Choose a 4-digit PIN' : 'PIN'}</label>
+        <label>{mode === 'register' ? 'Choose a 4-digit password:' : 'Password:'}</label>
         <div style={{ position: 'relative' }}>
           <input className="input pin-input" inputMode="numeric" maxLength={4} placeholder="••••"
             type={showPin ? 'text' : 'password'}
@@ -279,13 +279,14 @@ function SignIn({ onDone }: { onDone: () => void }) {
         {mode === 'register' && pinProblem && <span className="hint hint-warn">{pinProblem}</span>}
       </div>
 
-      <button className="btn btn-primary" disabled={busy || phone.length < 7 || pin.length !== 4 || (mode === 'register' && !!pinProblem)} onClick={submit}>
-        {busy ? <span className="spin" /> : mode === 'signin' ? 'Sign in' : 'Create account'}
+      <button className="btn btn-primary" style={{ textTransform: 'uppercase', letterSpacing: '0.03em', fontWeight: 700 }}
+        disabled={busy || phone.length < 7 || pin.length !== 4 || (mode === 'register' && !!pinProblem)} onClick={submit}>
+        {busy ? <span className="spin" /> : mode === 'signin' ? 'Login' : 'Create account'}
       </button>
 
       <p className="center muted" style={{ fontSize: 14.5, marginTop: 16 }}>
-        {mode === 'signin' ? 'New to Grofunder? ' : 'Already registered? '}
-        <button className="back" style={{ color: 'var(--g)', fontWeight: 600, fontSize: 14.5 }}
+        {mode === 'signin' ? <>New to <strong style={{ color: 'var(--ink)' }}>Grofunder</strong>? </> : 'Already registered? '}
+        <button className="back" style={{ color: 'var(--g)', fontWeight: 700, fontSize: 14.5, textDecoration: 'underline' }}
           onClick={() => { setErr(''); setMode(mode === 'signin' ? 'register' : 'signin'); }}>
           {mode === 'signin' ? 'Register' : 'Sign in'}
         </button>
