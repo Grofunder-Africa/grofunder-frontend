@@ -368,22 +368,13 @@ function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
           </div>
         </div>
 
-        {/* score card */}
-        <div className="card card-green" style={{ marginTop: 12 }}>
-          <div className="row">
-            <div>
-              <div className="label label-light">Credit score</div>
-              <div className="score-num">{isNew ? '—' : score?.credit_score}</div>
-              <div className="tiny label-light" style={{ marginTop: 2 }}>
-                {isNew ? 'grows with your first loan' : 'growing well'}
-              </div>
-            </div>
-            <div className="center">
-              <div className="label label-light">Your limit</div>
-              <div className="limit-num">{kes(score?.credit_limit_cents)}</div>
-              <div className="tiny label-light" style={{ marginTop: 2 }}>tree stage {score?.tree_stage ?? 1} of 5</div>
-            </div>
-          </div>
+        {/* limit card — credit score is intentionally not shown to farmers;
+            both score and limit are admin-set on the backend, this card
+            just no longer surfaces the score itself */}
+        <div className="card card-green center" style={{ marginTop: 12 }}>
+          <div className="label label-light">Your Loan Limit</div>
+          <div className="limit-num" style={{ fontSize: 30 }}>{kes(score?.credit_limit_cents)}</div>
+          <div className="tiny label-light" style={{ marginTop: 2 }}>tree stage {score?.tree_stage ?? 1} of 5</div>
         </div>
 
         {isNew ? (
@@ -441,8 +432,8 @@ function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
             onClick={() => setShowRecord((s) => !s)}
             style={{ width: '100%', border: 'none', background: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 0, cursor: 'pointer' }}
           >
-            <span className="label">Your cooperative record</span>
-            <span className="muted" aria-hidden>{showRecord ? '⌃' : '⌄'}</span>
+            <span className="label">See your cooperative records</span>
+            <span className="muted" aria-hidden style={{ fontSize: 20, lineHeight: 1 }}>{showRecord ? '⌃' : '⌄'}</span>
           </button>
           {showRecord && (
             <div style={{ marginTop: 8 }}>
@@ -657,6 +648,21 @@ function Apply({ onBack, onApplied }: { onBack: () => void; onApplied: (id: stri
 
       {err && <div className="err">{err}</div>}
 
+      <div className="card center">
+        <svg viewBox="0 0 200 110" width="140" height="77" aria-hidden="true" style={{ margin: '0 auto' }}>
+          <ellipse cx="100" cy="100" rx="52" ry="7" fill="#D3D1C7" />
+          <path d="M100 98 L100 32" stroke="#067A0B" strokeWidth="4" strokeLinecap="round" />
+          <path d="M100 80 L76 66 M100 80 L124 66 M100 58 L80 46 M100 58 L120 46" stroke="#067A0B" strokeWidth="2.5" strokeLinecap="round" />
+          <ellipse cx="72" cy="64" rx="12" ry="6" fill="#09AF0F" transform="rotate(-25 72 64)" />
+          <ellipse cx="128" cy="64" rx="12" ry="6" fill="#09AF0F" transform="rotate(25 128 64)" />
+          <ellipse cx="76" cy="43" rx="11" ry="5.5" fill="#09AF0F" transform="rotate(-30 76 43)" />
+          <ellipse cx="124" cy="43" rx="11" ry="5.5" fill="#09AF0F" transform="rotate(30 124 43)" />
+          <ellipse cx="100" cy="27" rx="10" ry="6" fill="#5DCAA5" />
+          <circle cx="86" cy="60" r="4" fill="#E24B4A" /><circle cx="114" cy="58" r="4" fill="#E24B4A" /><circle cx="100" cy="40" r="4" fill="#E24B4A" />
+        </svg>
+        <p className="tiny muted" style={{ marginTop: 2 }}>Tree stage {score?.tree_stage ?? 1} of 5</p>
+      </div>
+
       <div className="card">
         <div className="center" style={{ marginBottom: 4 }}>
           <div className="score-num" style={{ color: 'var(--g-dark)', fontSize: 34 }}>{kes(amount)}</div>
@@ -683,7 +689,7 @@ function Apply({ onBack, onApplied }: { onBack: () => void; onApplied: (id: stri
       {quote && (
         <div className="card">
           <SummaryRow label="You receive" value={kes(quote.principalCents)} />
-          <SummaryRow label={`Interest (4.5%/mo × ${weeks / 4} months)`} value={kes(quote.totalInterestCents)} />
+          <SummaryRow label={`Interest (${(quote.ratePmBps / 100).toFixed(1)}%/mo × ${weeks / 4} months)`} value={kes(quote.totalInterestCents)} />
           <SummaryRow label="Weekly payment" value={kes(quote.weeklyInstalmentCents)} />
           <SummaryRow label="Total to repay" value={kes(quote.totalRepayableCents)} strong last />
         </div>

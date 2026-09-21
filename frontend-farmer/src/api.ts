@@ -87,7 +87,9 @@ export interface ScoreInfo {
 }
 export interface FarmerRecord {
   id: string; full_name: string; coop_member_no: string | null;
+  cooperative_name: string | null;
   cluster_name: string | null; cluster_head: string | null; delivery_count: number;
+  known_crops: string[];
 }
 export interface Quote {
   principalCents: number; weeks: number; ratePmBps: number;
@@ -181,7 +183,7 @@ export interface MyCircleStatus {
   hasCircle: boolean;
   circle?: {
     id: string; name: string; state: string; member_count: number;
-    confirmed_pairs: number; total_pairs: number;
+    confirmed_pairs: number; total_pairs: number; members_confirmed: number;
     isHead: boolean; myVouchDone: boolean;
     members: { farmerId: string; fullName: string; isHead: boolean; myVouchStatus: string }[];
   };

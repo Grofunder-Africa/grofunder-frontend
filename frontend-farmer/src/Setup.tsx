@@ -242,7 +242,15 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
 
   async function loadRecord() {
     setBusy(true); setErr('');
-    try { setRecord(await farmerApi.records()); setStep('record'); }
+    try {
+      const r = await farmerApi.records();
+      setRecord(r);
+      // Pre-tick (and lock, in the JSX below) whatever the cooperative's own
+      // delivery records already say this farmer grows — no reason to make
+      // them re-enter something already on file.
+      setCrops((prev) => Array.from(new Set([...prev, ...r.known_crops])));
+      setStep('record');
+    }
     catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not load your record'); }
     finally { setBusy(false); }
   }
@@ -461,7 +469,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
               <circle cx="100" cy="40" r="4" fill="#E24B4A" />
             </svg>
             <p style={{ margin: '8px 0 0', fontSize: 14.5, lineHeight: 1.5 }}>
-              Pay on time — it grows. Finish loans — it bears fruit, and your limit grows with it.
+              Your progress lives in a tree. Pay on time — it grows. Finish loans — it bears cherries, and your limit grows with it.
             </p>
           </div>
           <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => setStep('explainer3')}>
@@ -481,7 +489,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
 
       {step === 'record' && record && (
         <>
-          <GroSays line="recordConfirm" />
+          <GroSays line="recordConfirm" textOverride={`Vizuri! Here's what ${record.cooperative_name ?? 'your cooperative'} told us about you. Is this you?`} />
           <div className="card" style={{ marginTop: 12 }}>
             <div className="label" style={{ marginBottom: 8 }}>Your cooperative record</div>
             <table style={{ width: '100%', fontSize: 15 }}><tbody>
@@ -492,7 +500,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
             </tbody></table>
             {!flagged && !showFlag && (
               <button className="btn btn-ghost" style={{ width: '100%', fontSize: 13, padding: 6, marginTop: 8 }} onClick={() => setShowFlag(true)}>
-                Something here is wrong
+                I want to change something
               </button>
             )}
             {showFlag && (
@@ -584,11 +592,21 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
           <div className="card" style={{ marginTop: 12 }}>
             <div className="label" style={{ marginBottom: 8 }}>What do you grow?</div>
             <div className="tick-wrap">
-              {CROP_OPTIONS.map((c) => (
-                <button key={c} className={`tick-chip ${crops.includes(c) ? 'tick-chip-on' : ''}`} onClick={() => toggle(crops, setCrops, c)}>{c}</button>
-              ))}
+              {Array.from(new Set([...(record?.known_crops ?? []), ...CROP_OPTIONS])).map((c) => {
+                const known = record?.known_crops.includes(c);
+                return (
+                  <button key={c} className={`tick-chip ${crops.includes(c) ? 'tick-chip-on' : ''}`}
+                    style={known ? { cursor: 'default' } : undefined}
+                    onClick={known ? undefined : () => toggle(crops, setCrops, c)}>
+                    {c}{known && <span style={{ marginLeft: 5, fontSize: 11 }}>🔒</span>}
+                  </button>
+                );
+              })}
               <button className={`tick-chip ${showOtherCrop ? 'tick-chip-on' : ''}`} onClick={() => setShowOtherCrop((s) => !s)}>Other</button>
             </div>
+            {record?.known_crops && record.known_crops.length > 0 && (
+              <p className="tiny muted" style={{ marginTop: 6 }}>🔒 Already on your cooperative record.</p>
+            )}
             {showOtherCrop && (
               <input className="input" style={{ marginTop: 8 }} placeholder="What else do you grow?"
                 value={otherCropText} onChange={(e) => setOtherCropText(e.target.value)} />
@@ -774,7 +792,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
           <div className="card" style={{ marginTop: 12 }}>
             <div className="row" style={{ marginBottom: 6 }}>
               <span style={{ fontSize: 15.5, fontWeight: 600 }}>{myCircle.name}</span>
-              <span className="tiny muted">{myCircle.confirmed_pairs} of {myCircle.total_pairs} confirmed</span>
+              <span className="tiny muted">{myCircle.members_confirmed} of {myCircle.member_count} members confirmed</span>
             </div>
             {myCircle.members.map((m) => (
               <div key={m.farmerId} className="row" style={{ padding: '4px 0', fontSize: 14.5 }}>
@@ -854,7 +872,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
             {busy ? <span className="spin" /> : 'I stand with these members'}
           </button>
           <p className="tiny muted" style={{ textAlign: 'center', marginTop: 8 }}>
-            {myCircle.confirmed_pairs} of {myCircle.total_pairs} confirmations so far ·{' '}
+            {myCircle.members_confirmed} of {myCircle.member_count} members confirmed so far ·{' '}
             <button
               onClick={startNewCircleInstead}
               disabled={leaving}

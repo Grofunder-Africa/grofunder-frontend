@@ -52,7 +52,7 @@ export const GRO_LINES: Record<string, { text: string; mood: GroMood }> = {
   explainerTogether: { text: 'One more thing, and it matters most: your Growth Chama. 5 to 10 farmers who stand for each other — you choose them, they choose you. Every member\u2019s word counts.', mood: 'happy' },
 
   // Record confirmation (verbatim)
-  recordConfirm: { text: "Vizuri! Here's what Orinde told us about you. Is this you?", mood: 'happy' },
+  recordConfirm: { text: "Vizuri! Here's what your cooperative told us about you. Is this you?", mood: 'happy' },
   recordFlagged: { text: 'Asante for telling me. Sent to your cooperative to fix — you can continue, but loan applications will wait until your records match.', mood: 'encouraging' },
 
   // National ID confirmation
@@ -82,14 +82,14 @@ export const GRO_LINES: Record<string, { text: string; mood: GroMood }> = {
 };
 
 /** Gro + his speech bubble, reusable anywhere he needs to say something. */
-export function GroSays({ line, children }: { line: keyof typeof GRO_LINES; children?: React.ReactNode }) {
+export function GroSays({ line, children, textOverride }: { line: keyof typeof GRO_LINES; children?: React.ReactNode; textOverride?: string }) {
   const { text, mood } = GRO_LINES[line];
   return (
     <div className="gro-hero">
       <div className="gro-scene">
         <Gro mood={mood} />
         <div className="gro-msg">
-          <p style={{ margin: 0 }}>{text}</p>
+          <p style={{ margin: 0 }}>{textOverride ?? text}</p>
           {children}
         </div>
       </div>
