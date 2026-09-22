@@ -29,6 +29,7 @@ type Step =
   | 'record'
   | 'idConfirm'
   | 'about'
+  | 'farmDetails'
   | 'seedPlanted'
   | 'circleForm'
   | 'circleFaq'
@@ -39,9 +40,13 @@ type Step =
 const STEP_STAGE: Partial<Record<Step, SeedStage>> = {
   intro: 1, explainer1: 1, explainer2: 1, explainer3: 1, grofunderFaq: 1,
   record: 2, idConfirm: 2,
-  about: 3,
+  about: 3, farmDetails: 3,
   seedPlanted: 4, circleForm: 4, circleFaq: 4, circleWaiting: 4, circleVouch: 4,
 };
+
+const LAND_ARRANGEMENTS = ['I own it', 'Family land', 'I lease it', 'Community / communal'];
+const FARMING_EXPERIENCE_OPTIONS = ['Less than 1 year', '1–3 years', '4–9 years', '10+ years'];
+const GENDER_OPTIONS = ['Female', 'Male', 'Prefer not to say'];
 
 const CROP_OPTIONS = ['Coffee', 'Tea', 'Maize', 'Beans', 'Bananas', 'Sugarcane', 'Dairy', 'Poultry'];
 const ACTIVITY_OPTIONS = ['Boda boda', 'Small shop', 'Casual work', 'Tailoring', 'Mama mboga', 'Employed'];
@@ -182,10 +187,13 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
   type IdPhotoSide = { preview: string; uploading: boolean; uploaded: boolean };
   const [idFront, setIdFront] = useState<IdPhotoSide | null>(null);
   const [idBack, setIdBack] = useState<IdPhotoSide | null>(null);
+  const [idSelfie, setIdSelfie] = useState<IdPhotoSide | null>(null);
 
   const [crops, setCrops] = useState<string[]>([]);
   const [showOtherCrop, setShowOtherCrop] = useState(false);
   const [otherCropText, setOtherCropText] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [gender, setGender] = useState('');
   // Income sources: each is an activity plus how often it pays. A farmer has
   // several on different cycles (seasonal maize, weekly vegetables, monthly
   // job) — one frequency for the whole person was the wrong model.
@@ -281,9 +289,9 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
     finally { setBusy(false); }
   }
 
-  function uploadIdPhoto(side: 'front' | 'back', file: File | null) {
+  function uploadIdPhoto(side: 'front' | 'back' | 'selfie', file: File | null) {
     if (!file) return;
-    const setSide = side === 'front' ? setIdFront : setIdBack;
+    const setSide = side === 'front' ? setIdFront : side === 'back' ? setIdBack : setIdSelfie;
     const reader = new FileReader();
     reader.onload = async () => {
       const dataUrl = reader.result as string;
@@ -320,7 +328,25 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
         activity: r.activity, frequency: r.frequency,
         avgAmountCents: r.avgAmountKes !== undefined ? Math.round(r.avgAmountKes * 100) : undefined,
       }));
-      await farmerApi.setEconomicProfile(finalCrops, [], apiSources);
+      await farmerApi.setEconomicProfile(finalCrops, [], apiSources, dateOfBirth || undefined, gender || undefined);
+      setStep('farmDetails');
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not save'); }
+    finally { setBusy(false); }
+  }
+
+  const [totalAcres, setTotalAcres] = useState('');
+  const [cultivatedAcres, setCultivatedAcres] = useState('');
+  const [landArrangement, setLandArrangement] = useState('');
+  const [farmingExperience, setFarmingExperience] = useState('');
+  async function finishFarmDetails() {
+    setBusy(true); setErr('');
+    try {
+      await farmerApi.setFarmDetails({
+        totalAcres: totalAcres.trim() ? Number(totalAcres) : undefined,
+        cultivatedAcres: cultivatedAcres.trim() ? Number(cultivatedAcres) : undefined,
+        landArrangement: landArrangement || undefined,
+        farmingExperience: farmingExperience || undefined,
+      });
       setStep('seedPlanted');
     } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not save'); }
     finally { setBusy(false); }
@@ -329,6 +355,15 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
   async function goToCircleForm() {
     setBusy(true); setErr('');
     try {
+      // Someone may have invited this farmer to their own chama already —
+      // check before routing to "form your own", so an existing invite
+      // isn't silently missed just because they hadn't reached this step yet.
+      const cs = await farmerApi.myCircleStatus();
+      if (cs.hasCircle && cs.circle) {
+        setMyCircle(cs.circle);
+        setStep(cs.circle.myVouchDone ? 'circleWaiting' : 'circleVouch');
+        return;
+      }
       const [r, m] = await Promise.all([record ? Promise.resolve(record) : farmerApi.records(), farmerApi.clusterMates()]);
       setRecord(r); setMates(m.data); setMateDiag(m.diagnostics ?? null);
       setStep('circleForm');
@@ -577,6 +612,27 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
             </div>
           </div>
 
+          <GroSays line="selfieConfirm" />
+          <div className="card">
+            <div className="label" style={{ marginBottom: 8 }}>A selfie</div>
+            <label style={{ display: 'block', cursor: 'pointer' }}>
+              <input type="file" accept="image/*" capture="user" style={{ display: 'none' }}
+                onChange={(e) => uploadIdPhoto('selfie', e.target.files?.[0] ?? null)} />
+              {idSelfie?.preview ? (
+                <div style={{ position: 'relative', maxWidth: 160, margin: '0 auto' }}>
+                  <img src={idSelfie.preview} alt="Your selfie" style={{ width: '100%', borderRadius: 9, display: 'block', opacity: idSelfie.uploading ? 0.5 : 1 }} />
+                  {idSelfie.uploading && <span className="spin" style={{ position: 'absolute', top: '50%', left: '50%', marginTop: -8, marginLeft: -8 }} />}
+                  {idSelfie.uploaded && <span className="tiny" style={{ position: 'absolute', bottom: 4, right: 6, background: 'var(--g)', color: '#fff', borderRadius: 6, padding: '1px 6px' }}>✓</span>}
+                </div>
+              ) : (
+                <div style={{ border: '1px dashed var(--line)', borderRadius: 9, padding: '18px 8px', textAlign: 'center', maxWidth: 160, margin: '0 auto' }}>
+                  <div className="muted tiny">Selfie</div>
+                  <div className="muted tiny" style={{ marginTop: 2 }}>Tap to add</div>
+                </div>
+              )}
+            </label>
+          </div>
+
           <button className="btn btn-primary" onClick={() => setStep('about')}>
             Endelea — continue
           </button>
@@ -677,6 +733,20 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
             </button>
           </div>
 
+          <div className="card">
+            <div className="label" style={{ marginBottom: 8 }}>About you</div>
+            <div className="field">
+              <label>Date of birth</label>
+              <input className="input" type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} />
+            </div>
+            <div className="label" style={{ marginBottom: 8 }}>Gender</div>
+            <div className="tick-wrap">
+              {GENDER_OPTIONS.map((g) => (
+                <button key={g} className={`tick-chip ${gender === g ? 'tick-chip-on' : ''}`} onClick={() => setGender(g)}>{g}</button>
+              ))}
+            </div>
+          </div>
+
           <button className="btn btn-primary" disabled={busy} onClick={finishAboutYou}>
             {busy ? <span className="spin" /> : 'Maliza — finish'}
           </button>
@@ -687,6 +757,49 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
           )}
         </>
       )}
+
+      {step === 'farmDetails' && (() => {
+        const primaryCrop = record?.known_crops?.[0] ?? crops[0];
+        return (
+          <>
+            <h2 style={{ fontSize: 17, fontWeight: 500, marginBottom: 10 }}>
+              {primaryCrop ? `Let's talk about your ${primaryCrop} farm` : "Let's talk about your farm"}
+            </h2>
+            <GroSays line="farmDetails" />
+            <div className="card">
+              <div className="label" style={{ marginBottom: 8 }}>Your farm</div>
+              <div className="field">
+                <label>{primaryCrop ? `Total ${primaryCrop} acres` : 'Total acres'}</label>
+                <input className="input" type="number" inputMode="decimal" placeholder="Acres"
+                  value={totalAcres} onChange={(e) => setTotalAcres(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>{primaryCrop ? `Currently cultivated (${primaryCrop})` : 'Currently cultivated'}</label>
+                <input className="input" type="number" inputMode="decimal" placeholder="Acres"
+                  value={cultivatedAcres} onChange={(e) => setCultivatedAcres(e.target.value)} />
+              </div>
+              <div className="label" style={{ marginBottom: 8 }}>Land arrangement</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+                {LAND_ARRANGEMENTS.map((l) => (
+                  <button key={l} className={`tick-chip tick-chip-row ${landArrangement === l ? 'tick-chip-on' : ''}`}
+                    style={{ margin: 0 }} onClick={() => setLandArrangement(l)}>{l}</button>
+                ))}
+              </div>
+              <div className="label" style={{ marginBottom: 8 }}>Farming experience</div>
+              <select className="input" value={farmingExperience} onChange={(e) => setFarmingExperience(e.target.value)}>
+                <option value="">Select</option>
+                {FARMING_EXPERIENCE_OPTIONS.map((f) => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </div>
+            <button className="btn btn-primary" disabled={busy} onClick={finishFarmDetails}>
+              {busy ? <span className="spin" /> : 'Endelea — continue'}
+            </button>
+            <button className="btn btn-ghost" style={{ width: '100%', marginTop: 4 }} onClick={() => setStep('seedPlanted')}>
+              Skip for now
+            </button>
+          </>
+        );
+      })()}
 
       {step === 'seedPlanted' && (
         <>
@@ -851,8 +964,8 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
             <span aria-hidden>⌄</span>
           </button>
           <p className="muted" style={{ marginBottom: 12 }}>
-            {(() => { const founder = myCircle.members.find((m) => m.isHead); return founder ? `${founder.fullName} named you in ${myCircle.name}.` : `You've been named in ${myCircle.name}.`; })()}
-            {' '}If any member repays late, it affects everyone. Untick anyone you don't stand with.
+            {(() => { const founder = myCircle.members.find((m) => m.isHead); return founder ? `${founder.fullName} has invited you to join this circle.` : `You've been invited to join ${myCircle.name}.`; })()}
+            {' '}You can agree or remove some members you don't want in the circle.
           </p>
           {myCircle.state === 'CONTESTED' && (
             <div className="err" style={{ marginBottom: 12 }}>

@@ -57,6 +57,7 @@ export const GRO_LINES: Record<string, { text: string; mood: GroMood }> = {
 
   // National ID confirmation
   idConfirm: { text: "Now, type your ID number so I can make sure it matches what your cooperative has on file.", mood: 'happy' },
+  selfieConfirm: { text: "Now that we know you, help me confirm that it is really you.", mood: 'happy' },
   idMatched: { text: 'Vizuri! That matches.', mood: 'celebrating' },
   idMismatch: { text: "That doesn't quite match what your cooperative has on file. I've told them so they can help you sort it out. You can keep going for now — but you'll need this fixed before applying for a loan.", mood: 'encouraging' },
 
@@ -66,6 +67,7 @@ export const GRO_LINES: Record<string, { text: string; mood: GroMood }> = {
   // About you (verbatim)
   aboutCrops: { text: 'Asante! Sasa, tell me about yourself. What do you grow?', mood: 'happy' },
   aboutIncome: { text: 'Tell us, ni nini ingine wewe hupanda ama hufanya ndio upate pesa?', mood: 'happy' },
+  farmDetails: { text: 'Every farm is different. Tell me a little about yours.', mood: 'happy' },
   aboutActivities: { text: 'Do you earn from anything else? Kila kitu counts.', mood: 'happy' },
 
   // Basics done (verbatim)

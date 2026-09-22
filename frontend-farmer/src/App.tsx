@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { farmerApi, setToken, getToken, kes, ApiError, onSessionExpired } from './api';
-import type { ScoreInfo, FarmerRecord, Quote, Instalment, FarmerInboxMessage, CaptureRecord, FeedPost, MyCircleStatus, FarmerMessage, FarmerAudience } from './api';
+import type { ScoreInfo, FarmerRecord, Quote, Instalment, FarmerInboxMessage, CaptureRecord, DeliverySummary, FeedPost, MyCircleStatus, FarmerMessage, FarmerAudience } from './api';
 import { Gro, GRO_QUICK_ASKS, GRO_OPENING, GRO_FREETEXT_REPLY, GRO_RECEIPT } from './Gro';
 import { Setup } from './Setup';
 import logo from './assets/grofunder-logo.png';
@@ -1272,11 +1272,29 @@ function ComposeMessage({ onBack }: { onBack: () => void }) {
 /* ---------------- My records (capture, read-only) ---------------- */
 function Records({ onBack }: { onBack: () => void }) {
   const [recs, setRecs] = useState<CaptureRecord[]>([]);
+  const [summary, setSummary] = useState<DeliverySummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [confirmed, setConfirmed] = useState(false);
+  const [showFlag, setShowFlag] = useState(false);
+  const [flagDetails, setFlagDetails] = useState('');
+  const [flagged, setFlagged] = useState(false);
+  const [flagBusy, setFlagBusy] = useState(false);
 
   useEffect(() => {
-    farmerApi.myRecords().then((r) => setRecs(r.data)).catch(() => {}).finally(() => setLoading(false));
+    Promise.all([farmerApi.myRecords(), farmerApi.deliverySummary()])
+      .then(([r, s]) => { setRecs(r.data); setSummary(s); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
+
+  async function submitFlag() {
+    setFlagBusy(true);
+    try {
+      await farmerApi.raiseDiscrepancy('records', flagDetails.trim() || undefined);
+      setFlagged(true); setShowFlag(false);
+    } catch { /* keep the form open on failure */ }
+    finally { setFlagBusy(false); }
+  }
 
   const fmt = (rec: CaptureRecord, units: number) => {
     const major = units / (rec.unit === 'kg' ? 1000 : 100);
@@ -1291,36 +1309,87 @@ function Records({ onBack }: { onBack: () => void }) {
       <div className="topbar"><span className="brand"><img src={logo} alt="grofunder" /></span></div>
       <h1 className="h1" style={{ marginTop: 8 }}>My records</h1>
       <p className="sub">What your cooperative has recorded for you</p>
+
       {loading ? (
         <div className="loading"><span className="spin" /></div>
-      ) : recs.length === 0 ? (
-        <div className="empty-note">No records yet. Your cooperative adds these.</div>
       ) : (
-        <div className="stack">
-          {recs.map((rec) => (
-            <div key={rec.type} className="card">
-              <div className="rec-head">
-                <span className="rec-title">{rec.label}</span>
-                <span className="rec-total">{fmt(rec, rec.total_units)}</span>
-              </div>
-              {rec.entries.length === 0 ? (
-                <p className="muted" style={{ fontSize: 14.5, marginTop: 8 }}>No entries yet.</p>
+        <>
+          {summary && summary.totalDeliveries > 0 && (
+            <div className="card">
+              <div className="label" style={{ marginBottom: 8 }}>Your delivery summary</div>
+              <table style={{ width: '100%', fontSize: 14 }}><tbody>
+                <tr><td className="muted" style={{ padding: '4px 0' }}>Total deliveries</td><td style={{ textAlign: 'right' }}>{summary.totalDeliveries}</td></tr>
+                <tr><td className="muted" style={{ padding: '4px 0' }}>Total earnings</td><td style={{ textAlign: 'right' }}>{kes(summary.totalEarningsCents)}</td></tr>
+                <tr><td className="muted" style={{ padding: '4px 0' }}>Total deductions</td><td style={{ textAlign: 'right' }}>{kes(summary.totalDeductionsCents)}</td></tr>
+                {summary.lastDelivery && (
+                  <>
+                    <tr><td colSpan={2} style={{ paddingTop: 10, borderTop: '1px solid var(--line)' }} /></tr>
+                    <tr><td className="muted" style={{ padding: '4px 0' }}>Last delivery date</td><td style={{ textAlign: 'right' }}>{new Date(summary.lastDelivery.date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</td></tr>
+                    <tr><td className="muted" style={{ padding: '4px 0' }}>Last delivery amount</td><td style={{ textAlign: 'right' }}>{summary.lastDelivery.quantityKg.toLocaleString()} kg {summary.lastDelivery.product}</td></tr>
+                    <tr><td className="muted" style={{ padding: '4px 0' }}>Last delivery earnings</td><td style={{ textAlign: 'right' }}>{kes(summary.lastDelivery.earningsCents)}</td></tr>
+                    <tr><td className="muted" style={{ padding: '4px 0' }}>Last delivery deductions</td><td style={{ textAlign: 'right' }}>{kes(summary.lastDelivery.deductionsCents)}</td></tr>
+                  </>
+                )}
+              </tbody></table>
+
+              {flagged ? (
+                <div className="ok" style={{ marginTop: 10, fontSize: 13 }}>
+                  Sent to your cooperative to fix. Please note that your input will not override the input from your cooperative.
+                </div>
+              ) : confirmed ? (
+                <div className="ok" style={{ marginTop: 10, fontSize: 13 }}>Thanks — confirmed.</div>
+              ) : showFlag ? (
+                <div style={{ marginTop: 10 }}>
+                  <p className="tiny muted" style={{ marginBottom: 6 }}>What looks wrong? You can tell us what you think is correct.</p>
+                  <textarea className="input" rows={3} placeholder="What's not right? (optional)"
+                    value={flagDetails} onChange={(e) => setFlagDetails(e.target.value)} />
+                  <p className="tiny muted" style={{ marginTop: 6 }}>Please note that your input will not override the input from your cooperative.</p>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                    <button className="btn btn-ghost" style={{ flex: 1, fontSize: 14 }} onClick={() => setShowFlag(false)}>Cancel</button>
+                    <button className="btn btn-primary" style={{ flex: 1, fontSize: 14, padding: 8 }} disabled={flagBusy} onClick={submitFlag}>
+                      {flagBusy ? <span className="spin" /> : 'Send'}
+                    </button>
+                  </div>
+                </div>
               ) : (
-                <div className="rec-entries">
-                  {rec.entries.map((e) => (
-                    <div key={e.id} className="rec-row">
-                      <span className="rec-date">{new Date(e.entry_date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                      <span className="rec-amt">{fmt(rec, e.amount_units)}</span>
-                    </div>
-                  ))}
+                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  <button className="btn btn-primary" style={{ flex: 1, fontSize: 14 }} onClick={() => setConfirmed(true)}>Yes, that's correct</button>
+                  <button className="btn btn-ghost" style={{ flex: 1, fontSize: 14 }} onClick={() => setShowFlag(true)}>Something is wrong</button>
                 </div>
               )}
             </div>
-          ))}
-          <p className="muted" style={{ fontSize: 13.5, textAlign: 'center', marginTop: 4 }}>
-            Kept by your cooperative. Something wrong? Talk to them.
-          </p>
-        </div>
+          )}
+
+          {recs.length === 0 ? (
+            <div className="empty-note">No records yet. Your cooperative adds these.</div>
+          ) : (
+            <div className="stack">
+              {recs.map((rec) => (
+                <div key={rec.type} className="card">
+                  <div className="rec-head">
+                    <span className="rec-title">{rec.label}</span>
+                    <span className="rec-total">{fmt(rec, rec.total_units)}</span>
+                  </div>
+                  {rec.entries.length === 0 ? (
+                    <p className="muted" style={{ fontSize: 14.5, marginTop: 8 }}>No entries yet.</p>
+                  ) : (
+                    <div className="rec-entries">
+                      {rec.entries.map((e) => (
+                        <div key={e.id} className="rec-row">
+                          <span className="rec-date">{new Date(e.entry_date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                          <span className="rec-amt">{fmt(rec, e.amount_units)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+              <p className="muted" style={{ fontSize: 13.5, textAlign: 'center', marginTop: 4 }}>
+                Kept by your cooperative. Something wrong? Talk to them.
+              </p>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

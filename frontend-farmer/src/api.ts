@@ -139,6 +139,7 @@ export const farmerApi = {
   logGroRequest: (category: string, freeText?: string) =>
     api.post<{ id: string }>('/farmer-messages/requests', { category, freeText }),
   myRecords: () => api.get<{ data: CaptureRecord[] }>('/my-records/records'),
+  deliverySummary: () => api.get<DeliverySummary>('/my-records/delivery-summary'),
   feed: () => api.get<{ data: FeedPost[] }>('/posts/feed'),
   createPost: (body: { imageBase64: string; contentType: string; caption?: string; toCluster: boolean; toCircle: boolean; toCooperative: boolean; toWebsite: boolean }) =>
     api.post<{ id: string; imageUrl: string; websiteStatus: string | null }>('/posts', body),
@@ -149,7 +150,7 @@ export const farmerApi = {
   confirmRecord: () => api.post<{ ok: boolean }>('/farmer-onboarding/confirm', {}),
   confirmNationalId: (nationalId: string) =>
     api.post<{ verified: boolean; reason?: 'MISMATCH' | 'PENDING_VERIFICATION' }>('/farmer-onboarding/confirm-id', { nationalId }),
-  saveIdPhoto: (side: 'front' | 'back', imageBase64: string, contentType: string) =>
+  saveIdPhoto: (side: 'front' | 'back' | 'selfie', imageBase64: string, contentType: string) =>
     api.post<{ url: string }>('/farmer-onboarding/id-photo', { side, imageBase64, contentType }),
   updateProfile: (input: { username?: string; photoBase64?: string; photoContentType?: string }) =>
     api.patch<{ username: string | null; photoUrl: string | null }>('/farmer-onboarding/profile', input),
@@ -161,8 +162,12 @@ export const farmerApi = {
     crops: string[],
     activities: string[],
     incomeSources: { activity: string; frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'SEASONAL'; avgAmountCents?: number }[],
+    dateOfBirth?: string,
+    gender?: string,
   ) =>
-    api.post<{ ok: boolean }>('/farmer-onboarding/economic-profile', { crops, activities, incomeSources }),
+    api.post<{ ok: boolean }>('/farmer-onboarding/economic-profile', { crops, activities, incomeSources, dateOfBirth, gender }),
+  setFarmDetails: (input: { totalAcres?: number; cultivatedAcres?: number; landArrangement?: string; farmingExperience?: string }) =>
+    api.post<{ ok: boolean }>('/farmer-onboarding/farm-details', input),
   setHomeLocation: (lat: number | null, lng: number | null, text?: string) =>
     api.put<{ ok: boolean }>('/farmer-onboarding/home-location', { lat: lat ?? undefined, lng: lng ?? undefined, text }),
   myCircleStatus: () => api.get<MyCircleStatus>('/circles/my-circle'),
@@ -205,6 +210,16 @@ export interface FeedPost {
 export interface CaptureRecord {
   type: string; label: string; unit: 'kg' | 'KES';
   total_units: number; entries: { id: string; entry_date: string; amount_units: number }[];
+}
+
+export interface DeliverySummary {
+  totalDeliveries: number;
+  totalKg: number;
+  totalEarningsCents: number;
+  totalDeductionsCents: number;
+  lastDelivery: {
+    date: string; quantityKg: number; earningsCents: number; deductionsCents: number; product: string;
+  } | null;
 }
 
 export interface FarmerInboxMessage {
