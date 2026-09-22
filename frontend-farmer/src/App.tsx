@@ -157,6 +157,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
   // OTP step: set once phone + PIN check out and a code has been sent.
   const [challenge, setChallenge] = useState<{ id: string; sentTo: string } | null>(null);
   const [code, setCode] = useState('');
+  const [forgotPin, setForgotPin] = useState(false);
 
   // A PIN guessable in three tries protects nothing. Blocked here AND on the
   // server, since a client-side rule alone is not a rule.
@@ -240,6 +241,10 @@ function SignIn({ onDone }: { onDone: () => void }) {
     );
   }
 
+  if (forgotPin) {
+    return <ForgotPin onDone={() => setForgotPin(false)} />;
+  }
+
   return (
     <div className="screen screen-no-nav screen-pad-top">
       <div className="center" style={{ marginBottom: 28 }}>
@@ -279,6 +284,12 @@ function SignIn({ onDone }: { onDone: () => void }) {
           </button>
         </div>
         {mode === 'register' && pinProblem && <span className="hint hint-warn">{pinProblem}</span>}
+        {mode === 'signin' && (
+          <button type="button" onClick={() => { setErr(''); setForgotPin(true); }}
+            style={{ border: 'none', background: 'none', color: 'var(--mut)', fontSize: 13, textDecoration: 'underline', cursor: 'pointer', padding: 0, marginTop: 6 }}>
+            Forgot PIN?
+          </button>
+        )}
       </div>
 
       {mode === 'register' && (
@@ -305,6 +316,170 @@ function SignIn({ onDone }: { onDone: () => void }) {
           {mode === 'signin' ? 'Sign Up' : 'Sign in'}
         </button>
       </p>
+    </div>
+  );
+}
+
+/**
+ * Forgot PIN — three steps: phone + national ID (never the forgotten PIN
+ * itself), then the SMS code, then a new PIN. Matches the login OTP screen's
+ * look so it feels like the same product, not a bolted-on flow.
+ */
+function ForgotPin({ onDone }: { onDone: () => void }) {
+  const [step, setStep] = useState<'details' | 'otp' | 'newpin' | 'done'>('details');
+  const [phone, setPhone] = useState('');
+  const [nationalId, setNationalId] = useState('');
+  const [challenge, setChallenge] = useState<{ id: string; sentTo: string } | null>(null);
+  const [code, setCode] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [newPinConfirm, setNewPinConfirm] = useState('');
+  const [showPin, setShowPin] = useState(false);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const pinProblem = weakPinReason(newPin);
+
+  async function submitDetails() {
+    setErr(''); setBusy(true);
+    try {
+      const r = await farmerApi.forgotPin(phone, nationalId);
+      setChallenge({ id: r.challengeId, sentTo: r.sentTo });
+      setCode('');
+      setStep('otp');
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Something went wrong'); }
+    finally { setBusy(false); }
+  }
+
+  async function verifyCode() {
+    if (!challenge) return;
+    setErr(''); setBusy(true);
+    try {
+      const r = await farmerApi.verifyPinResetOtp(challenge.id, code);
+      setResetToken(r.resetToken);
+      setStep('newpin');
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Something went wrong'); }
+    finally { setBusy(false); }
+  }
+
+  async function resendCode() {
+    setErr(''); setCode('');
+    await submitDetails();
+  }
+
+  async function submitNewPin() {
+    if (pinProblem) { setErr(pinProblem); return; }
+    if (newPin !== newPinConfirm) { setErr("Your PINs don't match — check both."); return; }
+    setErr(''); setBusy(true);
+    try {
+      await farmerApi.resetPin(resetToken, newPin);
+      setStep('done');
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Something went wrong'); }
+    finally { setBusy(false); }
+  }
+
+  if (step === 'done') {
+    return (
+      <div className="screen screen-no-nav screen-pad-top">
+        <div className="center" style={{ marginBottom: 24 }}>
+          <div className="brand brand-lg"><img src={logo} alt="grofunder" /></div>
+        </div>
+        <div className="ok" style={{ textAlign: 'center' }}>Your PIN has been changed.</div>
+        <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={onDone}>Back to sign in</button>
+      </div>
+    );
+  }
+
+  if (step === 'newpin') {
+    return (
+      <div className="screen screen-no-nav screen-pad-top">
+        <div className="center" style={{ marginBottom: 24 }}>
+          <div className="brand brand-lg"><img src={logo} alt="grofunder" /></div>
+        </div>
+        {err && <div className="err">{err}</div>}
+        <div className="field">
+          <label>New PIN</label>
+          <div style={{ position: 'relative' }}>
+            <input className="input pin-input" inputMode="numeric" maxLength={4} placeholder="••••"
+              type={showPin ? 'text' : 'password'}
+              value={newPin} onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))} />
+            <button type="button" onClick={() => setShowPin((v) => !v)}
+              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                       background: 'var(--g-tint)', border: '1px solid var(--line)', borderRadius: 8,
+                       color: 'var(--g-dark)', fontSize: 13.5, fontWeight: 500, padding: '6px 10px',
+                       cursor: 'pointer', fontFamily: 'inherit' }}>
+              {showPin ? 'Hide' : 'Show'}
+            </button>
+          </div>
+          {pinProblem && <span className="hint hint-warn">{pinProblem}</span>}
+        </div>
+        <div className="field">
+          <label>Confirm new PIN</label>
+          <input className="input pin-input" inputMode="numeric" maxLength={4} placeholder="••••"
+            type={showPin ? 'text' : 'password'}
+            value={newPinConfirm} onChange={(e) => setNewPinConfirm(e.target.value.replace(/\D/g, ''))} />
+          {newPinConfirm.length === 4 && newPinConfirm !== newPin && <span className="hint hint-warn">Doesn't match — check both.</span>}
+        </div>
+        <button className="btn btn-primary" style={{ textTransform: 'uppercase', letterSpacing: '0.03em', fontWeight: 700 }}
+          disabled={busy || newPin.length !== 4 || newPinConfirm !== newPin || !!pinProblem} onClick={submitNewPin}>
+          {busy ? <span className="spin" /> : 'Set new PIN'}
+        </button>
+      </div>
+    );
+  }
+
+  if (step === 'otp' && challenge) {
+    return (
+      <div className="screen screen-no-nav screen-pad-top">
+        <div className="center" style={{ marginBottom: 24 }}>
+          <div className="brand brand-lg"><img src={logo} alt="grofunder" /></div>
+        </div>
+        <div className="gro-hero" style={{ marginBottom: 20 }}>
+          <div className="gro-scene">
+            <Gro mood="happy" />
+            <div className="gro-msg">Nimetuma a reset code to {challenge.sentTo}. Enter it to continue.</div>
+          </div>
+        </div>
+        {err && <div className="err">{err}</div>}
+        <div className="field">
+          <label>6-digit code</label>
+          <input className="input pin-input" inputMode="numeric" maxLength={6} placeholder="••••••"
+            value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} />
+        </div>
+        <button className="btn btn-primary" disabled={busy || code.length !== 6} onClick={verifyCode}>
+          {busy ? <span className="spin" /> : 'Continue'}
+        </button>
+        <p className="center muted" style={{ fontSize: 14.5, marginTop: 16 }}>
+          Didn't get it?{' '}
+          <button className="back" style={{ color: 'var(--g)', fontWeight: 600, fontSize: 14.5 }}
+            disabled={busy} onClick={resendCode}>Send again</button>
+        </p>
+        <p className="center" style={{ marginTop: 4 }}>
+          <button className="back" style={{ color: 'var(--mut)', fontSize: 14 }}
+            onClick={() => { setChallenge(null); setErr(''); setStep('details'); }}>Use a different number</button>
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="screen screen-no-nav screen-pad-top">
+      <button className="back" onClick={onDone} style={{ marginBottom: 12 }}>← Back to sign in</button>
+      <h1 className="h1">Forgot your PIN?</h1>
+      <p className="sub">Confirm your phone and ID number — we'll text you a code.</p>
+      {err && <div className="err">{err}</div>}
+      <div className="field">
+        <label>Phone number:</label>
+        <input className="input" inputMode="tel" placeholder="0722 000 000" value={phone}
+          onChange={(e) => setPhone(e.target.value)} />
+      </div>
+      <div className="field">
+        <label>National ID number</label>
+        <input className="input" inputMode="numeric" placeholder="Your ID number" value={nationalId}
+          onChange={(e) => setNationalId(e.target.value)} />
+      </div>
+      <button className="btn btn-primary" disabled={busy || phone.length < 7 || !nationalId.trim()} onClick={submitDetails}>
+        {busy ? <span className="spin" /> : 'Send reset code'}
+      </button>
     </div>
   );
 }
