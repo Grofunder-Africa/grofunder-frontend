@@ -82,8 +82,9 @@ export interface ScoreInfo {
   registrationComplete?: boolean;
   circleActive?: boolean;
   hasLimit?: boolean;
+  hasIdPhotos?: boolean;
   canBorrow?: boolean;
-  missing?: { phone: boolean; nationalId: boolean; circle: boolean; circleNotActive: boolean; limit: boolean };
+  missing?: { phone: boolean; nationalId: boolean; circle: boolean; circleNotActive: boolean; limit: boolean; idPhotoFront: boolean; idPhotoBack: boolean };
 }
 export interface FarmerRecord {
   id: string; full_name: string; coop_member_no: string | null;
@@ -111,6 +112,12 @@ export const farmerApi = {
     api.post<LoginStart>('/auth/farmer-login', { phone, pin }),
   verifyOtp: (challengeId: string, code: string) =>
     api.post<LoginResponse>('/auth/farmer-login/verify', { challengeId, code }),
+  forgotPin: (phone: string, nationalId: string) =>
+    api.post<{ challengeId: string; sentTo: string }>('/auth/forgot-pin', { phone, nationalId }),
+  verifyPinResetOtp: (challengeId: string, code: string) =>
+    api.post<{ resetToken: string }>('/auth/forgot-pin/verify', { challengeId, code }),
+  resetPin: (resetToken: string, newPin: string) =>
+    api.post<{ ok: boolean }>('/auth/forgot-pin/reset', { resetToken, newPin }),
   register: (phone: string, pin: string, coopMemberNo?: string) =>
     api.post<{ farmerId: string; userId: string }>('/farmer-onboarding/register', { phone, pin, coopMemberNo }),
   records: () => api.get<FarmerRecord>('/farmer-onboarding/records'),

@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=League+Spartan:wght@500;600;700&family=Poppins:wght@300;400;500;600&display=swap');
+
 :root {
   --g: #09AF0F;
   --g-deep: #067A0B;
@@ -21,7 +23,8 @@
   --radius: 14px;
   --radius-sm: 9px;
   --shadow: none;
-  --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --sans: 'Poppins', -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --heading: 'League Spartan', -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --serif: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
@@ -35,7 +38,7 @@ body {
   line-height: 1.45;
   font-size: 16px;
 }
-h1, h2, h3 { font-weight: 500; letter-spacing: -0.01em; }
+h1, h2, h3, .h1 { font-family: var(--heading); font-weight: 500; letter-spacing: -0.01em; }
 .brand { color: var(--g); font-weight: 600; letter-spacing: -0.5px; }
 
 /* the app is mobile-first, centered on larger screens */
@@ -65,7 +68,13 @@ body::before {
 .app {
   max-width: 430px;
   margin: 16px auto;
-  min-height: calc(100% - 32px);
+  /* Sizes to its actual content instead of always stretching to fill the
+     viewport — a short screen (a single confirm step, an intro card) no
+     longer floats inside a mostly-empty card the height of the whole page.
+     min-height keeps it from looking cramped on very sparse screens; screens
+     with real content (Home, the tab-bar pages) fill naturally on their own. */
+  min-height: 460px;
+  max-height: calc(100% - 32px);
   background: var(--bg);
   display: flex;
   flex-direction: column;
@@ -73,6 +82,15 @@ body::before {
   border-radius: 22px;
   box-shadow: 0 12px 36px rgba(0,0,0,0.28);
   overflow: hidden;
+}
+
+/* Screens with the tab bar (Home, Messages, Records, Community) need the
+   card to reach the bottom of the viewport for the fixed tab bar to sit
+   flush against it — applied explicitly via a class rather than :has(),
+   since older Android WebViews (a real concern for this audience) don't
+   reliably support :has(). */
+.app-full {
+  min-height: calc(100% - 32px);
 }
 
 /* Below ~700px this is a phone — 430px already fills it, matching how the
@@ -131,7 +149,7 @@ body::before {
 .score-num { font-size: 40px; font-weight: 500; line-height: 1; letter-spacing: -0.01em; }
 .limit-num { font-size: 22px; font-weight: 500; }
 .label { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; }
-.label-light { color: var(--mut); }
+.label-light { color: var(--ink); }
 
 /* progress vine */
 .vine { display: flex; align-items: center; gap: 6px; margin: 14px 0 4px; flex-wrap: wrap; }

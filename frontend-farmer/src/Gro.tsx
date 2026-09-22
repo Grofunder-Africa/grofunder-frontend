@@ -121,8 +121,13 @@ export const GRO_RECEIPT = 'Request sent to Grofunder';
 
 export const GRO_QUICK_ASKS: QuickAsk[] = [
   {
+    id: 'chama',
+    label: 'Tell me about Growth Circles',
+    reply: 'A Growth Chama is 5 to 10 farmers who stand for each other — you choose them, they choose you, and every member\u2019s word counts. It\u2019s what lets Grofunder lend without collateral: your chama backing you is what makes it possible. Pay well together and everyone unlocks more, faster.',
+  },
+  {
     id: 'inputs',
-    label: 'Input loan badala ya pesa?',
+    label: 'Can I get inputs instead?',
     reply: "Not yet — but I've told Grofunder you want inputs instead of cash. The more farmers ask, the sooner it comes. Nitakuambia when it's ready.",
     logs: 'input_loans',
   },
@@ -151,7 +156,7 @@ export const GRO_QUICK_ASKS: QuickAsk[] = [
   },
   {
     id: 'defaultq',
-    label: 'What happens if a member defaults?',
+    label: 'What happens when one member defaults?',
     reply: 'Niambie ukweli — here is how it works. On the repayment day the chama is told and has 5 days to help: a call, a visit, or covering it together. From the 7th day a flat 2% late fee applies and your cooperative steps in to follow up. While it stays unpaid, no one in the chama can take a new loan until it is settled. Ndiyo maana you choose your chama carefully. Tuko pamoja.',
   },
 ];

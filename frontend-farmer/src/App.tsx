@@ -90,7 +90,7 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div className={`app ${screen !== 'signin' && screen !== 'setup' ? 'app-full' : ''}`}>
       {screen === 'signin' && <SignIn onDone={afterSignIn} />}
       {screen === 'setup' && <Setup onComplete={() => setScreen('home')} />}
       {screen === 'home' && (
@@ -157,6 +157,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
   // OTP step: set once phone + PIN check out and a code has been sent.
   const [challenge, setChallenge] = useState<{ id: string; sentTo: string } | null>(null);
   const [code, setCode] = useState('');
+  const [forgotPin, setForgotPin] = useState(false);
 
   // A PIN guessable in three tries protects nothing. Blocked here AND on the
   // server, since a client-side rule alone is not a rule.
@@ -240,6 +241,10 @@ function SignIn({ onDone }: { onDone: () => void }) {
     );
   }
 
+  if (forgotPin) {
+    return <ForgotPin onDone={() => setForgotPin(false)} />;
+  }
+
   return (
     <div className="screen screen-no-nav screen-pad-top">
       <div className="center" style={{ marginBottom: 28 }}>
@@ -279,6 +284,12 @@ function SignIn({ onDone }: { onDone: () => void }) {
           </button>
         </div>
         {mode === 'register' && pinProblem && <span className="hint hint-warn">{pinProblem}</span>}
+        {mode === 'signin' && (
+          <button type="button" onClick={() => { setErr(''); setForgotPin(true); }}
+            style={{ border: 'none', background: 'none', color: 'var(--mut)', fontSize: 13, textDecoration: 'underline', cursor: 'pointer', padding: 0, marginTop: 6 }}>
+            Forgot PIN?
+          </button>
+        )}
       </div>
 
       {mode === 'register' && (
@@ -305,6 +316,170 @@ function SignIn({ onDone }: { onDone: () => void }) {
           {mode === 'signin' ? 'Sign Up' : 'Sign in'}
         </button>
       </p>
+    </div>
+  );
+}
+
+/**
+ * Forgot PIN — three steps: phone + national ID (never the forgotten PIN
+ * itself), then the SMS code, then a new PIN. Matches the login OTP screen's
+ * look so it feels like the same product, not a bolted-on flow.
+ */
+function ForgotPin({ onDone }: { onDone: () => void }) {
+  const [step, setStep] = useState<'details' | 'otp' | 'newpin' | 'done'>('details');
+  const [phone, setPhone] = useState('');
+  const [nationalId, setNationalId] = useState('');
+  const [challenge, setChallenge] = useState<{ id: string; sentTo: string } | null>(null);
+  const [code, setCode] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [newPinConfirm, setNewPinConfirm] = useState('');
+  const [showPin, setShowPin] = useState(false);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const pinProblem = weakPinReason(newPin);
+
+  async function submitDetails() {
+    setErr(''); setBusy(true);
+    try {
+      const r = await farmerApi.forgotPin(phone, nationalId);
+      setChallenge({ id: r.challengeId, sentTo: r.sentTo });
+      setCode('');
+      setStep('otp');
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Something went wrong'); }
+    finally { setBusy(false); }
+  }
+
+  async function verifyCode() {
+    if (!challenge) return;
+    setErr(''); setBusy(true);
+    try {
+      const r = await farmerApi.verifyPinResetOtp(challenge.id, code);
+      setResetToken(r.resetToken);
+      setStep('newpin');
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Something went wrong'); }
+    finally { setBusy(false); }
+  }
+
+  async function resendCode() {
+    setErr(''); setCode('');
+    await submitDetails();
+  }
+
+  async function submitNewPin() {
+    if (pinProblem) { setErr(pinProblem); return; }
+    if (newPin !== newPinConfirm) { setErr("Your PINs don't match — check both."); return; }
+    setErr(''); setBusy(true);
+    try {
+      await farmerApi.resetPin(resetToken, newPin);
+      setStep('done');
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Something went wrong'); }
+    finally { setBusy(false); }
+  }
+
+  if (step === 'done') {
+    return (
+      <div className="screen screen-no-nav screen-pad-top">
+        <div className="center" style={{ marginBottom: 24 }}>
+          <div className="brand brand-lg"><img src={logo} alt="grofunder" /></div>
+        </div>
+        <div className="ok" style={{ textAlign: 'center' }}>Your PIN has been changed.</div>
+        <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={onDone}>Back to sign in</button>
+      </div>
+    );
+  }
+
+  if (step === 'newpin') {
+    return (
+      <div className="screen screen-no-nav screen-pad-top">
+        <div className="center" style={{ marginBottom: 24 }}>
+          <div className="brand brand-lg"><img src={logo} alt="grofunder" /></div>
+        </div>
+        {err && <div className="err">{err}</div>}
+        <div className="field">
+          <label>New PIN</label>
+          <div style={{ position: 'relative' }}>
+            <input className="input pin-input" inputMode="numeric" maxLength={4} placeholder="••••"
+              type={showPin ? 'text' : 'password'}
+              value={newPin} onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))} />
+            <button type="button" onClick={() => setShowPin((v) => !v)}
+              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                       background: 'var(--g-tint)', border: '1px solid var(--line)', borderRadius: 8,
+                       color: 'var(--g-dark)', fontSize: 13.5, fontWeight: 500, padding: '6px 10px',
+                       cursor: 'pointer', fontFamily: 'inherit' }}>
+              {showPin ? 'Hide' : 'Show'}
+            </button>
+          </div>
+          {pinProblem && <span className="hint hint-warn">{pinProblem}</span>}
+        </div>
+        <div className="field">
+          <label>Confirm new PIN</label>
+          <input className="input pin-input" inputMode="numeric" maxLength={4} placeholder="••••"
+            type={showPin ? 'text' : 'password'}
+            value={newPinConfirm} onChange={(e) => setNewPinConfirm(e.target.value.replace(/\D/g, ''))} />
+          {newPinConfirm.length === 4 && newPinConfirm !== newPin && <span className="hint hint-warn">Doesn't match — check both.</span>}
+        </div>
+        <button className="btn btn-primary" style={{ textTransform: 'uppercase', letterSpacing: '0.03em', fontWeight: 700 }}
+          disabled={busy || newPin.length !== 4 || newPinConfirm !== newPin || !!pinProblem} onClick={submitNewPin}>
+          {busy ? <span className="spin" /> : 'Set new PIN'}
+        </button>
+      </div>
+    );
+  }
+
+  if (step === 'otp' && challenge) {
+    return (
+      <div className="screen screen-no-nav screen-pad-top">
+        <div className="center" style={{ marginBottom: 24 }}>
+          <div className="brand brand-lg"><img src={logo} alt="grofunder" /></div>
+        </div>
+        <div className="gro-hero" style={{ marginBottom: 20 }}>
+          <div className="gro-scene">
+            <Gro mood="happy" />
+            <div className="gro-msg">Nimetuma a reset code to {challenge.sentTo}. Enter it to continue.</div>
+          </div>
+        </div>
+        {err && <div className="err">{err}</div>}
+        <div className="field">
+          <label>6-digit code</label>
+          <input className="input pin-input" inputMode="numeric" maxLength={6} placeholder="••••••"
+            value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} />
+        </div>
+        <button className="btn btn-primary" disabled={busy || code.length !== 6} onClick={verifyCode}>
+          {busy ? <span className="spin" /> : 'Continue'}
+        </button>
+        <p className="center muted" style={{ fontSize: 14.5, marginTop: 16 }}>
+          Didn't get it?{' '}
+          <button className="back" style={{ color: 'var(--g)', fontWeight: 600, fontSize: 14.5 }}
+            disabled={busy} onClick={resendCode}>Send again</button>
+        </p>
+        <p className="center" style={{ marginTop: 4 }}>
+          <button className="back" style={{ color: 'var(--mut)', fontSize: 14 }}
+            onClick={() => { setChallenge(null); setErr(''); setStep('details'); }}>Use a different number</button>
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="screen screen-no-nav screen-pad-top">
+      <button className="back" onClick={onDone} style={{ marginBottom: 12 }}>← Back to sign in</button>
+      <h1 className="h1">Forgot your PIN?</h1>
+      <p className="sub">Confirm your phone and ID number — we'll text you a code.</p>
+      {err && <div className="err">{err}</div>}
+      <div className="field">
+        <label>Phone number:</label>
+        <input className="input" inputMode="tel" placeholder="0722 000 000" value={phone}
+          onChange={(e) => setPhone(e.target.value)} />
+      </div>
+      <div className="field">
+        <label>National ID number</label>
+        <input className="input" inputMode="numeric" placeholder="Your ID number" value={nationalId}
+          onChange={(e) => setNationalId(e.target.value)} />
+      </div>
+      <button className="btn btn-primary" disabled={busy || phone.length < 7 || !nationalId.trim()} onClick={submitDetails}>
+        {busy ? <span className="spin" /> : 'Send reset code'}
+      </button>
     </div>
   );
 }
@@ -433,7 +608,9 @@ function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
             style={{ width: '100%', border: 'none', background: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 0, cursor: 'pointer' }}
           >
             <span className="label">See your cooperative records</span>
-            <span className="muted" aria-hidden style={{ fontSize: 20, lineHeight: 1 }}>{showRecord ? '⌃' : '⌄'}</span>
+            <svg width="26" height="16" viewBox="0 0 26 16" fill="none" style={{ flexShrink: 0, transform: showRecord ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} aria-hidden>
+              <path d="M2 4L13 13L24 4" stroke="var(--mut)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </button>
           {showRecord && (
             <div style={{ marginTop: 8 }}>
@@ -581,20 +758,52 @@ function Apply({ onBack, onApplied }: { onBack: () => void; onApplied: (id: stri
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
+  const loadScore = useCallback(() => {
     farmerApi.score().then((s) => {
       setScore(s);
       const max = s.credit_limit_cents ?? 0;
-      setAmount(Math.min(max, Math.max(100000, Math.round(max / 2 / 10000) * 10000)));
+      setAmount((prev) => prev || Math.min(max, Math.max(100000, Math.round(max / 2 / 10000) * 10000)));
     }).catch(() => {});
   }, []);
+  useEffect(() => { loadScore(); }, [loadScore]);
+
+  // Uploading a missing ID photo right here, then re-checking readiness —
+  // no need to send someone away from Apply to fix this elsewhere.
+  type IdPhotoSide = { preview: string; uploading: boolean; uploaded: boolean };
+  const [idFront, setIdFront] = useState<IdPhotoSide | null>(null);
+  const [idBack, setIdBack] = useState<IdPhotoSide | null>(null);
+  function uploadIdPhoto(side: 'front' | 'back', file: File | null) {
+    if (!file) return;
+    const setSide = side === 'front' ? setIdFront : setIdBack;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(',')[1] ?? '';
+      setSide({ preview: dataUrl, uploading: true, uploaded: false });
+      try {
+        await farmerApi.saveIdPhoto(side, base64, file.type || 'image/jpeg');
+        setSide({ preview: dataUrl, uploading: false, uploaded: true });
+        loadScore(); // re-check readiness — this may unlock the apply form outright
+      } catch (e) {
+        setErr(e instanceof ApiError ? e.message : `Could not save the ${side} photo`);
+        setSide(null);
+      }
+    };
+    reader.readAsDataURL(file);
+  }
 
   useEffect(() => {
     if (amount <= 0) { setQuote(null); return; }
     let cancelled = false;
     farmerApi.quote(amount, weeks)
-      .then((q) => { if (!cancelled) setQuote(q); })
-      .catch(() => { if (!cancelled) setQuote(null); });
+      .then((q) => { if (!cancelled) { setQuote(q); setErr(''); } })
+      .catch((e) => {
+        if (cancelled) return;
+        setQuote(null);
+        // This used to fail silently — the submit button just stayed disabled
+        // forever with nothing telling the farmer (or anyone testing) why.
+        setErr(e instanceof ApiError ? e.message : 'Could not calculate your quote. Try a different amount or term.');
+      });
     return () => { cancelled = true; };
   }, [amount, weeks]);
 
@@ -625,6 +834,7 @@ function Apply({ onBack, onApplied }: { onBack: () => void; onApplied: (id: stri
         <button className="back" onClick={onBack}>← Back</button>
         <h1 className="h1" style={{ marginTop: 8 }}>Before you can borrow</h1>
         <p className="sub">A few things need to be in place first</p>
+        {err && <div className="err">{err}</div>}
         <div className="stack">
           {items.map((it, i) => (
             <div key={i} className={`ready-item ${it.done ? 'ready-done' : ''}`}>
@@ -635,6 +845,50 @@ function Apply({ onBack, onApplied }: { onBack: () => void; onApplied: (id: stri
               </div>
             </div>
           ))}
+
+          {/* ID photos — the one readiness item you can actually act on right
+              here, instead of being sent away to fix it elsewhere. Uploading
+              re-checks readiness immediately and can unlock the form outright. */}
+          <div className={`ready-item ${score.hasIdPhotos ? 'ready-done' : ''}`} style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+            <div className="row" style={{ width: '100%' }}>
+              <span className="ready-check">{score.hasIdPhotos ? '✓' : items.length + 1}</span>
+              <div style={{ flex: 1, marginLeft: 12 }}>
+                <div className="ready-label">Upload your ID photos</div>
+                <div className="ready-hint">{score.hasIdPhotos ? 'Both photos received' : 'Front and back, right here'}</div>
+              </div>
+            </div>
+            {!score.hasIdPhotos && (
+              <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+                {(['front', 'back'] as const).map((side) => {
+                  const state = side === 'front' ? idFront : idBack;
+                  const already = side === 'front' ? !m?.idPhotoFront : !m?.idPhotoBack;
+                  return (
+                    <label key={side} style={{ flex: 1, cursor: already ? 'default' : 'pointer' }}>
+                      {!already && (
+                        <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+                          onChange={(e) => uploadIdPhoto(side, e.target.files?.[0] ?? null)} />
+                      )}
+                      {state?.preview ? (
+                        <div style={{ position: 'relative' }}>
+                          <img src={state.preview} alt={`ID ${side}`} style={{ width: '100%', borderRadius: 9, display: 'block', opacity: state.uploading ? 0.5 : 1 }} />
+                          {state.uploading && <span className="spin" style={{ position: 'absolute', top: '50%', left: '50%', marginTop: -8, marginLeft: -8 }} />}
+                        </div>
+                      ) : already ? (
+                        <div style={{ border: '1px solid var(--g)', background: 'var(--g-tint)', borderRadius: 9, padding: '14px 8px', textAlign: 'center' }}>
+                          <span className="tiny" style={{ color: 'var(--g-dark)', textTransform: 'capitalize' }}>{side} ✓</span>
+                        </div>
+                      ) : (
+                        <div style={{ border: '1px dashed var(--line)', borderRadius: 9, padding: '14px 8px', textAlign: 'center' }}>
+                          <div className="muted tiny" style={{ textTransform: 'capitalize' }}>{side}</div>
+                          <div className="muted tiny" style={{ marginTop: 2 }}>Tap to add</div>
+                        </div>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -797,6 +1051,9 @@ function Schedule({ loanId, onBack }: { loanId: string; onBack: () => void }) {
 function Messages({ onRead, onBack }: { onRead: () => void; onBack: () => void }) {
   // Three views behind one tab: the landing choice, Gro's chat, and compose.
   const [view, setView] = useState<'home' | 'gro' | 'compose'>('home');
+  // Which quick-ask bubble was tapped on the landing screen, if any — GroChat
+  // auto-asks it immediately rather than making the farmer tap again.
+  const [pendingAsk, setPendingAsk] = useState<string | undefined>(undefined);
   const [msgs, setMsgs] = useState<FarmerInboxMessage[]>([]);
   const [sent, setSent] = useState<FarmerMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -822,7 +1079,7 @@ function Messages({ onRead, onBack }: { onRead: () => void; onBack: () => void }
     catch { /* ignore */ }
   }
 
-  if (view === 'gro') return <GroChat onBack={() => setView('home')} />;
+  if (view === 'gro') return <GroChat onBack={() => setView('home')} initialAskId={pendingAsk} />;
   if (view === 'compose') return <ComposeMessage onBack={() => { setView('home'); load(); }} />;
 
   const anyUnread = msgs.some((m) => !m.readAt);
@@ -835,17 +1092,26 @@ function Messages({ onRead, onBack }: { onRead: () => void; onBack: () => void }
         {anyUnread && <button className="link-btn" onClick={markAll}>Mark all read</button>}
       </div>
 
-      <button className="card" onClick={() => setView('gro')}
-        style={{ width: '100%', textAlign: 'left', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center' }}>
+      <button className="card" onClick={() => { setPendingAsk(undefined); setView('gro'); }}
+        style={{ width: '100%', textAlign: 'left', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center', border: '1px solid var(--g)', background: 'var(--g-tint2)' }}>
         <Gro mood="happy" />
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 500, marginBottom: 2 }}>Chat with Gro</div>
-          <div className="muted" style={{ fontSize: 14.5 }}>Hi, I am Gro. Have questions? Tuongee</div>
+          <div className="muted" style={{ fontSize: 14.5 }}>Hi, I am Gro. Click hapa tuongee</div>
         </div>
+        <span className="muted" aria-hidden style={{ fontSize: 22, lineHeight: 1 }}>›</span>
       </button>
 
+      <div className="tick-wrap" style={{ marginBottom: 14 }}>
+        {GRO_QUICK_ASKS.slice(0, 3).map((q) => (
+          <button key={q.id} className="tick-chip" onClick={() => { setPendingAsk(q.id); setView('gro'); }}>
+            {q.label}
+          </button>
+        ))}
+      </div>
+
       <button className="btn btn-primary" style={{ marginBottom: 18 }} onClick={() => setView('compose')}>
-        Create message
+        Send messages to your community
       </button>
 
       {loading ? (
@@ -888,7 +1154,7 @@ const AUDIENCE_LABEL: Record<FarmerAudience, string> = {
 };
 
 /* ---------------- Gro chat (scripted, never AI) ---------------- */
-function GroChat({ onBack }: { onBack: () => void }) {
+function GroChat({ onBack, initialAskId }: { onBack: () => void; initialAskId?: string }) {
   type Line = { text: string; mine: boolean; receipt?: boolean };
   const [log, setLog] = useState<Line[]>([{ text: GRO_OPENING, mine: false }]);
   const [asked, setAsked] = useState<string[]>([]);
@@ -900,6 +1166,15 @@ function GroChat({ onBack }: { onBack: () => void }) {
     if (q.logs) farmerApi.logGroRequest(q.logs).catch(() => {});
     setTimeout(() => setLog((l) => [...l, { text: q.reply, mine: false, receipt: !!q.logs }]), 350);
   }
+
+  // Tapped straight in from one of the suggestion bubbles on the Messages
+  // landing screen — ask it immediately rather than making them tap again.
+  useEffect(() => {
+    if (!initialAskId) return;
+    const q = GRO_QUICK_ASKS.find((x) => x.id === initialAskId);
+    if (q) ask(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialAskId]);
 
   function sendFree() {
     const t = text.trim();
