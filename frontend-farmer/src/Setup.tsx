@@ -22,7 +22,7 @@ import type { SeedStage } from './Gro';
 //   about   — crops, other income sources, and how often each pays (was 3)
 //   circle  — form or join a Growth Chama
 // Location moved OUT of onboarding entirely — now optional, from Home.
-type Step =
+export type Step =
   | 'loading'
   | 'intro' | 'explainer1' | 'explainer2' | 'explainer3'
   | 'grofunderFaq'
@@ -74,7 +74,7 @@ function GrofunderFaq() {
     <>
       <div className="card" style={{ marginBottom: 10 }}>
         <div className="label" style={{ marginBottom: 6 }}>What does Grofunder actually do?</div>
-        <p className="muted" style={{ fontSize: 14.5, margin: 0 }}>
+        <p className="muted" style={{ fontSize: 18.5, margin: 0 }}>
           We help you access capital to grow fast and easy. We turn your records into credit — your deliveries
           to your cooperative, your guarantors, and your transactions with Grofunder — into money you can use
           to increase your income.
@@ -82,14 +82,14 @@ function GrofunderFaq() {
       </div>
       <div className="card" style={{ marginBottom: 10 }}>
         <div className="label" style={{ marginBottom: 6 }}>Why no collateral?</div>
-        <p className="muted" style={{ fontSize: 14.5, margin: 0 }}>
+        <p className="muted" style={{ fontSize: 18.5, margin: 0 }}>
           Your history already proves you're reliable. Years of deliveries to your cooperative and people who
           stand behind you are worth more here than a title deed.
         </p>
       </div>
       <div className="card">
         <div className="label" style={{ marginBottom: 6 }}>What happens as I use it?</div>
-        <p className="muted" style={{ fontSize: 14.5, margin: 0 }}>
+        <p className="muted" style={{ fontSize: 18.5, margin: 0 }}>
           Every loan you repay well grows your record — and your record is what unlocks bigger, cheaper loans
           next time. Nothing here is one-off; it all builds.
         </p>
@@ -103,21 +103,21 @@ function CircleFaq() {
     <>
       <div className="card" style={{ marginBottom: 10 }}>
         <div className="label" style={{ marginBottom: 6 }}>What is a Growth Chama?</div>
-        <p className="muted" style={{ fontSize: 14.5, margin: 0 }}>
+        <p className="muted" style={{ fontSize: 18.5, margin: 0 }}>
           5–10 farmers from your cluster who vouch for each other. You choose each other — every member confirms
           every member, so no one is in a chama they didn't pick, and no one joins yours without your yes.
         </p>
       </div>
       <div className="card" style={{ marginBottom: 10 }}>
         <div className="label" style={{ marginBottom: 6 }}>Why does it exist?</div>
-        <p className="muted" style={{ fontSize: 14.5, margin: 0 }}>
+        <p className="muted" style={{ fontSize: 18.5, margin: 0 }}>
           Grofunder lends without collateral. Your chama standing behind you — the way your community already
           does — is what makes that possible.
         </p>
       </div>
       <div className="card" style={{ marginBottom: 10 }}>
         <div className="label" style={{ marginBottom: 6 }}>Why does it matter?</div>
-        <p className="muted" style={{ fontSize: 14.5, margin: 0 }}>
+        <p className="muted" style={{ fontSize: 18.5, margin: 0 }}>
           The chama opens the door: loans only start once it's fully confirmed and active, and your first limit
           unlocks with it. If a member misses a payment, the chama is told that day and has 5 days to help follow
           up or cover it — after that a late fee applies and your cooperative steps in. While it's unpaid, no one in
@@ -126,7 +126,7 @@ function CircleFaq() {
       </div>
       <div className="card">
         <div className="label" style={{ marginBottom: 6 }}>How does it work?</div>
-        <p className="muted" style={{ fontSize: 14.5, margin: 0 }}>
+        <p className="muted" style={{ fontSize: 18.5, margin: 0 }}>
           You form one when you set up, or someone names you in theirs. Either way, you see exactly who's in it and
           choose to stand with each of them. Strong chamas earn champion recognition every Friday, and every
           member's tree grows faster.
@@ -136,7 +136,7 @@ function CircleFaq() {
   );
 }
 
-export function Setup({ onComplete }: { onComplete: () => void }) {
+export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?: Step }) {
   const [step, setStep] = useState<Step>('loading');
   // Every forward move is recorded automatically, so a farmer can always back
   // out of a step. Done with an effect rather than at each setStep call site
@@ -222,6 +222,12 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
 
   const resume = useCallback(async () => {
     setErr('');
+    // Explicit override — e.g. "fix your ID" from the loan readiness
+    // checklist. Bypasses the usual auto-detection entirely: idAttempted
+    // only tracks whether this step was ever visited (skipping counts), not
+    // whether it actually got filled in, so the normal resume logic can't
+    // reliably land back here for someone who skipped it the first time.
+    if (jumpTo) { setStep(jumpTo); return; }
     try {
       const status = await farmerApi.onboardingStatus();
       if (!status.recordConfirmed) { setStep('intro'); return; }
@@ -244,7 +250,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
       setErr(e instanceof ApiError ? e.message : 'Could not load your setup');
       setStep('intro');
     }
-  }, [onComplete]);
+  }, [onComplete, jumpTo]);
 
   useEffect(() => { resume(); }, [resume]);
 
@@ -462,8 +468,8 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
         <>
           <GroSays line="explainerWhat" />
           <div className="card" style={{ marginTop: 12 }}>
-            <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.5, fontWeight: 700, color: 'var(--g-dark)' }}>How?</p>
-            <p style={{ margin: '8px 0 0', fontSize: 14.5, lineHeight: 1.5 }}>
+            <p style={{ margin: 0, fontSize: 18.5, lineHeight: 1.5, fontWeight: 700, color: 'var(--g-dark)' }}>How?</p>
+            <p style={{ margin: '8px 0 0', fontSize: 18.5, lineHeight: 1.5 }}>
               We turn your records into credit. We use your deliveries to your cooperative, your guarantors, and
               your transactions with Grofunder to help you get money that you will use to increase your income.
             </p>
@@ -503,7 +509,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
               <circle cx="114" cy="58" r="4" fill="#E24B4A" />
               <circle cx="100" cy="40" r="4" fill="#E24B4A" />
             </svg>
-            <p style={{ margin: '8px 0 0', fontSize: 14.5, lineHeight: 1.5 }}>
+            <p style={{ margin: '8px 0 0', fontSize: 18.5, lineHeight: 1.5 }}>
               Your progress lives in a tree. Pay on time — it grows. Finish loans — it bears cherries, and your limit grows with it.
             </p>
           </div>
@@ -527,14 +533,14 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
           <GroSays line="recordConfirm" textOverride={`Vizuri! Here's what ${record.cooperative_name ?? 'your cooperative'} told us about you. Is this you?`} />
           <div className="card" style={{ marginTop: 12 }}>
             <div className="label" style={{ marginBottom: 8 }}>Your cooperative record</div>
-            <table style={{ width: '100%', fontSize: 15 }}><tbody>
+            <table style={{ width: '100%', fontSize: 19 }}><tbody>
               <tr><td className="muted" style={{ padding: '3px 0' }}>Name</td><td style={{ textAlign: 'right' }}>{record.full_name}</td></tr>
               <tr><td className="muted" style={{ padding: '3px 0' }}>Member no.</td><td style={{ textAlign: 'right' }}>{record.coop_member_no ?? ' — '}</td></tr>
               <tr><td className="muted" style={{ padding: '3px 0' }}>Cluster</td><td style={{ textAlign: 'right' }}>{record.cluster_name ?? ' — '}{record.cluster_head ? ` · head ${record.cluster_head}` : ''}</td></tr>
               <tr><td className="muted" style={{ padding: '3px 0' }}>Deliveries on record</td><td style={{ textAlign: 'right' }}>{record.delivery_count}</td></tr>
             </tbody></table>
             {!flagged && !showFlag && (
-              <button className="btn btn-ghost" style={{ width: '100%', fontSize: 13, padding: 6, marginTop: 8 }} onClick={() => setShowFlag(true)}>
+              <button className="btn btn-ghost" style={{ width: '100%', fontSize: 17, padding: 6, marginTop: 8 }} onClick={() => setShowFlag(true)}>
                 I want to change something
               </button>
             )}
@@ -542,12 +548,12 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
               <div style={{ marginTop: 8 }}>
                 <textarea className="input" rows={2} placeholder="What's not right? (optional)" value={flagDetails} onChange={(e) => setFlagDetails(e.target.value)} />
                 <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                  <button className="btn btn-ghost" style={{ flex: 1, fontSize: 14 }} onClick={() => setShowFlag(false)}>Cancel</button>
-                  <button className="btn btn-primary" style={{ flex: 1, fontSize: 14, padding: 8 }} disabled={busy} onClick={submitFlag}>Send</button>
+                  <button className="btn btn-ghost" style={{ flex: 1, fontSize: 18 }} onClick={() => setShowFlag(false)}>Cancel</button>
+                  <button className="btn btn-primary" style={{ flex: 1, fontSize: 18, padding: 8 }} disabled={busy} onClick={submitFlag}>Send</button>
                 </div>
               </div>
             )}
-            {flagged && <div className="ok" style={{ marginTop: 8, fontSize: 13 }}>Sent to your cooperative to fix. You can continue — but loan applications will wait until your records match.</div>}
+            {flagged && <div className="ok" style={{ marginTop: 8, fontSize: 17 }}>Sent to your cooperative to fix. You can continue — but loan applications will wait until your records match.</div>}
           </div>
           <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={busy} onClick={confirmRecordYes}>
             {busy ? <span className="spin" /> : "Ndiyo, that's me"}
@@ -584,10 +590,10 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
                 </button>
               </div>
             ) : idResult === 'MATCHED' ? (
-              <div className="ok" style={{ margin: 0, fontSize: 13.5 }}>Vizuri! That matches.</div>
+              <div className="ok" style={{ margin: 0, fontSize: 17.5 }}>Vizuri! That matches.</div>
             ) : (
               <>
-                <div className="err" style={{ margin: 0, fontSize: 13.5 }}>
+                <div className="err" style={{ margin: 0, fontSize: 17.5 }}>
                   {idResult === 'MISMATCH'
                     ? "Doesn't quite match what your cooperative has on file — they've been told."
                     : "Your cooperative didn't have an ID on file yet — they've been sent what you entered."}
@@ -668,7 +674,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
                   <button key={c} className={`tick-chip ${crops.includes(c) ? 'tick-chip-on' : ''}`}
                     style={known ? { cursor: 'default' } : undefined}
                     onClick={known ? undefined : () => toggle(crops, setCrops, c)}>
-                    {c}{known && <span style={{ marginLeft: 5, fontSize: 11 }}>🔒</span>}
+                    {c}{known && <span style={{ marginLeft: 5, fontSize: 15 }}>🔒</span>}
                   </button>
                 );
               })}
@@ -687,9 +693,9 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
           <div className="card" style={{ marginTop: 12 }}>
             <div className="label" style={{ marginBottom: 8 }}>Your sources of income</div>
             {incomeSources.length === 0 && (
-              <table style={{ width: '100%', fontSize: 13.5, marginBottom: 10, borderCollapse: 'collapse', opacity: 0.55 }}>
+              <table style={{ width: '100%', fontSize: 17.5, marginBottom: 10, borderCollapse: 'collapse', opacity: 0.55 }}>
                 <thead>
-                  <tr className="muted" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  <tr className="muted" style={{ fontSize: 15, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     <th style={{ textAlign: 'left', paddingBottom: 4 }}>Example</th><th></th><th style={{ textAlign: 'right', paddingBottom: 4 }}></th>
                   </tr>
                 </thead>
@@ -704,9 +710,9 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
               </table>
             )}
             {incomeSources.length > 0 && (
-              <table style={{ width: '100%', fontSize: 13.5, marginBottom: 10, borderCollapse: 'collapse' }}>
+              <table style={{ width: '100%', fontSize: 17.5, marginBottom: 10, borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr className="muted" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  <tr className="muted" style={{ fontSize: 15, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     <th style={{ textAlign: 'left', paddingBottom: 4 }}>Activity</th>
                     <th style={{ textAlign: 'left', paddingBottom: 4 }}>Frequency</th>
                     <th style={{ textAlign: 'right', paddingBottom: 4 }}>Avg amount</th>
@@ -721,7 +727,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
                       <td style={{ padding: '7px 0', textAlign: 'right' }}>{row.avgAmountKes !== undefined ? `KES ${row.avgAmountKes.toLocaleString()}` : '—'}</td>
                       <td style={{ padding: '7px 0', textAlign: 'right' }}>
                         <button onClick={() => setIncomeSources((rows) => rows.filter((_, j) => j !== i))}
-                          style={{ border: 'none', background: 'none', color: 'var(--mut)', cursor: 'pointer', fontSize: 16, padding: '0 0 0 8px' }}
+                          style={{ border: 'none', background: 'none', color: 'var(--mut)', cursor: 'pointer', fontSize: 20, padding: '0 0 0 8px' }}
                           aria-label={`Remove ${row.activity}`}>×</button>
                       </td>
                     </tr>
@@ -762,7 +768,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
         const primaryCrop = record?.known_crops?.[0] ?? crops[0];
         return (
           <>
-            <h2 style={{ fontSize: 17, fontWeight: 500, marginBottom: 10 }}>
+            <h2 style={{ fontSize: 21, fontWeight: 500, marginBottom: 10 }}>
               {primaryCrop ? `Let's talk about your ${primaryCrop} farm` : "Let's talk about your farm"}
             </h2>
             <GroSays line="farmDetails" />
@@ -804,7 +810,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
       {step === 'seedPlanted' && (
         <>
           <GroSays line="seedPlanted" />
-          <p className="muted" style={{ fontSize: 14, marginTop: 8 }}>You can update these answers any time. Gro will ask again when you apply for a loan.</p>
+          <p className="muted" style={{ fontSize: 18, marginTop: 8 }}>You can update these answers any time. Gro will ask again when you apply for a loan.</p>
           <button className="btn btn-primary" style={{ marginTop: 16 }} disabled={busy} onClick={goToCircleForm}>
             {busy ? <span className="spin" /> : 'Endelea — continue'}
           </button>
@@ -838,9 +844,9 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
                 <input className="input" placeholder="Name your circle (optional)" value={circleName} onChange={(e) => setCircleName(e.target.value)} style={{ marginBottom: 10 }} />
                 {mates.filter((m) => !chosenMates.includes(m.id)).length === 0 && chosenMates.length === 0 ? (
                   <>
-                    <p className="muted" style={{ fontSize: 14.5 }}>No cluster-mates available yet — check back once more of your cluster has registered.</p>
+                    <p className="muted" style={{ fontSize: 18.5 }}>No cluster-mates available yet — check back once more of your cluster has registered.</p>
                     {mateDiag && (
-                      <p className="tiny muted" style={{ marginTop: 6, fontFamily: 'monospace', fontSize: 12 }}>
+                      <p className="tiny muted" style={{ marginTop: 6, fontFamily: 'monospace', fontSize: 16 }}>
                         {mateDiag.reason === 'CALLER_HAS_NO_CLUSTER'
                           ? 'diagnostic: you are not assigned to a cluster'
                           : `diagnostic: ${mateDiag.othersInCluster} others in your cluster, ${mateDiag.excludedAlreadyInCircle} already in a chama`}
@@ -865,11 +871,11 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
                       const m = mates.find((x) => x.id === id);
                       if (!m) return null;
                       return (
-                        <div key={id} className="row" style={{ background: 'var(--g-tint)', borderRadius: 8, padding: '8px 10px', fontSize: 14.5 }}>
+                        <div key={id} className="row" style={{ background: 'var(--g-tint)', borderRadius: 8, padding: '8px 10px', fontSize: 18.5 }}>
                           <span>{m.fullName}</span>
                           <button
                             onClick={() => setChosenMates(chosenMates.filter((x) => x !== id))}
-                            style={{ border: 'none', background: 'none', color: 'var(--mut)', cursor: 'pointer', fontSize: 16, padding: 0 }}
+                            style={{ border: 'none', background: 'none', color: 'var(--mut)', cursor: 'pointer', fontSize: 20, padding: 0 }}
                             aria-label={`Remove ${m.fullName}`}
                           >
                             ×
@@ -904,19 +910,19 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
           <GroSays line="circleWaiting" />
           <div className="card" style={{ marginTop: 12 }}>
             <div className="row" style={{ marginBottom: 6 }}>
-              <span style={{ fontSize: 15.5, fontWeight: 600 }}>{myCircle.name}</span>
+              <span style={{ fontSize: 19.5, fontWeight: 600 }}>{myCircle.name}</span>
               <span className="tiny muted">{myCircle.members_confirmed} of {myCircle.member_count} members confirmed</span>
             </div>
             {myCircle.members.map((m) => (
-              <div key={m.farmerId} className="row" style={{ padding: '4px 0', fontSize: 14.5 }}>
+              <div key={m.farmerId} className="row" style={{ padding: '4px 0', fontSize: 18.5 }}>
                 <span>{m.fullName}{m.isHead ? ' · head' : ''}</span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span className="muted tiny">{m.myVouchStatus === 'SELF' ? 'you' : m.myVouchStatus === 'ACCEPTED' ? '✓ confirmed' : m.myVouchStatus === 'DECLINED' ? 'declined' : 'waiting'}</span>
-                  {myCircle.isHead && m.myVouchStatus !== 'SELF' && m.myVouchStatus !== 'ACCEPTED' && (
+                  <span className="muted tiny">{m.myVouchStatus === 'SELF' ? 'you' : m.hasConfirmedAll ? '✓ confirmed' : 'waiting'}</span>
+                  {myCircle.isHead && m.myVouchStatus !== 'SELF' && !m.hasConfirmedAll && (
                     <button
                       onClick={() => removeMember(m.farmerId)}
                       disabled={removingId === m.farmerId}
-                      style={{ border: 'none', background: 'none', color: 'var(--clay)', fontSize: 12.5, textDecoration: 'underline', cursor: 'pointer', padding: 0 }}
+                      style={{ border: 'none', background: 'none', color: 'var(--clay)', fontSize: 16.5, textDecoration: 'underline', cursor: 'pointer', padding: 0 }}
                     >
                       {removingId === m.farmerId ? '…' : 'Remove'}
                     </button>
@@ -929,7 +935,7 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
           {myCircle.isHead && (
             confirmDissolve ? (
               <div className="card" style={{ marginTop: 12, borderColor: 'var(--clay)' }}>
-                <p style={{ margin: 0, fontSize: 13.5 }}>Delete this chama? Everyone in it is released and can form or join another. This can't be undone.</p>
+                <p style={{ margin: 0, fontSize: 17.5 }}>Delete this chama? Everyone in it is released and can form or join another. This can't be undone.</p>
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                   <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setConfirmDissolve(false)}>Cancel</button>
                   <button className="btn" style={{ flex: 1, background: 'var(--clay)', borderColor: 'var(--clay)', color: '#fff' }}
@@ -950,14 +956,14 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
 
       {step === 'circleVouch' && myCircle && (
         <>
-          <h2 style={{ fontSize: 17, fontWeight: 500, marginBottom: 4 }}>Confirm your chama</h2>
+          <h2 style={{ fontSize: 21, fontWeight: 500, marginBottom: 4 }}>Confirm your chama</h2>
           <button
             className="card"
             onClick={() => { setFaqReturnTo('circleVouch'); setStep('circleFaq'); }}
             style={{
               width: '100%', padding: '10px 12px', marginBottom: 10, display: 'flex',
               justifyContent: 'space-between', alignItems: 'center', textAlign: 'left',
-              fontSize: 14, fontWeight: 500, fontFamily: 'inherit', color: 'var(--ink)', cursor: 'pointer',
+              fontSize: 18, fontWeight: 500, fontFamily: 'inherit', color: 'var(--ink)', cursor: 'pointer',
             }}
           >
             <span>What do I need to know about Growth Chama?</span>

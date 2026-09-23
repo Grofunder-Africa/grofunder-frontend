@@ -220,7 +220,7 @@ export function SeedProgress({ stage }: { stage: SeedStage }) {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
             <SeedIcon stage={s} active={s === stage} done={s < stage} />
             <span style={{
-              fontSize: 9.5, textAlign: 'center', maxWidth: 54, lineHeight: 1.15,
+              fontSize: 13.5, textAlign: 'center', maxWidth: 54, lineHeight: 1.15,
               color: s === stage ? 'var(--g-dark)' : 'var(--mut)',
               fontWeight: s === stage ? 600 : 400,
             }}>

@@ -198,7 +198,7 @@ export interface MyCircleStatus {
     id: string; name: string; state: string; member_count: number;
     confirmed_pairs: number; total_pairs: number; members_confirmed: number;
     isHead: boolean; myVouchDone: boolean;
-    members: { farmerId: string; fullName: string; isHead: boolean; myVouchStatus: string }[];
+    members: { farmerId: string; fullName: string; isHead: boolean; myVouchStatus: string; hasConfirmedAll: boolean }[];
   };
 }
 
@@ -218,6 +218,10 @@ export interface DeliverySummary {
   totalKg: number;
   totalEarningsCents: number;
   totalDeductionsCents: number;
+  netReceivedCents: number;
+  avgKgPerWeek: number;
+  avgEarningsCentsPerWeek: number;
+  nextExpectedDate: string | null;
   lastDelivery: {
     date: string; quantityKg: number; earningsCents: number; deductionsCents: number; product: string;
   } | null;

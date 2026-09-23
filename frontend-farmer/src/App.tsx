@@ -3,6 +3,7 @@ import { farmerApi, setToken, getToken, kes, ApiError, onSessionExpired } from '
 import type { ScoreInfo, FarmerRecord, Quote, Instalment, FarmerInboxMessage, CaptureRecord, DeliverySummary, MyActiveLoanStage, FeedPost, MyCircleStatus, FarmerMessage, FarmerAudience } from './api';
 import { Gro, GRO_QUICK_ASKS, GRO_OPENING, GRO_FREETEXT_REPLY, GRO_RECEIPT } from './Gro';
 import { Setup } from './Setup';
+import type { Step as SetupStep } from './Setup';
 import logo from './assets/grofunder-logo.png';
 
 /* SVG icons — replaces emoji, matching the grofunder visual identity. */
@@ -54,6 +55,10 @@ export default function App() {
   const [checkingSetup, setCheckingSetup] = useState(!!getToken());
   const [activeLoanId, setActiveLoanId] = useState<string | null>(null);
   const [unread, setUnread] = useState(0);
+  // Set when a readiness-checklist item on Apply sends the farmer back into
+  // Setup to fix one specific thing, instead of Setup auto-resuming wherever
+  // it normally would.
+  const [setupJumpTo, setSetupJumpTo] = useState<SetupStep | undefined>(undefined);
 
   // On load, a returning (already-signed-in) farmer resumes Setup if they
   // dropped off mid-walkthrough, rather than always landing on Home.
@@ -92,7 +97,7 @@ export default function App() {
   return (
     <div className={`app ${screen !== 'signin' && screen !== 'setup' ? 'app-full' : ''}`}>
       {screen === 'signin' && <SignIn onDone={afterSignIn} />}
-      {screen === 'setup' && <Setup onComplete={() => setScreen('home')} />}
+      {screen === 'setup' && <Setup onComplete={() => { setSetupJumpTo(undefined); setScreen('home'); }} jumpTo={setupJumpTo} />}
       {screen === 'home' && (
         <Home
           onApply={() => setScreen('apply')}
@@ -103,7 +108,8 @@ export default function App() {
       )}
       {screen === 'settings' && <Settings onBack={() => setScreen('home')} />}
       {screen === 'apply' && (
-        <Apply onBack={() => setScreen('home')} onApplied={(id) => { setActiveLoanId(id); setScreen('schedule'); }} />
+        <Apply onBack={() => setScreen('home')} onApplied={(id) => { setActiveLoanId(id); setScreen('schedule'); }}
+          onFixInSetup={(step) => { setSetupJumpTo(step); setScreen('setup'); }} />
       )}
       {screen === 'schedule' && activeLoanId && (
         <Schedule loanId={activeLoanId} onBack={() => setScreen('home')} />
@@ -228,13 +234,13 @@ function SignIn({ onDone }: { onDone: () => void }) {
         <button className="btn btn-primary" disabled={busy || code.length !== 6} onClick={verify}>
           {busy ? <span className="spin" /> : 'Continue'}
         </button>
-        <p className="center muted" style={{ fontSize: 14.5, marginTop: 16 }}>
+        <p className="center muted" style={{ fontSize: 18.5, marginTop: 16 }}>
           Didn't get it?{' '}
-          <button className="back" style={{ color: 'var(--g)', fontWeight: 600, fontSize: 14.5 }}
+          <button className="back" style={{ color: 'var(--g)', fontWeight: 600, fontSize: 18.5 }}
             disabled={busy} onClick={resend}>Send again</button>
         </p>
         <p className="center" style={{ marginTop: 4 }}>
-          <button className="back" style={{ color: 'var(--mut)', fontSize: 14 }}
+          <button className="back" style={{ color: 'var(--mut)', fontSize: 18 }}
             onClick={() => { setChallenge(null); setErr(''); }}>Use a different number</button>
         </p>
       </div>
@@ -257,7 +263,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
         <label>Phone number:</label>
         <input className="input" inputMode="tel" placeholder="0722 000 000" value={phone}
           onChange={(e) => setPhone(e.target.value)} />
-        <span className="hint" style={{ fontSize: 12, marginTop: 4 }}>07.. or 01..</span>
+        <span className="hint" style={{ fontSize: 16, marginTop: 4 }}>07.. or 01..</span>
       </div>
       {mode === 'register' && (
         <div className="field">
@@ -278,7 +284,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
           <button type="button" onClick={() => setShowPin((v) => !v)}
             style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
                      background: 'var(--g-tint)', border: '1px solid var(--line)', borderRadius: 8,
-                     color: 'var(--g-dark)', fontSize: 13.5, fontWeight: 500, padding: '6px 10px',
+                     color: 'var(--g-dark)', fontSize: 17.5, fontWeight: 500, padding: '6px 10px',
                      cursor: 'pointer', fontFamily: 'inherit' }}>
             {showPin ? 'Hide' : 'Show'}
           </button>
@@ -286,7 +292,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
         {mode === 'register' && pinProblem && <span className="hint hint-warn">{pinProblem}</span>}
         {mode === 'signin' && (
           <button type="button" onClick={() => { setErr(''); setForgotPin(true); }}
-            style={{ border: 'none', background: 'none', color: 'var(--mut)', fontSize: 13, textDecoration: 'underline', cursor: 'pointer', padding: 0, marginTop: 6 }}>
+            style={{ border: 'none', background: 'none', color: 'var(--mut)', fontSize: 17, textDecoration: 'underline', cursor: 'pointer', padding: 0, marginTop: 6 }}>
             Forgot PIN?
           </button>
         )}
@@ -309,9 +315,9 @@ function SignIn({ onDone }: { onDone: () => void }) {
         {busy ? <span className="spin" /> : mode === 'signin' ? 'Login' : 'Create account'}
       </button>
 
-      <p className="center muted" style={{ fontSize: 14.5, marginTop: 16 }}>
+      <p className="center muted" style={{ fontSize: 18.5, marginTop: 16 }}>
         {mode === 'signin' ? <>New to <strong style={{ color: 'var(--ink)' }}>Grofunder</strong>? </> : 'Already registered? '}
-        <button className="back" style={{ color: 'var(--g)', fontWeight: 700, fontSize: 14.5, textDecoration: 'underline' }}
+        <button className="back" style={{ color: 'var(--g)', fontWeight: 700, fontSize: 18.5, textDecoration: 'underline' }}
           onClick={() => { setErr(''); setPin(''); setPinConfirm(''); setMode(mode === 'signin' ? 'register' : 'signin'); }}>
           {mode === 'signin' ? 'Sign Up' : 'Sign in'}
         </button>
@@ -405,7 +411,7 @@ function ForgotPin({ onDone }: { onDone: () => void }) {
             <button type="button" onClick={() => setShowPin((v) => !v)}
               style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
                        background: 'var(--g-tint)', border: '1px solid var(--line)', borderRadius: 8,
-                       color: 'var(--g-dark)', fontSize: 13.5, fontWeight: 500, padding: '6px 10px',
+                       color: 'var(--g-dark)', fontSize: 17.5, fontWeight: 500, padding: '6px 10px',
                        cursor: 'pointer', fontFamily: 'inherit' }}>
               {showPin ? 'Hide' : 'Show'}
             </button>
@@ -448,13 +454,13 @@ function ForgotPin({ onDone }: { onDone: () => void }) {
         <button className="btn btn-primary" disabled={busy || code.length !== 6} onClick={verifyCode}>
           {busy ? <span className="spin" /> : 'Continue'}
         </button>
-        <p className="center muted" style={{ fontSize: 14.5, marginTop: 16 }}>
+        <p className="center muted" style={{ fontSize: 18.5, marginTop: 16 }}>
           Didn't get it?{' '}
-          <button className="back" style={{ color: 'var(--g)', fontWeight: 600, fontSize: 14.5 }}
+          <button className="back" style={{ color: 'var(--g)', fontWeight: 600, fontSize: 18.5 }}
             disabled={busy} onClick={resendCode}>Send again</button>
         </p>
         <p className="center" style={{ marginTop: 4 }}>
-          <button className="back" style={{ color: 'var(--mut)', fontSize: 14 }}
+          <button className="back" style={{ color: 'var(--mut)', fontSize: 18 }}
             onClick={() => { setChallenge(null); setErr(''); setStep('details'); }}>Use a different number</button>
         </p>
       </div>
@@ -586,31 +592,31 @@ function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
             just no longer surfaces the score itself */}
         <div className="card card-green center" style={{ marginTop: 12 }}>
           <div className="label label-light">Your Loan Limit</div>
-          <div className="limit-num" style={{ fontSize: 30 }}>{kes(score?.credit_limit_cents)}</div>
+          <div className="limit-num" style={{ fontSize: 34 }}>{kes(score?.credit_limit_cents)}</div>
           <div className="tiny label-light" style={{ marginTop: 2 }}>tree stage {score?.tree_stage ?? 1} of 5</div>
         </div>
 
         {isNew ? (
           <div className="card">
-            <p style={{ fontSize: 15.5, fontWeight: 600, marginBottom: 4 }}>
+            <p style={{ fontSize: 19.5, fontWeight: 600, marginBottom: 4 }}>
               Your seed is planted
             </p>
             {circle ? (
               <>
-                <p className="muted" style={{ fontSize: 14.5 }}>
-                  {circle.name} is confirming: {circle.confirmed_pairs} of {circle.total_pairs} confirmations so far.
+                <p className="muted" style={{ fontSize: 18.5 }}>
+                  {circle.name} is confirming: {circle.members_confirmed} of {circle.member_count} members confirmed so far.
                   Your first loan of up to {kes(500000)} opens the moment every member has confirmed every member.
                 </p>
-                <button className="btn btn-ghost" style={{ width: '100%', fontSize: 14, marginTop: 8 }} onClick={onContinueSetup}>
+                <button className="btn btn-ghost" style={{ width: '100%', fontSize: 18, marginTop: 8 }} onClick={onContinueSetup}>
                   View my circle
                 </button>
               </>
             ) : (
               <>
-                <p className="muted" style={{ fontSize: 14.5 }}>
+                <p className="muted" style={{ fontSize: 18.5 }}>
                   Once your Growth Chama is active, your first loan of up to {kes(500000)} opens up. Repay well and your limit grows.
                 </p>
-                <button className="btn btn-ghost" style={{ width: '100%', fontSize: 14, marginTop: 8 }} onClick={onContinueSetup}>
+                <button className="btn btn-ghost" style={{ width: '100%', fontSize: 18, marginTop: 8 }} onClick={onContinueSetup}>
                   Continue with Gro
                 </button>
               </>
@@ -619,7 +625,7 @@ function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
         ) : activeLoan ? (
           <div className="card">
             <div className="row" style={{ marginBottom: 8 }}>
-              <span style={{ fontSize: 15.5, fontWeight: 600 }}>Your loan</span>
+              <span style={{ fontSize: 19.5, fontWeight: 600 }}>Your loan</span>
               {activeLoan.instalmentsPaid > 0 && (
                 <svg viewBox="0 0 60 40" width="44" height="30" aria-hidden>
                   <path d="M30 38 L30 10" stroke="#067A0B" strokeWidth="3" strokeLinecap="round" />
@@ -636,7 +642,7 @@ function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
               {loanStages(activeLoan).map((s, i) => (
                 <div key={i} className="row" style={{ padding: '2px 0' }}>
                   <span style={{
-                    fontSize: 13.5,
+                    fontSize: 17.5,
                     color: s.done ? 'var(--g-dark)' : s.current ? 'var(--ink)' : 'var(--mut)',
                     fontWeight: s.current ? 600 : 400,
                   }}>
@@ -649,7 +655,7 @@ function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
         ) : (
           <div className="card">
             <div className="row" style={{ marginBottom: 6 }}>
-              <span style={{ fontSize: 15.5, fontWeight: 600 }}>Your growth</span>
+              <span style={{ fontSize: 19.5, fontWeight: 600 }}>Your growth</span>
               <span className="tiny muted">tree stage {score?.tree_stage}/5</span>
             </div>
             <div className="vine">
@@ -698,8 +704,8 @@ function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
 function RecordRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
   return (
     <div className="row" style={{ padding: '8px 0', borderBottom: last ? 'none' : '1px solid var(--line)' }}>
-      <span className="muted" style={{ fontSize: 14.5 }}>{label}</span>
-      <span style={{ fontSize: 15, fontWeight: 500 }}>{value}</span>
+      <span className="muted" style={{ fontSize: 18.5 }}>{label}</span>
+      <span style={{ fontSize: 19, fontWeight: 500 }}>{value}</span>
     </div>
   );
 }
@@ -818,7 +824,7 @@ function Settings({ onBack }: { onBack: () => void }) {
 }
 
 /* ---------------- Loan application ---------------- */
-function Apply({ onBack, onApplied }: { onBack: () => void; onApplied: (id: string) => void }) {
+function Apply({ onBack, onApplied, onFixInSetup }: { onBack: () => void; onApplied: (id: string) => void; onFixInSetup: (step?: SetupStep) => void }) {
   const [score, setScore] = useState<ScoreInfo | null>(null);
   const [amount, setAmount] = useState(0);
   const [weeks, setWeeks] = useState(12);
@@ -893,9 +899,24 @@ function Apply({ onBack, onApplied }: { onBack: () => void; onApplied: (id: stri
   if (score && score.canBorrow === false) {
     const m = score.missing;
     const items = [
-      { done: score.registrationComplete, label: 'Complete your registration', hint: m?.phone && m?.nationalId ? 'Your phone and ID are needed' : m?.phone ? 'Your phone number is needed' : m?.nationalId ? 'Your ID number is needed' : 'Your details are complete', ask: 'Ask your cooperative to add these.' },
-      { done: !!score.circleActive, label: 'Join an active Growth Chama', hint: m?.circle ? 'You are not in a chama yet' : m?.circleNotActive ? 'Your chama is not active yet' : 'Your chama is active', ask: 'Form or join one with farmers you trust.' },
-      { done: !!score.hasLimit, label: 'Have a credit limit', hint: m?.limit ? 'Set once you are established' : 'You have a limit', ask: 'Set by Grofunder as your record grows.' },
+      {
+        done: score.registrationComplete,
+        label: 'Complete your registration',
+        hint: m?.phone && m?.nationalId ? 'Your phone and ID number are both missing' : m?.phone ? 'Your phone number is missing' : m?.nationalId ? 'Your ID number is missing' : 'Your details are complete',
+        fix: m?.nationalId ? (() => onFixInSetup('idConfirm')) : undefined,
+      },
+      {
+        done: !!score.circleActive,
+        label: 'Join an active Growth Chama',
+        hint: m?.circle ? "You haven't formed or joined a chama yet" : m?.circleNotActive ? 'Your chama is waiting on other members to confirm' : 'Your chama is active',
+        fix: () => onFixInSetup(), // resume() figures out the right circle step live
+      },
+      {
+        done: !!score.hasLimit,
+        label: 'Have a credit limit',
+        hint: m?.limit ? 'Set by Grofunder as your record with your cooperative grows — nothing to do here yet' : 'You have a limit',
+        fix: undefined,
+      },
     ];
     return (
       <div className="screen screen-pad-top">
@@ -904,15 +925,22 @@ function Apply({ onBack, onApplied }: { onBack: () => void; onApplied: (id: stri
         <p className="sub">A few things need to be in place first</p>
         {err && <div className="err">{err}</div>}
         <div className="stack">
-          {items.map((it, i) => (
-            <div key={i} className={`ready-item ${it.done ? 'ready-done' : ''}`}>
-              <span className="ready-check">{it.done ? '✓' : i + 1}</span>
-              <div>
-                <div className="ready-label">{it.label}</div>
-                <div className="ready-hint">{it.done ? it.hint : it.ask}</div>
-              </div>
-            </div>
-          ))}
+          {items.map((it, i) => {
+            const clickable = !it.done && !!it.fix;
+            const Tag = clickable ? 'button' : 'div';
+            return (
+              <Tag key={i} className={`ready-item ${it.done ? 'ready-done' : ''}`}
+                style={clickable ? { width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', border: '1px solid var(--line)' } : undefined}
+                onClick={clickable ? it.fix : undefined}>
+                <span className="ready-check">{it.done ? '✓' : i + 1}</span>
+                <div style={{ flex: 1 }}>
+                  <div className="ready-label">{it.label}</div>
+                  <div className="ready-hint">{it.hint}</div>
+                </div>
+                {clickable && <span className="muted" style={{ fontSize: 22 }}>›</span>}
+              </Tag>
+            );
+          })}
 
           {/* ID photos — the one readiness item you can actually act on right
               here, instead of being sent away to fix it elsewhere. Uploading
@@ -987,7 +1015,7 @@ function Apply({ onBack, onApplied }: { onBack: () => void; onApplied: (id: stri
 
       <div className="card">
         <div className="center" style={{ marginBottom: 4 }}>
-          <div className="score-num" style={{ color: 'var(--g-dark)', fontSize: 34 }}>{kes(amount)}</div>
+          <div className="score-num" style={{ color: 'var(--g-dark)', fontSize: 38 }}>{kes(amount)}</div>
           <div className="tiny muted">your limit is {kes(limit)}</div>
         </div>
         <input className="slider" type="range" min={Math.min(100000, limit)} max={limit || 100000}
@@ -1036,7 +1064,7 @@ function Apply({ onBack, onApplied }: { onBack: () => void; onApplied: (id: stri
 function SummaryRow({ label, value, strong, last }: { label: string; value: string; strong?: boolean; last?: boolean }) {
   return (
     <div className="row" style={{ padding: '8px 0', borderBottom: last ? 'none' : '1px solid var(--line)' }}>
-      <span className="muted" style={{ fontSize: 14.5 }}>{label}</span>
+      <span className="muted" style={{ fontSize: 18.5 }}>{label}</span>
       <span style={{ fontSize: strong ? 16 : 14, fontWeight: strong ? 700 : 500, color: strong ? 'var(--g-dark)' : 'inherit' }}>{value}</span>
     </div>
   );
@@ -1090,12 +1118,12 @@ function Schedule({ loanId, onBack }: { loanId: string; onBack: () => void }) {
                   {i.status === 'PAID' ? '✓' : i.seq_no}
                 </div>
                 <div>
-                  <div style={{ fontSize: 15, fontWeight: 500 }}>Week {i.seq_no}</div>
+                  <div style={{ fontSize: 19, fontWeight: 500 }}>Week {i.seq_no}</div>
                   <div className="tiny muted">{new Date(i.due_date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}</div>
                 </div>
               </div>
               <div className="center">
-                <div style={{ fontSize: 15, fontWeight: 600 }}>{kes(i.amount_due_cents)}</div>
+                <div style={{ fontSize: 19, fontWeight: 600 }}>{kes(i.amount_due_cents)}</div>
                 <div className={`tiny ${i.status === 'PAID' ? '' : 'muted'}`} style={{ color: i.status === 'PAID' ? 'var(--g)' : undefined }}>
                   {i.status === 'PAID' ? 'paid' : i.status === 'OVERDUE' ? 'overdue' : 'due'}
                 </div>
@@ -1106,7 +1134,7 @@ function Schedule({ loanId, onBack }: { loanId: string; onBack: () => void }) {
       ) : (
         <div className="card center" style={{ padding: 24 }}>
           <Gro mood="encouraging" />
-          <p className="muted" style={{ fontSize: 14.5, marginTop: 8 }}>
+          <p className="muted" style={{ fontSize: 18.5, marginTop: 8 }}>
             We'll let you know as soon as it moves forward.
           </p>
         </div>
@@ -1165,9 +1193,9 @@ function Messages({ onRead, onBack }: { onRead: () => void; onBack: () => void }
         <Gro mood="happy" />
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 500, marginBottom: 2 }}>Chat with Gro</div>
-          <div className="muted" style={{ fontSize: 14.5 }}>Hi, I am Gro. Click hapa tuongee</div>
+          <div className="muted" style={{ fontSize: 18.5 }}>Hi, I am Gro. Click hapa tuongee</div>
         </div>
-        <span className="muted" aria-hidden style={{ fontSize: 22, lineHeight: 1 }}>›</span>
+        <span className="muted" aria-hidden style={{ fontSize: 26, lineHeight: 1 }}>›</span>
       </button>
 
       <div className="tick-wrap" style={{ marginBottom: 14 }}>
@@ -1260,7 +1288,7 @@ function GroChat({ onBack, initialAskId }: { onBack: () => void; initialAskId?: 
       <button className="back" onClick={onBack}>← Back</button>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0 12px' }}>
         <Gro mood="happy" />
-        <p style={{ fontSize: 15.5, fontWeight: 500 }}>Gro</p>
+        <p style={{ fontSize: 19.5, fontWeight: 500 }}>Gro</p>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10, minHeight: 110 }}>
@@ -1271,7 +1299,7 @@ function GroChat({ onBack, initialAskId }: { onBack: () => void; initialAskId?: 
             color: l.mine ? '#fff' : 'var(--ink)',
             border: l.mine ? 'none' : '1px solid var(--line)',
             borderRadius: l.mine ? '12px 12px 2px 12px' : '2px 12px 12px 12px',
-            padding: '9px 12px', fontSize: 14, lineHeight: 1.45,
+            padding: '9px 12px', fontSize: 18, lineHeight: 1.45,
           }}>
             {l.text}
             {l.receipt && <div className="tiny" style={{ marginTop: 5, opacity: 0.85 }}>✓ {GRO_RECEIPT}</div>}
@@ -1371,6 +1399,9 @@ function Records({ onBack }: { onBack: () => void }) {
       : `KES ${major.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
   };
 
+  const [showTotals, setShowTotals] = useState(false);
+  const [showPrevious, setShowPrevious] = useState(false);
+
   return (
     <div className="screen">
       <button className="back" onClick={onBack} style={{ marginBottom: 8 }}>← Back</button>
@@ -1384,28 +1415,23 @@ function Records({ onBack }: { onBack: () => void }) {
         <>
           {summary && summary.totalDeliveries > 0 && (
             <div className="card">
-              <div className="label" style={{ marginBottom: 8 }}>Your delivery summary</div>
-              <table style={{ width: '100%', fontSize: 14 }}><tbody>
-                <tr><td className="muted" style={{ padding: '4px 0' }}>Total deliveries</td><td style={{ textAlign: 'right' }}>{summary.totalDeliveries}</td></tr>
-                <tr><td className="muted" style={{ padding: '4px 0' }}>Total earnings</td><td style={{ textAlign: 'right' }}>{kes(summary.totalEarningsCents)}</td></tr>
-                <tr><td className="muted" style={{ padding: '4px 0' }}>Total deductions</td><td style={{ textAlign: 'right' }}>{kes(summary.totalDeductionsCents)}</td></tr>
-                {summary.lastDelivery && (
-                  <>
-                    <tr><td colSpan={2} style={{ paddingTop: 10, borderTop: '1px solid var(--line)' }} /></tr>
-                    <tr><td className="muted" style={{ padding: '4px 0' }}>Last delivery date</td><td style={{ textAlign: 'right' }}>{new Date(summary.lastDelivery.date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</td></tr>
-                    <tr><td className="muted" style={{ padding: '4px 0' }}>Last delivery amount</td><td style={{ textAlign: 'right' }}>{summary.lastDelivery.quantityKg.toLocaleString()} kg {summary.lastDelivery.product}</td></tr>
-                    <tr><td className="muted" style={{ padding: '4px 0' }}>Last delivery earnings</td><td style={{ textAlign: 'right' }}>{kes(summary.lastDelivery.earningsCents)}</td></tr>
-                    <tr><td className="muted" style={{ padding: '4px 0' }}>Last delivery deductions</td><td style={{ textAlign: 'right' }}>{kes(summary.lastDelivery.deductionsCents)}</td></tr>
-                  </>
-                )}
+              <div className="label" style={{ marginBottom: 8 }}>Your last delivery</div>
+              <table style={{ width: '100%', fontSize: 18 }}><tbody>
+                <tr><td className="muted" style={{ padding: '4px 0' }}>Last produce quantity</td><td style={{ textAlign: 'right' }}>{summary.lastDelivery?.quantityKg.toLocaleString()} kg {summary.lastDelivery?.product}</td></tr>
+                <tr><td className="muted" style={{ padding: '4px 0' }}>Last produce date</td><td style={{ textAlign: 'right' }}>{summary.lastDelivery && new Date(summary.lastDelivery.date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</td></tr>
+                <tr><td className="muted" style={{ padding: '4px 0' }}>Last produce amount</td><td style={{ textAlign: 'right' }}>{summary.lastDelivery && kes(summary.lastDelivery.earningsCents)}</td></tr>
+                <tr><td className="muted" style={{ padding: '4px 0' }}>Next produce date</td><td style={{ textAlign: 'right' }}>{summary.nextExpectedDate ? new Date(summary.nextExpectedDate).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td></tr>
               </tbody></table>
+              {summary.nextExpectedDate && (
+                <p className="tiny muted" style={{ marginTop: 4 }}>Estimated from your own delivery pattern — not confirmed by your cooperative.</p>
+              )}
 
               {flagged ? (
-                <div className="ok" style={{ marginTop: 10, fontSize: 13 }}>
+                <div className="ok" style={{ marginTop: 10, fontSize: 17 }}>
                   Sent to your cooperative to fix. Please note that your input will not override the input from your cooperative.
                 </div>
               ) : confirmed ? (
-                <div className="ok" style={{ marginTop: 10, fontSize: 13 }}>Thanks — confirmed.</div>
+                <div className="ok" style={{ marginTop: 10, fontSize: 17 }}>Thanks — confirmed.</div>
               ) : showFlag ? (
                 <div style={{ marginTop: 10 }}>
                   <p className="tiny muted" style={{ marginBottom: 6 }}>What looks wrong? You can tell us what you think is correct.</p>
@@ -1413,49 +1439,73 @@ function Records({ onBack }: { onBack: () => void }) {
                     value={flagDetails} onChange={(e) => setFlagDetails(e.target.value)} />
                   <p className="tiny muted" style={{ marginTop: 6 }}>Please note that your input will not override the input from your cooperative.</p>
                   <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                    <button className="btn btn-ghost" style={{ flex: 1, fontSize: 14 }} onClick={() => setShowFlag(false)}>Cancel</button>
-                    <button className="btn btn-primary" style={{ flex: 1, fontSize: 14, padding: 8 }} disabled={flagBusy} onClick={submitFlag}>
+                    <button className="btn btn-ghost" style={{ flex: 1, fontSize: 18 }} onClick={() => setShowFlag(false)}>Cancel</button>
+                    <button className="btn btn-primary" style={{ flex: 1, fontSize: 18, padding: 8 }} disabled={flagBusy} onClick={submitFlag}>
                       {flagBusy ? <span className="spin" /> : 'Send'}
                     </button>
                   </div>
                 </div>
               ) : (
                 <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                  <button className="btn btn-primary" style={{ flex: 1, fontSize: 14 }} onClick={() => setConfirmed(true)}>Yes, that's correct</button>
-                  <button className="btn btn-ghost" style={{ flex: 1, fontSize: 14 }} onClick={() => setShowFlag(true)}>Something is wrong</button>
+                  <button className="btn btn-primary" style={{ flex: 1, fontSize: 18 }} onClick={() => setConfirmed(true)}>Yes, that's correct</button>
+                  <button className="btn btn-ghost" style={{ flex: 1, fontSize: 18 }} onClick={() => setShowFlag(true)}>Something is wrong</button>
                 </div>
               )}
             </div>
           )}
 
-          {recs.length === 0 ? (
-            <div className="empty-note">No records yet. Your cooperative adds these.</div>
-          ) : (
-            <div className="stack">
-              {recs.map((rec) => (
-                <div key={rec.type} className="card">
-                  <div className="rec-head">
-                    <span className="rec-title">{rec.label}</span>
-                    <span className="rec-total">{fmt(rec, rec.total_units)}</span>
-                  </div>
-                  {rec.entries.length === 0 ? (
-                    <p className="muted" style={{ fontSize: 14.5, marginTop: 8 }}>No entries yet.</p>
-                  ) : (
-                    <div className="rec-entries">
-                      {rec.entries.map((e) => (
-                        <div key={e.id} className="rec-row">
-                          <span className="rec-date">{new Date(e.entry_date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                          <span className="rec-amt">{fmt(rec, e.amount_units)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-              <p className="muted" style={{ fontSize: 13.5, textAlign: 'center', marginTop: 4 }}>
-                Kept by your cooperative. Something wrong? Talk to them.
-              </p>
+          {summary && summary.totalDeliveries > 0 && (
+            <button className="btn btn-ghost" style={{ width: '100%', marginBottom: showTotals ? 0 : 12 }} onClick={() => setShowTotals((s) => !s)}>
+              {showTotals ? 'Hide all records' : 'See All records'}
+            </button>
+          )}
+          {showTotals && summary && (
+            <div className="card" style={{ marginBottom: 12 }}>
+              <table style={{ width: '100%', fontSize: 18 }}><tbody>
+                <tr><td className="muted" style={{ padding: '4px 0' }}>Total deliveries to cooperative</td><td style={{ textAlign: 'right' }}>{summary.totalDeliveries}</td></tr>
+                <tr><td className="muted" style={{ padding: '4px 0' }}>Total amount received from cooperative</td><td style={{ textAlign: 'right' }}>{kes(summary.netReceivedCents)}</td></tr>
+                <tr><td className="muted" style={{ padding: '4px 0' }}>Total kg produced so far</td><td style={{ textAlign: 'right' }}>{summary.totalKg.toLocaleString()} kg</td></tr>
+                <tr><td className="muted" style={{ padding: '4px 0' }}>Average quantity per week</td><td style={{ textAlign: 'right' }}>{summary.avgKgPerWeek.toLocaleString(undefined, { maximumFractionDigits: 1 })} kg</td></tr>
+                <tr><td className="muted" style={{ padding: '4px 0' }}>Average income per week</td><td style={{ textAlign: 'right' }}>{kes(Math.round(summary.avgEarningsCentsPerWeek))}</td></tr>
+              </tbody></table>
+              <p className="tiny muted" style={{ marginTop: 6 }}>Amount received is earnings after any deductions. Averages are calculated across your full delivery history.</p>
             </div>
+          )}
+
+          <button className="btn btn-ghost" style={{ width: '100%', marginBottom: showPrevious ? 12 : 4 }} onClick={() => setShowPrevious((s) => !s)}>
+            {showPrevious ? 'Hide previous records' : 'See your previous records'}
+          </button>
+
+          {showPrevious && (
+            recs.length === 0 ? (
+              <div className="empty-note">No records yet. Your cooperative adds these.</div>
+            ) : (
+              <div className="stack">
+                {recs.map((rec) => (
+                  <div key={rec.type} className="card">
+                    <div className="rec-head">
+                      <span className="rec-title">{rec.label}</span>
+                      <span className="rec-total">{fmt(rec, rec.total_units)}</span>
+                    </div>
+                    {rec.entries.length === 0 ? (
+                      <p className="muted" style={{ fontSize: 18.5, marginTop: 8 }}>No entries yet.</p>
+                    ) : (
+                      <div className="rec-entries">
+                        {rec.entries.map((e) => (
+                          <div key={e.id} className="rec-row">
+                            <span className="rec-date">{new Date(e.entry_date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                            <span className="rec-amt">{fmt(rec, e.amount_units)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <p className="muted" style={{ fontSize: 17.5, textAlign: 'center', marginTop: 4 }}>
+                  Kept by your cooperative. Something wrong? Talk to them.
+                </p>
+              </div>
+            )
           )}
         </>
       )}
@@ -1593,7 +1643,7 @@ function Compose({ onDone, onCancel }: { onDone: () => void; onCancel: () => voi
 
       <div className="card">
         <div className="label" style={{ marginBottom: 6 }}>Grofunder website</div>
-        <p className="muted" style={{ fontSize: 14, marginBottom: 10 }}>
+        <p className="muted" style={{ fontSize: 18, marginBottom: 10 }}>
           Offer this photo for the Grofunder website. Reviewed before publishing.
         </p>
         <label className="share-opt"><input type="checkbox" checked={toWebsite} onChange={(e) => setToWebsite(e.target.checked)} /> Send to Grofunder for the website</label>
