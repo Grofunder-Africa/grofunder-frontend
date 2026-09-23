@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { farmerApi, setToken, getToken, kes, ApiError, onSessionExpired } from './api';
-import type { ScoreInfo, FarmerRecord, Quote, Instalment, FarmerInboxMessage, CaptureRecord, DeliverySummary, FeedPost, MyCircleStatus, FarmerMessage, FarmerAudience } from './api';
+import type { ScoreInfo, FarmerRecord, Quote, Instalment, FarmerInboxMessage, CaptureRecord, DeliverySummary, MyActiveLoanStage, FeedPost, MyCircleStatus, FarmerMessage, FarmerAudience } from './api';
 import { Gro, GRO_QUICK_ASKS, GRO_OPENING, GRO_FREETEXT_REPLY, GRO_RECEIPT } from './Gro';
 import { Setup } from './Setup';
 import logo from './assets/grofunder-logo.png';
@@ -485,12 +485,49 @@ function ForgotPin({ onDone }: { onDone: () => void }) {
 }
 
 /* ---------------- Home / dashboard ---------------- */
+/**
+ * Maps a loan's real backend status (loan_status enum) + instalment
+ * progress to the stages a farmer actually cares about seeing. "Circle
+ * approval" isn't a loan_status value — it's the precondition applyForLoan
+ * already enforces before a loan can exist at all — so it's always shown
+ * done, not tracked separately. "Financier Approved" maps to the real
+ * DISBURSING status (the point the partner is actually processing funds),
+ * since there's no separate backend state for it.
+ */
+function loanStages(loan: MyActiveLoanStage): { label: string; done: boolean; current: boolean }[] {
+  const order = ['DRAFT', 'SUBMITTED', 'PENDING_RECORD_MATCH', 'COOP_APPROVED', 'GF_APPROVED', 'DISBURSING', 'ACTIVE', 'IN_ARREARS'];
+  const idx = order.indexOf(loan.status);
+  const pastCoop = idx >= order.indexOf('COOP_APPROVED');
+  const pastGf = idx >= order.indexOf('GF_APPROVED');
+  const pastDisbursing = idx >= order.indexOf('DISBURSING');
+  const isActive = loan.status === 'ACTIVE' || loan.status === 'IN_ARREARS';
+
+  const stages: { label: string; done: boolean; current: boolean }[] = [
+    { label: 'Circle approval', done: true, current: false },
+    { label: 'Cooperative approval', done: pastCoop, current: !pastCoop },
+    { label: 'Grofunder Approval', done: pastGf, current: pastCoop && !pastGf },
+    { label: 'Financier Approved', done: pastDisbursing, current: pastGf && !pastDisbursing },
+    { label: 'Your seed has been planted! Disbursed', done: isActive, current: pastDisbursing && !isActive },
+  ];
+  if (isActive) {
+    for (let i = 1; i <= loan.instalmentsTotal; i++) {
+      stages.push({
+        label: `Repayment instalment ${i} of ${loan.instalmentsTotal}`,
+        done: i <= loan.instalmentsPaid,
+        current: i === loan.instalmentsPaid + 1,
+      });
+    }
+  }
+  return stages;
+}
+
 function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
   onApply: () => void; onSignOut: () => void; onContinueSetup: () => void; onSettings: () => void;
 }) {
   const [record, setRecord] = useState<FarmerRecord | null>(null);
   const [score, setScore] = useState<ScoreInfo | null>(null);
   const [circle, setCircle] = useState<MyCircleStatus['circle'] | null>(null);
+  const [activeLoan, setActiveLoan] = useState<MyActiveLoanStage | null>(null);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
   // The full record already showed once during setup confirmation — Home
@@ -502,9 +539,10 @@ function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
     try {
       const [r, s] = await Promise.all([farmerApi.records(), farmerApi.score()]);
       setRecord(r); setScore(s);
-      // Circle status is used just for the Home banner — best-effort, not
-      // worth failing the whole dashboard load over.
+      // Circle status and the active loan's real stage are best-effort —
+      // neither should fail the whole dashboard load if they hiccup.
       farmerApi.myCircleStatus().then((cs) => setCircle(cs.hasCircle ? cs.circle ?? null : null)).catch(() => {});
+      farmerApi.myActiveLoan().then(setActiveLoan).catch(() => {});
     } catch (e) {
       // An expired session is already handled centrally (api.ts's
       // onSessionExpired routes back to sign-in for every screen) — this
@@ -577,6 +615,36 @@ function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
                 </button>
               </>
             )}
+          </div>
+        ) : activeLoan ? (
+          <div className="card">
+            <div className="row" style={{ marginBottom: 8 }}>
+              <span style={{ fontSize: 15.5, fontWeight: 600 }}>Your loan</span>
+              {activeLoan.instalmentsPaid > 0 && (
+                <svg viewBox="0 0 60 40" width="44" height="30" aria-hidden>
+                  <path d="M30 38 L30 10" stroke="#067A0B" strokeWidth="3" strokeLinecap="round" />
+                  <ellipse cx="14" cy="12" rx="9" ry="5" fill="#09AF0F" transform="rotate(-25 14 12)" />
+                  <ellipse cx="46" cy="12" rx="9" ry="5" fill="#09AF0F" transform="rotate(25 46 12)" />
+                  <ellipse cx="30" cy="5" rx="8" ry="5" fill="#5DCAA5" />
+                  {activeLoan.instalmentsPaid >= 1 && <circle cx="18" cy="16" r="3.5" fill="#E24B4A" />}
+                  {activeLoan.instalmentsPaid >= 2 && <circle cx="42" cy="16" r="3.5" fill="#E24B4A" />}
+                  {activeLoan.instalmentsPaid >= 3 && <circle cx="30" cy="8" r="3.5" fill="#E24B4A" />}
+                </svg>
+              )}
+            </div>
+            <div className="stack" style={{ gap: 6 }}>
+              {loanStages(activeLoan).map((s, i) => (
+                <div key={i} className="row" style={{ padding: '2px 0' }}>
+                  <span style={{
+                    fontSize: 13.5,
+                    color: s.done ? 'var(--g-dark)' : s.current ? 'var(--ink)' : 'var(--mut)',
+                    fontWeight: s.current ? 600 : 400,
+                  }}>
+                    {s.done ? '✓ ' : s.current ? '● ' : '· '}{s.label}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="card">

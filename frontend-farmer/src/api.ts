@@ -122,6 +122,7 @@ export const farmerApi = {
     api.post<{ farmerId: string; userId: string }>('/farmer-onboarding/register', { phone, pin, coopMemberNo }),
   records: () => api.get<FarmerRecord>('/farmer-onboarding/records'),
   score: () => api.get<ScoreInfo>('/loans/my-score'),
+  myActiveLoan: () => api.get<MyActiveLoanStage | null>('/loans/my-active'),
   quote: (principalCents: number, weeks: number) =>
     api.post<Quote>('/loans/quote', { principalCents, weeks }),
   apply: (principalCents: number, weeks: number, purpose?: string) =>
@@ -220,6 +221,14 @@ export interface DeliverySummary {
   lastDelivery: {
     date: string; quantityKg: number; earningsCents: number; deductionsCents: number; product: string;
   } | null;
+}
+export interface MyActiveLoanStage {
+  loanId: string;
+  status: string;
+  weeks: number;
+  instalmentsPaid: number;
+  instalmentsTotal: number;
+  nextDueDate: string | null;
 }
 
 export interface FarmerInboxMessage {

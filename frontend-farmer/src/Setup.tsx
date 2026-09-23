@@ -558,7 +558,21 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
       {step === 'idConfirm' && (
         <>
           <GroSays line="idConfirm" />
+
           <div className="card" style={{ marginTop: 12 }}>
+            <div className="field">
+              <label>Date of birth</label>
+              <input className="input" type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} />
+            </div>
+            <div className="label" style={{ marginBottom: 8 }}>Gender</div>
+            <div className="tick-wrap">
+              {GENDER_OPTIONS.map((g) => (
+                <button key={g} className={`tick-chip ${gender === g ? 'tick-chip-on' : ''}`} onClick={() => setGender(g)}>{g}</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="card">
             <div className="label" style={{ marginBottom: 6 }}>ID number</div>
             {idResult === null ? (
               <div style={{ display: 'flex', gap: 6 }}>
@@ -731,20 +745,6 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
             <button className="btn btn-ghost" style={{ width: '100%', marginTop: 8 }} disabled={!newActivity.trim()} onClick={addIncomeSource}>
               + Add
             </button>
-          </div>
-
-          <div className="card">
-            <div className="label" style={{ marginBottom: 8 }}>About you</div>
-            <div className="field">
-              <label>Date of birth</label>
-              <input className="input" type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} />
-            </div>
-            <div className="label" style={{ marginBottom: 8 }}>Gender</div>
-            <div className="tick-wrap">
-              {GENDER_OPTIONS.map((g) => (
-                <button key={g} className={`tick-chip ${gender === g ? 'tick-chip-on' : ''}`} onClick={() => setGender(g)}>{g}</button>
-              ))}
-            </div>
           </div>
 
           <button className="btn btn-primary" disabled={busy} onClick={finishAboutYou}>
@@ -965,11 +965,11 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
           </button>
           <p className="muted" style={{ marginBottom: 12 }}>
             {(() => { const founder = myCircle.members.find((m) => m.isHead); return founder ? `${founder.fullName} has invited you to join this circle.` : `You've been invited to join ${myCircle.name}.`; })()}
-            {' '}You can agree or remove some members you don't want in the circle.
+            {' '}You can agree, or untick anyone you don't want as a guarantor — unticking removes them from the circle right away.
           </p>
           {myCircle.state === 'CONTESTED' && (
             <div className="err" style={{ marginBottom: 12 }}>
-              Some members haven't accepted everyone yet. Talk as a group — loans open once every member has confirmed every member.
+              This circle dropped below the members needed to activate. Add more members, or talk as a group about who should join.
             </div>
           )}
           {myCircle.members.filter((m) => m.myVouchStatus !== 'SELF').map((m) => (
@@ -981,6 +981,11 @@ export function Setup({ onComplete }: { onComplete: () => void }) {
               {m.fullName}{m.isHead ? ' · head' : ''} {!declined.includes(m.farmerId) ? '✓' : ''}
             </button>
           ))}
+          {declined.length > 0 && (
+            <p className="tiny" style={{ color: 'var(--clay)', marginBottom: 8 }}>
+              {declined.length === 1 ? 'That member' : `Those ${declined.length} members`} will be removed from the circle when you submit.
+            </p>
+          )}
           <button className="btn btn-primary" style={{ marginTop: 2 }} disabled={busy} onClick={submitMyVouches}>
             {busy ? <span className="spin" /> : 'I stand with these members'}
           </button>
