@@ -63,18 +63,24 @@ body::before {
 
 .app {
   max-width: 430px;
-  margin: 16px auto;
+  /* Fixed positioning + transform centers directly against the viewport,
+     independent of any parent element's height, flex setup, or margin
+     chain — the most reliable way to guarantee centering regardless of how
+     tall the card's own content happens to be. */
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   /* Sizes to its actual content instead of always stretching to fill the
      viewport — a short screen (a single confirm step, an intro card) no
      longer floats inside a mostly-empty card the height of the whole page.
      min-height keeps it from looking cramped on very sparse screens; screens
      with real content (Home, the tab-bar pages) fill naturally on their own. */
   min-height: 460px;
-  max-height: calc(100% - 32px);
+  max-height: calc(100vh - 32px);
   background: var(--bg);
   display: flex;
   flex-direction: column;
-  position: relative;
   border-radius: 22px;
   box-shadow: 0 12px 36px rgba(0,0,0,0.28);
   overflow: hidden;
@@ -86,7 +92,7 @@ body::before {
    since older Android WebViews (a real concern for this audience) don't
    reliably support :has(). */
 .app-full {
-  min-height: calc(100% - 32px);
+  min-height: calc(100vh - 32px);
 }
 
 /* Scales continuously with the viewport instead of jumping between three
@@ -99,7 +105,7 @@ body::before {
    viewport width) and settles at a sensible laptop-window ceiling. */
 .app { max-width: clamp(430px, 45vw, 760px); }
 
-.screen { flex: 1; padding: 18px 18px 106px; }
+.screen { flex: 1; padding: 18px 18px 106px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 /* Screens with no tab bar (sign-in, onboarding) don't need the 90px kept
    clear for it — without this they sit above a dead gap of empty page,
    which is exactly what reads as unfinished on a short screen. */
@@ -245,7 +251,7 @@ body::before {
   font-size: 16px; color: var(--mut); padding: 4px 8px; position: relative;
 }
 .tab.active { color: var(--g-dark); }
-.tab .dot { width: 24px; height: 24px; display: grid; place-items: center; }
+.tab .dot { width: 28px; height: 28px; display: grid; place-items: center; }
 
 /* misc */
 .center { text-align: center; }
@@ -328,3 +334,48 @@ body::before {
 .web-pending { background: var(--amber-tint); color: var(--amber-dark); }
 .web-approved { background: var(--g-tint); color: var(--g-dark); }
 .web-rejected { background: var(--clay-tint); color: var(--clay-ink); }
+
+/* ==========================================================================
+   Utility classes. Extracted from repeated inline styles across App.tsx,
+   Setup.tsx and Gro.tsx — anything used 3+ times, atomic and composable
+   (e.g. className="mt-8 text-right") rather than one class per exact
+   combination, which would just trade 345 inline styles for hundreds of
+   single-use, arbitrarily-named classes — no more editable than before.
+   Genuinely one-off spacing tweaks are left as inline styles on purpose.
+   ========================================================================== */
+.mt-2 { margin-top: 2px; }
+.mt-4 { margin-top: 4px; }
+.mt-6 { margin-top: 6px; }
+.mt-8 { margin-top: 8px; }
+.mt-12 { margin-top: 12px; }
+.mt-16 { margin-top: 16px; }
+.mt-24 { margin-top: 24px; }
+.mb-6 { margin-bottom: 6px; }
+.mb-8 { margin-bottom: 8px; }
+.mb-10 { margin-bottom: 10px; }
+.mb-12 { margin-bottom: 12px; }
+.mb-24 { margin-bottom: 24px; }
+.pb-4 { padding-bottom: 4px; }
+.pt-80 { padding-top: 80px; }
+.m-0 { margin: 0; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.text-17 { font-size: 17.5px; }
+.text-base { font-size: 18.5px; }
+.text-19 { font-size: 19.5px; }
+.font-semibold { font-weight: 600; }
+.flex-1 { flex: 1; }
+.w-full { width: 100%; }
+.hidden { display: none; }
+.rel { position: relative; }
+.border-top { border-top: 1px solid var(--line); }
+.flex-gap-6 { display: flex; gap: 6px; }
+/* Table-cell padding — the "row" pattern used throughout summary tables. */
+.row-pad-3 { padding: 3px 0; }
+.row-pad-4 { padding: 4px 0; }
+.row-pad-5 { padding: 5px 0; }
+/* The specific 5-property spinner-centering pattern — semantic on purpose,
+   since "center an absolutely-positioned spinner over its parent" is a real,
+   recognizable thing, not just a spacing coincidence. */
+.spinner-center { position: absolute; top: 50%; left: 50%; margin-top: -8px; margin-left: -8px; }

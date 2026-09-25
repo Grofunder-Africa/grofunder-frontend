@@ -72,24 +72,24 @@ const FREQUENCIES: { value: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'SEASONAL'; label: 
 function GrofunderFaq() {
   return (
     <>
-      <div className="card" style={{ marginBottom: 10 }}>
-        <div className="label" style={{ marginBottom: 6 }}>What does Grofunder actually do?</div>
-        <p className="muted" style={{ fontSize: 18.5, margin: 0 }}>
+      <div className="card mb-10" >
+        <div className="label mb-6" >What does Grofunder actually do?</div>
+        <p className="muted text-base m-0" >
           We help you access capital to grow fast and easy. We turn your records into credit — your deliveries
           to your cooperative, your guarantors, and your transactions with Grofunder — into money you can use
           to increase your income.
         </p>
       </div>
-      <div className="card" style={{ marginBottom: 10 }}>
-        <div className="label" style={{ marginBottom: 6 }}>Why no collateral?</div>
-        <p className="muted" style={{ fontSize: 18.5, margin: 0 }}>
+      <div className="card mb-10" >
+        <div className="label mb-6" >Why no collateral?</div>
+        <p className="muted text-base m-0" >
           Your history already proves you're reliable. Years of deliveries to your cooperative and people who
           stand behind you are worth more here than a title deed.
         </p>
       </div>
       <div className="card">
-        <div className="label" style={{ marginBottom: 6 }}>What happens as I use it?</div>
-        <p className="muted" style={{ fontSize: 18.5, margin: 0 }}>
+        <div className="label mb-6" >What happens as I use it?</div>
+        <p className="muted text-base m-0" >
           Every loan you repay well grows your record — and your record is what unlocks bigger, cheaper loans
           next time. Nothing here is one-off; it all builds.
         </p>
@@ -101,23 +101,23 @@ function GrofunderFaq() {
 function CircleFaq() {
   return (
     <>
-      <div className="card" style={{ marginBottom: 10 }}>
-        <div className="label" style={{ marginBottom: 6 }}>What is a Growth Chama?</div>
-        <p className="muted" style={{ fontSize: 18.5, margin: 0 }}>
+      <div className="card mb-10" >
+        <div className="label mb-6" >What is a Growth Chama?</div>
+        <p className="muted text-base m-0" >
           5–10 farmers from your cluster who vouch for each other. You choose each other — every member confirms
           every member, so no one is in a chama they didn't pick, and no one joins yours without your yes.
         </p>
       </div>
-      <div className="card" style={{ marginBottom: 10 }}>
-        <div className="label" style={{ marginBottom: 6 }}>Why does it exist?</div>
-        <p className="muted" style={{ fontSize: 18.5, margin: 0 }}>
+      <div className="card mb-10" >
+        <div className="label mb-6" >Why does it exist?</div>
+        <p className="muted text-base m-0" >
           Grofunder lends without collateral. Your chama standing behind you — the way your community already
           does — is what makes that possible.
         </p>
       </div>
-      <div className="card" style={{ marginBottom: 10 }}>
-        <div className="label" style={{ marginBottom: 6 }}>Why does it matter?</div>
-        <p className="muted" style={{ fontSize: 18.5, margin: 0 }}>
+      <div className="card mb-10" >
+        <div className="label mb-6" >Why does it matter?</div>
+        <p className="muted text-base m-0" >
           The chama opens the door: loans only start once it's fully confirmed and active, and your first limit
           unlocks with it. If a member misses a payment, the chama is told that day and has 5 days to help follow
           up or cover it — after that a late fee applies and your cooperative steps in. While it's unpaid, no one in
@@ -125,8 +125,8 @@ function CircleFaq() {
         </p>
       </div>
       <div className="card">
-        <div className="label" style={{ marginBottom: 6 }}>How does it work?</div>
-        <p className="muted" style={{ fontSize: 18.5, margin: 0 }}>
+        <div className="label mb-6" >How does it work?</div>
+        <p className="muted text-base m-0" >
           You form one when you set up, or someone names you in theirs. Either way, you see exactly who's in it and
           choose to stand with each of them. Strong chamas earn champion recognition every Friday, and every
           member's tree grows faster.
@@ -444,21 +444,21 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
   }
 
   if (step === 'loading') {
-    return <div className="screen screen-no-nav center" style={{ paddingTop: 80 }}><span className="spin" /></div>;
+    return <div className="screen screen-no-nav center pt-80" ><span className="spin" /></div>;
   }
 
   return (
     <div className="screen screen-no-nav screen-pad-top">
       {STEP_STAGE[step] && <SeedProgress stage={STEP_STAGE[step]!} />}
       {history.length > 0 && (
-        <button className="back" onClick={goBack} style={{ marginBottom: 12 }}>← Back</button>
+        <button className="back mb-12" onClick={goBack} >← Back</button>
       )}
-      {err && <div className="err" style={{ marginBottom: 12 }}>{err}</div>}
+      {err && <div className="err mb-12" >{err}</div>}
 
       {step === 'intro' && (
         <>
           <GroSays line="welcome" />
-          <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => setStep('explainer1')}>
+          <button className="btn btn-primary mt-16"  onClick={() => setStep('explainer1')}>
             Ready?
           </button>
         </>
@@ -467,7 +467,7 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
       {step === 'explainer1' && (
         <>
           <GroSays line="explainerWhat" />
-          <div className="card" style={{ marginTop: 12 }}>
+          <div className="card mt-12" >
             <p style={{ margin: 0, fontSize: 18.5, lineHeight: 1.5, fontWeight: 700, color: 'var(--g-dark)' }}>How?</p>
             <p style={{ margin: '8px 0 0', fontSize: 18.5, lineHeight: 1.5 }}>
               We turn your records into credit. We use your deliveries to your cooperative, your guarantors, and
@@ -478,7 +478,7 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
             onClick={() => { setFaqReturnTo('explainer1'); setStep('grofunderFaq'); }}>
             More about Grofunder
           </button>
-          <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={() => setStep('explainer2')}>
+          <button className="btn btn-primary mt-8"  onClick={() => setStep('explainer2')}>
             Endelea
           </button>
         </>
@@ -488,7 +488,7 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
         <>
           <h3 style={{ marginTop: 0, marginBottom: 12 }}>About Grofunder</h3>
           <GrofunderFaq />
-          <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => goBackTo(faqReturnTo)}>Back</button>
+          <button className="btn btn-primary mt-12"  onClick={() => goBackTo(faqReturnTo)}>Back</button>
         </>
       )}
 
@@ -513,7 +513,7 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
               Your progress lives in a tree. Pay on time — it grows. Finish loans — it bears cherries, and your limit grows with it.
             </p>
           </div>
-          <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => setStep('explainer3')}>
+          <button className="btn btn-primary mt-16"  onClick={() => setStep('explainer3')}>
             Endelea
           </button>
         </>
@@ -522,7 +522,7 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
       {step === 'explainer3' && (
         <>
           <GroSays line="explainerTogether" />
-          <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={loadRecord} disabled={busy}>
+          <button className="btn btn-primary mt-16"  onClick={loadRecord} disabled={busy}>
             {busy ? <span className="spin" /> : 'Nimeelewa — I understand'}
           </button>
         </>
@@ -531,13 +531,13 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
       {step === 'record' && record && (
         <>
           <GroSays line="recordConfirm" textOverride={`Vizuri! Here's what ${record.cooperative_name ?? 'your cooperative'} told us about you. Is this you?`} />
-          <div className="card" style={{ marginTop: 12 }}>
-            <div className="label" style={{ marginBottom: 8 }}>Your cooperative record</div>
+          <div className="card mt-12" >
+            <div className="label mb-8" >Your cooperative record</div>
             <table style={{ width: '100%', fontSize: 19 }}><tbody>
-              <tr><td className="muted" style={{ padding: '3px 0' }}>Name</td><td style={{ textAlign: 'right' }}>{record.full_name}</td></tr>
-              <tr><td className="muted" style={{ padding: '3px 0' }}>Member no.</td><td style={{ textAlign: 'right' }}>{record.coop_member_no ?? ' — '}</td></tr>
-              <tr><td className="muted" style={{ padding: '3px 0' }}>Cluster</td><td style={{ textAlign: 'right' }}>{record.cluster_name ?? ' — '}{record.cluster_head ? ` · head ${record.cluster_head}` : ''}</td></tr>
-              <tr><td className="muted" style={{ padding: '3px 0' }}>Deliveries on record</td><td style={{ textAlign: 'right' }}>{record.delivery_count}</td></tr>
+              <tr><td className="muted row-pad-3" >Name</td><td className="text-right">{record.full_name}</td></tr>
+              <tr><td className="muted row-pad-3" >Member no.</td><td className="text-right">{record.coop_member_no ?? ' — '}</td></tr>
+              <tr><td className="muted row-pad-3" >Cluster</td><td className="text-right">{record.cluster_name ?? ' — '}{record.cluster_head ? ` · head ${record.cluster_head}` : ''}</td></tr>
+              <tr><td className="muted row-pad-3" >Deliveries on record</td><td className="text-right">{record.delivery_count}</td></tr>
             </tbody></table>
             {!flagged && !showFlag && (
               <button className="btn btn-ghost" style={{ width: '100%', fontSize: 17, padding: 6, marginTop: 8 }} onClick={() => setShowFlag(true)}>
@@ -545,7 +545,7 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
               </button>
             )}
             {showFlag && (
-              <div style={{ marginTop: 8 }}>
+              <div className="mt-8">
                 <textarea className="input" rows={2} placeholder="What's not right? (optional)" value={flagDetails} onChange={(e) => setFlagDetails(e.target.value)} />
                 <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
                   <button className="btn btn-ghost" style={{ flex: 1, fontSize: 18 }} onClick={() => setShowFlag(false)}>Cancel</button>
@@ -555,7 +555,7 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
             )}
             {flagged && <div className="ok" style={{ marginTop: 8, fontSize: 17 }}>Sent to your cooperative to fix. You can continue — but loan applications will wait until your records match.</div>}
           </div>
-          <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={busy} onClick={confirmRecordYes}>
+          <button className="btn btn-primary mt-12"  disabled={busy} onClick={confirmRecordYes}>
             {busy ? <span className="spin" /> : "Ndiyo, that's me"}
           </button>
         </>
@@ -565,12 +565,12 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
         <>
           <GroSays line="idConfirm" />
 
-          <div className="card" style={{ marginTop: 12 }}>
+          <div className="card mt-12" >
             <div className="field">
               <label>Date of birth</label>
               <input className="input" type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} />
             </div>
-            <div className="label" style={{ marginBottom: 8 }}>Gender</div>
+            <div className="label mb-8" >Gender</div>
             <div className="tick-wrap">
               {GENDER_OPTIONS.map((g) => (
                 <button key={g} className={`tick-chip ${gender === g ? 'tick-chip-on' : ''}`} onClick={() => setGender(g)}>{g}</button>
@@ -579,10 +579,10 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
           </div>
 
           <div className="card">
-            <div className="label" style={{ marginBottom: 6 }}>ID number</div>
+            <div className="label mb-6" >ID number</div>
             {idResult === null ? (
-              <div style={{ display: 'flex', gap: 6 }}>
-                <input className="input" style={{ flex: 1 }} inputMode="numeric" placeholder="Your ID number"
+              <div className="flex-gap-6">
+                <input className="input flex-1"  inputMode="numeric" placeholder="Your ID number"
                   value={idInput} onChange={(e) => setIdInput(e.target.value)} />
                 <button className="btn btn-primary" style={{ width: 'auto', padding: '9px 16px' }}
                   disabled={busy || !idInput.trim()} onClick={submitIdConfirm}>
@@ -590,10 +590,10 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
                 </button>
               </div>
             ) : idResult === 'MATCHED' ? (
-              <div className="ok" style={{ margin: 0, fontSize: 17.5 }}>Vizuri! That matches.</div>
+              <div className="ok m-0 text-17" >Vizuri! That matches.</div>
             ) : (
               <>
-                <div className="err" style={{ margin: 0, fontSize: 17.5 }}>
+                <div className="err m-0 text-17" >
                   {idResult === 'MISMATCH'
                     ? "Doesn't quite match what your cooperative has on file — they've been told."
                     : "Your cooperative didn't have an ID on file yet — they've been sent what you entered."}
@@ -606,24 +606,24 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
           </div>
 
           <div className="card">
-            <div className="label" style={{ marginBottom: 8 }}>Photo of your ID</div>
+            <div className="label mb-8" >Photo of your ID</div>
             <div style={{ display: 'flex', gap: 10 }}>
               {(['front', 'back'] as const).map((side) => {
                 const state = side === 'front' ? idFront : idBack;
                 return (
                   <label key={side} style={{ flex: 1, cursor: 'pointer' }}>
-                    <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+                    <input type="file" accept="image/*" capture="environment" className="hidden"
                       onChange={(e) => uploadIdPhoto(side, e.target.files?.[0] ?? null)} />
                     {state?.preview ? (
-                      <div style={{ position: 'relative' }}>
+                      <div className="rel">
                         <img src={state.preview} alt={`ID ${side}`} style={{ width: '100%', borderRadius: 9, display: 'block', opacity: state.uploading ? 0.5 : 1 }} />
-                        {state.uploading && <span className="spin" style={{ position: 'absolute', top: '50%', left: '50%', marginTop: -8, marginLeft: -8 }} />}
+                        {state.uploading && <span className="spin spinner-center"  />}
                         {state.uploaded && <span className="tiny" style={{ position: 'absolute', bottom: 4, right: 6, background: 'var(--g)', color: '#fff', borderRadius: 6, padding: '1px 6px' }}>✓</span>}
                       </div>
                     ) : (
                       <div style={{ border: '1px dashed var(--line)', borderRadius: 9, padding: '18px 8px', textAlign: 'center' }}>
                         <div className="muted tiny" style={{ textTransform: 'capitalize' }}>{side}</div>
-                        <div className="muted tiny" style={{ marginTop: 2 }}>Tap to add</div>
+                        <div className="muted tiny mt-2" >Tap to add</div>
                       </div>
                     )}
                   </label>
@@ -634,20 +634,20 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
 
           <GroSays line="selfieConfirm" />
           <div className="card">
-            <div className="label" style={{ marginBottom: 8 }}>A selfie</div>
+            <div className="label mb-8" >A selfie</div>
             <label style={{ display: 'block', cursor: 'pointer' }}>
-              <input type="file" accept="image/*" capture="user" style={{ display: 'none' }}
+              <input type="file" accept="image/*" capture="user" className="hidden"
                 onChange={(e) => uploadIdPhoto('selfie', e.target.files?.[0] ?? null)} />
               {idSelfie?.preview ? (
                 <div style={{ position: 'relative', maxWidth: 160, margin: '0 auto' }}>
                   <img src={idSelfie.preview} alt="Your selfie" style={{ width: '100%', borderRadius: 9, display: 'block', opacity: idSelfie.uploading ? 0.5 : 1 }} />
-                  {idSelfie.uploading && <span className="spin" style={{ position: 'absolute', top: '50%', left: '50%', marginTop: -8, marginLeft: -8 }} />}
+                  {idSelfie.uploading && <span className="spin spinner-center"  />}
                   {idSelfie.uploaded && <span className="tiny" style={{ position: 'absolute', bottom: 4, right: 6, background: 'var(--g)', color: '#fff', borderRadius: 6, padding: '1px 6px' }}>✓</span>}
                 </div>
               ) : (
                 <div style={{ border: '1px dashed var(--line)', borderRadius: 9, padding: '18px 8px', textAlign: 'center', maxWidth: 160, margin: '0 auto' }}>
                   <div className="muted tiny">Selfie</div>
-                  <div className="muted tiny" style={{ marginTop: 2 }}>Tap to add</div>
+                  <div className="muted tiny mt-2" >Tap to add</div>
                 </div>
               )}
             </label>
@@ -656,7 +656,7 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
           <button className="btn btn-primary" onClick={() => setStep('about')}>
             Endelea — continue
           </button>
-          <button className="btn btn-ghost" style={{ width: '100%', marginTop: 4 }} onClick={() => setStep('about')}>
+          <button className="btn btn-ghost w-full mt-4"  onClick={() => setStep('about')}>
             Skip for now — I'll finish this later
           </button>
         </>
@@ -665,8 +665,8 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
       {step === 'about' && (
         <>
           <GroSays line="aboutCrops" />
-          <div className="card" style={{ marginTop: 12 }}>
-            <div className="label" style={{ marginBottom: 8 }}>What do you grow?</div>
+          <div className="card mt-12" >
+            <div className="label mb-8" >What do you grow?</div>
             <div className="tick-wrap">
               {Array.from(new Set([...(record?.known_crops ?? []), ...CROP_OPTIONS])).map((c) => {
                 const known = record?.known_crops.includes(c);
@@ -681,30 +681,30 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
               <button className={`tick-chip ${showOtherCrop ? 'tick-chip-on' : ''}`} onClick={() => setShowOtherCrop((s) => !s)}>Other</button>
             </div>
             {record?.known_crops && record.known_crops.length > 0 && (
-              <p className="tiny muted" style={{ marginTop: 6 }}>🔒 Already on your cooperative record.</p>
+              <p className="tiny muted mt-6" >🔒 Already on your cooperative record.</p>
             )}
             {showOtherCrop && (
-              <input className="input" style={{ marginTop: 8 }} placeholder="What else do you grow?"
+              <input className="input mt-8"  placeholder="What else do you grow?"
                 value={otherCropText} onChange={(e) => setOtherCropText(e.target.value)} />
             )}
           </div>
 
           <GroSays line="aboutIncome" />
-          <div className="card" style={{ marginTop: 12 }}>
-            <div className="label" style={{ marginBottom: 8 }}>Your sources of income</div>
+          <div className="card mt-12" >
+            <div className="label mb-8" >Your sources of income</div>
             {incomeSources.length === 0 && (
               <table style={{ width: '100%', fontSize: 17.5, marginBottom: 10, borderCollapse: 'collapse', opacity: 0.55 }}>
                 <thead>
                   <tr className="muted" style={{ fontSize: 15, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    <th style={{ textAlign: 'left', paddingBottom: 4 }}>Example</th><th></th><th style={{ textAlign: 'right', paddingBottom: 4 }}></th>
+                    <th className="text-left pb-4">Example</th><th></th><th style={{ textAlign: 'right', paddingBottom: 4 }}></th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr style={{ borderTop: '1px solid var(--line)' }}>
-                    <td style={{ padding: '5px 0' }}>Dhania</td><td style={{ padding: '5px 0' }}>Daily</td><td style={{ padding: '5px 0', textAlign: 'right' }}>KES 300</td>
+                  <tr className="border-top">
+                    <td className="row-pad-5">Dhania</td><td className="row-pad-5">Daily</td><td style={{ padding: '5px 0', textAlign: 'right' }}>KES 300</td>
                   </tr>
-                  <tr style={{ borderTop: '1px solid var(--line)' }}>
-                    <td style={{ padding: '5px 0' }}>Selling fish</td><td style={{ padding: '5px 0' }}>Daily</td><td style={{ padding: '5px 0', textAlign: 'right' }}>KES 2,000</td>
+                  <tr className="border-top">
+                    <td className="row-pad-5">Selling fish</td><td className="row-pad-5">Daily</td><td style={{ padding: '5px 0', textAlign: 'right' }}>KES 2,000</td>
                   </tr>
                 </tbody>
               </table>
@@ -713,15 +713,15 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
               <table style={{ width: '100%', fontSize: 17.5, marginBottom: 10, borderCollapse: 'collapse' }}>
                 <thead>
                   <tr className="muted" style={{ fontSize: 15, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    <th style={{ textAlign: 'left', paddingBottom: 4 }}>Activity</th>
-                    <th style={{ textAlign: 'left', paddingBottom: 4 }}>Frequency</th>
+                    <th className="text-left pb-4">Activity</th>
+                    <th className="text-left pb-4">Frequency</th>
                     <th style={{ textAlign: 'right', paddingBottom: 4 }}>Avg amount</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {incomeSources.map((row, i) => (
-                    <tr key={i} style={{ borderTop: '1px solid var(--line)' }}>
+                    <tr key={i} className="border-top">
                       <td style={{ padding: '7px 0' }}>{row.activity}</td>
                       <td style={{ padding: '7px 0' }}>{FREQUENCIES.find((f) => f.value === row.frequency)?.label}</td>
                       <td style={{ padding: '7px 0', textAlign: 'right' }}>{row.avgAmountKes !== undefined ? `KES ${row.avgAmountKes.toLocaleString()}` : '—'}</td>
@@ -757,7 +757,7 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
             {busy ? <span className="spin" /> : 'Maliza — finish'}
           </button>
           {incomeSources.length === 0 && (
-            <p className="tiny muted" style={{ textAlign: 'center', marginTop: 8 }}>
+            <p className="tiny muted text-center mt-8" >
               You can add income sources later, but they help us set the right loan for you.
             </p>
           )}
@@ -773,7 +773,7 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
             </h2>
             <GroSays line="farmDetails" />
             <div className="card">
-              <div className="label" style={{ marginBottom: 8 }}>Your farm</div>
+              <div className="label mb-8" >Your farm</div>
               <div className="field">
                 <label>{primaryCrop ? `Total ${primaryCrop} acres` : 'Total acres'}</label>
                 <input className="input" type="number" inputMode="decimal" placeholder="Acres"
@@ -784,14 +784,14 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
                 <input className="input" type="number" inputMode="decimal" placeholder="Acres"
                   value={cultivatedAcres} onChange={(e) => setCultivatedAcres(e.target.value)} />
               </div>
-              <div className="label" style={{ marginBottom: 8 }}>Land arrangement</div>
+              <div className="label mb-8" >Land arrangement</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
                 {LAND_ARRANGEMENTS.map((l) => (
                   <button key={l} className={`tick-chip tick-chip-row ${landArrangement === l ? 'tick-chip-on' : ''}`}
                     style={{ margin: 0 }} onClick={() => setLandArrangement(l)}>{l}</button>
                 ))}
               </div>
-              <div className="label" style={{ marginBottom: 8 }}>Farming experience</div>
+              <div className="label mb-8" >Farming experience</div>
               <select className="input" value={farmingExperience} onChange={(e) => setFarmingExperience(e.target.value)}>
                 <option value="">Select</option>
                 {FARMING_EXPERIENCE_OPTIONS.map((f) => <option key={f} value={f}>{f}</option>)}
@@ -800,7 +800,7 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
             <button className="btn btn-primary" disabled={busy} onClick={finishFarmDetails}>
               {busy ? <span className="spin" /> : 'Endelea — continue'}
             </button>
-            <button className="btn btn-ghost" style={{ width: '100%', marginTop: 4 }} onClick={() => setStep('seedPlanted')}>
+            <button className="btn btn-ghost w-full mt-4"  onClick={() => setStep('seedPlanted')}>
               Skip for now
             </button>
           </>
@@ -811,7 +811,7 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
         <>
           <GroSays line="seedPlanted" />
           <p className="muted" style={{ fontSize: 18, marginTop: 8 }}>You can update these answers any time. Gro will ask again when you apply for a loan.</p>
-          <button className="btn btn-primary" style={{ marginTop: 16 }} disabled={busy} onClick={goToCircleForm}>
+          <button className="btn btn-primary mt-16"  disabled={busy} onClick={goToCircleForm}>
             {busy ? <span className="spin" /> : 'Endelea — continue'}
           </button>
         </>
@@ -821,7 +821,7 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
         <>
           <h3 style={{ marginTop: 0, marginBottom: 12 }}>About Growth Chama</h3>
           <CircleFaq />
-          <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => goBackTo(faqReturnTo)}>Back</button>
+          <button className="btn btn-primary mt-12"  onClick={() => goBackTo(faqReturnTo)}>Back</button>
         </>
       )}
 
@@ -834,7 +834,7 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
           {!formExpanded ? (
             <>
               <button className="btn btn-primary" onClick={() => setFormExpanded(true)}>Form a Growth Chama</button>
-              <button className="btn btn-ghost" style={{ width: '100%', marginTop: 4 }} onClick={onComplete}>
+              <button className="btn btn-ghost w-full mt-4"  onClick={onComplete}>
                 Skip for now — I'll do this later
               </button>
             </>
@@ -844,7 +844,7 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
                 <input className="input" placeholder="Name your circle (optional)" value={circleName} onChange={(e) => setCircleName(e.target.value)} style={{ marginBottom: 10 }} />
                 {mates.filter((m) => !chosenMates.includes(m.id)).length === 0 && chosenMates.length === 0 ? (
                   <>
-                    <p className="muted" style={{ fontSize: 18.5 }}>No cluster-mates available yet — check back once more of your cluster has registered.</p>
+                    <p className="muted text-base" >No cluster-mates available yet — check back once more of your cluster has registered.</p>
                     {mateDiag && (
                       <p className="tiny muted" style={{ marginTop: 6, fontFamily: 'monospace', fontSize: 16 }}>
                         {mateDiag.reason === 'CALLER_HAS_NO_CLUSTER'
@@ -885,19 +885,19 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
                     })}
                   </div>
                 )}
-                <p className="tiny muted" style={{ marginTop: 8 }}>{chosenMates.length} of 4–9 added · you'll be the 1st member</p>
+                <p className="tiny muted mt-8" >{chosenMates.length} of 4–9 added · you'll be the 1st member</p>
               </div>
-              <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={busy || chosenMates.length < 4} onClick={createMyCircle}>
+              <button className="btn btn-primary mt-12"  disabled={busy || chosenMates.length < 4} onClick={createMyCircle}>
                 {busy ? <span className="spin" /> : 'I stand with these members'}
               </button>
               {chosenMates.length < 4 && (
-                <p className="tiny muted" style={{ textAlign: 'center', marginTop: 8 }}>
+                <p className="tiny muted text-center mt-8" >
                   {mates.length === 0
                     ? 'Waiting on more of your cluster to register before you can form a chama.'
                     : `Add ${4 - chosenMates.length} more to continue.`}
                 </p>
               )}
-              <button className="btn btn-ghost" style={{ width: '100%', marginTop: 4 }} onClick={onComplete}>
+              <button className="btn btn-ghost w-full mt-4"  onClick={onComplete}>
                 Skip for now — I'll do this later
               </button>
             </>
@@ -908,9 +908,9 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
       {step === 'circleWaiting' && myCircle && (
         <>
           <GroSays line="circleWaiting" />
-          <div className="card" style={{ marginTop: 12 }}>
-            <div className="row" style={{ marginBottom: 6 }}>
-              <span style={{ fontSize: 19.5, fontWeight: 600 }}>{myCircle.name}</span>
+          <div className="card mt-12" >
+            <div className="row mb-6" >
+              <span className="text-19 font-semibold">{myCircle.name}</span>
               <span className="tiny muted">{myCircle.members_confirmed} of {myCircle.member_count} members confirmed</span>
             </div>
             {myCircle.members.map((m) => (
@@ -931,13 +931,13 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
               </div>
             ))}
           </div>
-          <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={onComplete}>Continue to app</button>
+          <button className="btn btn-primary mt-12"  onClick={onComplete}>Continue to app</button>
           {myCircle.isHead && (
             confirmDissolve ? (
               <div className="card" style={{ marginTop: 12, borderColor: 'var(--clay)' }}>
-                <p style={{ margin: 0, fontSize: 17.5 }}>Delete this chama? Everyone in it is released and can form or join another. This can't be undone.</p>
+                <p className="m-0 text-17">Delete this chama? Everyone in it is released and can form or join another. This can't be undone.</p>
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setConfirmDissolve(false)}>Cancel</button>
+                  <button className="btn btn-ghost flex-1"  onClick={() => setConfirmDissolve(false)}>Cancel</button>
                   <button className="btn" style={{ flex: 1, background: 'var(--clay)', borderColor: 'var(--clay)', color: '#fff' }}
                     disabled={dissolving} onClick={dissolveMyCircle}>
                     {dissolving ? <span className="spin" /> : 'Delete'}
@@ -969,12 +969,12 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
             <span>What do I need to know about Growth Chama?</span>
             <span aria-hidden>⌄</span>
           </button>
-          <p className="muted" style={{ marginBottom: 12 }}>
+          <p className="muted mb-12" >
             {(() => { const founder = myCircle.members.find((m) => m.isHead); return founder ? `${founder.fullName} has invited you to join this circle.` : `You've been invited to join ${myCircle.name}.`; })()}
             {' '}You can agree, or untick anyone you don't want as a guarantor — unticking removes them from the circle right away.
           </p>
           {myCircle.state === 'CONTESTED' && (
-            <div className="err" style={{ marginBottom: 12 }}>
+            <div className="err mb-12" >
               This circle dropped below the members needed to activate. Add more members, or talk as a group about who should join.
             </div>
           )}
@@ -992,10 +992,10 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
               {declined.length === 1 ? 'That member' : `Those ${declined.length} members`} will be removed from the circle when you submit.
             </p>
           )}
-          <button className="btn btn-primary" style={{ marginTop: 2 }} disabled={busy} onClick={submitMyVouches}>
+          <button className="btn btn-primary mt-2"  disabled={busy} onClick={submitMyVouches}>
             {busy ? <span className="spin" /> : 'I stand with these members'}
           </button>
-          <p className="tiny muted" style={{ textAlign: 'center', marginTop: 8 }}>
+          <p className="tiny muted text-center mt-8" >
             {myCircle.members_confirmed} of {myCircle.member_count} members confirmed so far ·{' '}
             <button
               onClick={startNewCircleInstead}
@@ -1005,7 +1005,7 @@ export function Setup({ onComplete, jumpTo }: { onComplete: () => void; jumpTo?:
               {leaving ? 'leaving…' : 'start a new chama instead'}
             </button>
           </p>
-          <button className="btn btn-ghost" style={{ width: '100%', marginTop: 4 }} onClick={onComplete}>
+          <button className="btn btn-ghost w-full mt-4"  onClick={onComplete}>
             Skip for now — decide later
           </button>
         </>

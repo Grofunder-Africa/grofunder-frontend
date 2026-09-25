@@ -18,7 +18,7 @@ function Icon({ name }: { name: string }) {
     settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 9 19.36a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.64 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.64 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.64a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.36 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1z" /></>,
   };
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
       {p[name] ?? null}
     </svg>
   );
@@ -216,7 +216,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
   if (challenge) {
     return (
       <div className="screen screen-no-nav screen-pad-top">
-        <div className="center" style={{ marginBottom: 24 }}>
+        <div className="center mb-24" >
           <div className="brand brand-lg"><img src={logo} alt="grofunder" /></div>
         </div>
         <div className="gro-hero" style={{ marginBottom: 20 }}>
@@ -234,12 +234,12 @@ function SignIn({ onDone }: { onDone: () => void }) {
         <button className="btn btn-primary" disabled={busy || code.length !== 6} onClick={verify}>
           {busy ? <span className="spin" /> : 'Continue'}
         </button>
-        <p className="center muted" style={{ fontSize: 18.5, marginTop: 16 }}>
+        <p className="center muted text-base mt-16" >
           Didn't get it?{' '}
           <button className="back" style={{ color: 'var(--g)', fontWeight: 600, fontSize: 18.5 }}
             disabled={busy} onClick={resend}>Send again</button>
         </p>
-        <p className="center" style={{ marginTop: 4 }}>
+        <p className="center mt-4" >
           <button className="back" style={{ color: 'var(--mut)', fontSize: 18 }}
             onClick={() => { setChallenge(null); setErr(''); }}>Use a different number</button>
         </p>
@@ -275,9 +275,9 @@ function SignIn({ onDone }: { onDone: () => void }) {
       <div className="field">
         <label>{mode === 'register' ? 'Create PIN' : 'Password:'}</label>
         {mode === 'register' && (
-          <span className="hint" style={{ marginBottom: 6 }}>You will use this to sign in to this app.</span>
+          <span className="hint mb-6" >You will use this to sign in to this app.</span>
         )}
-        <div style={{ position: 'relative' }}>
+        <div className="rel">
           <input className="input pin-input" inputMode="numeric" maxLength={4} placeholder="••••"
             type={showPin ? 'text' : 'password'}
             value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} />
@@ -315,7 +315,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
         {busy ? <span className="spin" /> : mode === 'signin' ? 'Login' : 'Create account'}
       </button>
 
-      <p className="center muted" style={{ fontSize: 18.5, marginTop: 16 }}>
+      <p className="center muted text-base mt-16" >
         {mode === 'signin' ? <>New to <strong style={{ color: 'var(--ink)' }}>Grofunder</strong>? </> : 'Already registered? '}
         <button className="back" style={{ color: 'var(--g)', fontWeight: 700, fontSize: 18.5, textDecoration: 'underline' }}
           onClick={() => { setErr(''); setPin(''); setPinConfirm(''); setMode(mode === 'signin' ? 'register' : 'signin'); }}>
@@ -386,11 +386,11 @@ function ForgotPin({ onDone }: { onDone: () => void }) {
   if (step === 'done') {
     return (
       <div className="screen screen-no-nav screen-pad-top">
-        <div className="center" style={{ marginBottom: 24 }}>
+        <div className="center mb-24" >
           <div className="brand brand-lg"><img src={logo} alt="grofunder" /></div>
         </div>
         <div className="ok" style={{ textAlign: 'center' }}>Your PIN has been changed.</div>
-        <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={onDone}>Back to sign in</button>
+        <button className="btn btn-primary mt-16"  onClick={onDone}>Back to sign in</button>
       </div>
     );
   }
@@ -398,13 +398,13 @@ function ForgotPin({ onDone }: { onDone: () => void }) {
   if (step === 'newpin') {
     return (
       <div className="screen screen-no-nav screen-pad-top">
-        <div className="center" style={{ marginBottom: 24 }}>
+        <div className="center mb-24" >
           <div className="brand brand-lg"><img src={logo} alt="grofunder" /></div>
         </div>
         {err && <div className="err">{err}</div>}
         <div className="field">
           <label>New PIN</label>
-          <div style={{ position: 'relative' }}>
+          <div className="rel">
             <input className="input pin-input" inputMode="numeric" maxLength={4} placeholder="••••"
               type={showPin ? 'text' : 'password'}
               value={newPin} onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))} />
@@ -436,7 +436,7 @@ function ForgotPin({ onDone }: { onDone: () => void }) {
   if (step === 'otp' && challenge) {
     return (
       <div className="screen screen-no-nav screen-pad-top">
-        <div className="center" style={{ marginBottom: 24 }}>
+        <div className="center mb-24" >
           <div className="brand brand-lg"><img src={logo} alt="grofunder" /></div>
         </div>
         <div className="gro-hero" style={{ marginBottom: 20 }}>
@@ -454,12 +454,12 @@ function ForgotPin({ onDone }: { onDone: () => void }) {
         <button className="btn btn-primary" disabled={busy || code.length !== 6} onClick={verifyCode}>
           {busy ? <span className="spin" /> : 'Continue'}
         </button>
-        <p className="center muted" style={{ fontSize: 18.5, marginTop: 16 }}>
+        <p className="center muted text-base mt-16" >
           Didn't get it?{' '}
           <button className="back" style={{ color: 'var(--g)', fontWeight: 600, fontSize: 18.5 }}
             disabled={busy} onClick={resendCode}>Send again</button>
         </p>
-        <p className="center" style={{ marginTop: 4 }}>
+        <p className="center mt-4" >
           <button className="back" style={{ color: 'var(--mut)', fontSize: 18 }}
             onClick={() => { setChallenge(null); setErr(''); setStep('details'); }}>Use a different number</button>
         </p>
@@ -469,7 +469,7 @@ function ForgotPin({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="screen screen-no-nav screen-pad-top">
-      <button className="back" onClick={onDone} style={{ marginBottom: 12 }}>← Back to sign in</button>
+      <button className="back mb-12" onClick={onDone} >← Back to sign in</button>
       <h1 className="h1">Forgot your PIN?</h1>
       <p className="sub">Confirm your phone and ID number — we'll text you a code.</p>
       {err && <div className="err">{err}</div>}
@@ -559,7 +559,7 @@ function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
 
   useEffect(() => { load(); }, [load]);
 
-  if (loading) return <div className="screen center" style={{ paddingTop: 80 }}><span className="spin" /></div>;
+  if (loading) return <div className="screen center pt-80" ><span className="spin" /></div>;
 
   const isNew = score?.credit_score == null;
   const firstName = record?.full_name?.split(' ')[0] ?? 'rafiki';
@@ -590,10 +590,10 @@ function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
         {/* limit card — credit score is intentionally not shown to farmers;
             both score and limit are admin-set on the backend, this card
             just no longer surfaces the score itself */}
-        <div className="card card-green center" style={{ marginTop: 12 }}>
+        <div className="card card-green center mt-12" >
           <div className="label label-light">Your Loan Limit</div>
           <div className="limit-num" style={{ fontSize: 34 }}>{kes(score?.credit_limit_cents)}</div>
-          <div className="tiny label-light" style={{ marginTop: 2 }}>tree stage {score?.tree_stage ?? 1} of 5</div>
+          <div className="tiny label-light mt-2" >tree stage {score?.tree_stage ?? 1} of 5</div>
         </div>
 
         {isNew ? (
@@ -603,7 +603,7 @@ function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
             </p>
             {circle ? (
               <>
-                <p className="muted" style={{ fontSize: 18.5 }}>
+                <p className="muted text-base" >
                   {circle.name} is confirming: {circle.members_confirmed} of {circle.member_count} members confirmed so far.
                   Your first loan of up to {kes(500000)} opens the moment every member has confirmed every member.
                 </p>
@@ -613,7 +613,7 @@ function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
               </>
             ) : (
               <>
-                <p className="muted" style={{ fontSize: 18.5 }}>
+                <p className="muted text-base" >
                   Once your Growth Chama is active, your first loan of up to {kes(500000)} opens up. Repay well and your limit grows.
                 </p>
                 <button className="btn btn-ghost" style={{ width: '100%', fontSize: 18, marginTop: 8 }} onClick={onContinueSetup}>
@@ -624,8 +624,8 @@ function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
           </div>
         ) : activeLoan ? (
           <div className="card">
-            <div className="row" style={{ marginBottom: 8 }}>
-              <span style={{ fontSize: 19.5, fontWeight: 600 }}>Your loan</span>
+            <div className="row mb-8" >
+              <span className="text-19 font-semibold">Your loan</span>
               {activeLoan.instalmentsPaid > 0 && (
                 <svg viewBox="0 0 60 40" width="44" height="30" aria-hidden>
                   <path d="M30 38 L30 10" stroke="#067A0B" strokeWidth="3" strokeLinecap="round" />
@@ -654,8 +654,8 @@ function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
           </div>
         ) : (
           <div className="card">
-            <div className="row" style={{ marginBottom: 6 }}>
-              <span style={{ fontSize: 19.5, fontWeight: 600 }}>Your growth</span>
+            <div className="row mb-6" >
+              <span className="text-19 font-semibold">Your growth</span>
               <span className="tiny muted">tree stage {score?.tree_stage}/5</span>
             </div>
             <div className="vine">
@@ -668,7 +668,7 @@ function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
           </div>
         )}
 
-        <button className="btn btn-primary" style={{ marginTop: 4 }}
+        <button className="btn btn-primary mt-4" 
           disabled={isNew}
           onClick={onApply}>
           {isNew ? 'Apply · unlocks with your chama' : 'Apply for a loan'}
@@ -676,7 +676,7 @@ function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
 
         {/* record confirmation summary — collapsed by default; already
             shown in full once during setup, so Home only offers it */}
-        <div className="card" style={{ marginTop: 12 }}>
+        <div className="card mt-12" >
           <button
             onClick={() => setShowRecord((s) => !s)}
             style={{ width: '100%', border: 'none', background: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 0, cursor: 'pointer' }}
@@ -687,7 +687,7 @@ function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
             </svg>
           </button>
           {showRecord && (
-            <div style={{ marginTop: 8 }}>
+            <div className="mt-8">
               <RecordRow label="Name" value={record?.full_name ?? '—'} />
               <RecordRow label="Member no." value={record?.coop_member_no ?? '—'} />
               <RecordRow label="Cluster" value={record?.cluster_name ?? '—'} />
@@ -704,7 +704,7 @@ function Home({ onApply, onSignOut, onContinueSetup, onSettings }: {
 function RecordRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
   return (
     <div className="row" style={{ padding: '8px 0', borderBottom: last ? 'none' : '1px solid var(--line)' }}>
-      <span className="muted" style={{ fontSize: 18.5 }}>{label}</span>
+      <span className="muted text-base" >{label}</span>
       <span style={{ fontSize: 19, fontWeight: 500 }}>{value}</span>
     </div>
   );
@@ -764,14 +764,14 @@ function Settings({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="screen">
-      <button className="back" onClick={onBack} style={{ marginBottom: 12 }}>← Back</button>
+      <button className="back mb-12" onClick={onBack} >← Back</button>
       <h1 className="h1">Settings</h1>
       {err && <div className="err">{err}</div>}
 
       <div className="card">
-        <div className="label" style={{ marginBottom: 8 }}>Profile photo</div>
+        <div className="label mb-8" >Profile photo</div>
         <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => onPhotoFile(e.target.files?.[0] ?? null)} />
+          <input type="file" accept="image/*" className="hidden" onChange={(e) => onPhotoFile(e.target.files?.[0] ?? null)} />
           <div style={{ width: 56, height: 56, borderRadius: '50%', overflow: 'hidden', background: 'var(--g-tint)', flexShrink: 0, display: 'grid', placeItems: 'center', position: 'relative' }}>
             {photoPreview ? <img src={photoPreview} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: photoUploading ? 0.5 : 1 }} /> : <span className="muted tiny">Add</span>}
             {photoUploading && <span className="spin" style={{ position: 'absolute' }} />}
@@ -781,9 +781,9 @@ function Settings({ onBack }: { onBack: () => void }) {
       </div>
 
       <div className="card">
-        <div className="label" style={{ marginBottom: 8 }}>Username</div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <input className="input" style={{ flex: 1 }} placeholder="Pick a username"
+        <div className="label mb-8" >Username</div>
+        <div className="flex-gap-6">
+          <input className="input flex-1"  placeholder="Pick a username"
             value={username} onChange={(e) => { setUsername(e.target.value); setUsernameSaved(false); }} />
           <button className="btn btn-primary" style={{ width: 'auto', padding: '9px 16px' }}
             disabled={savingUsername || !username.trim()} onClick={saveUsername}>
@@ -794,7 +794,7 @@ function Settings({ onBack }: { onBack: () => void }) {
       </div>
 
       <div className="card">
-        <div className="label" style={{ marginBottom: 8 }}>Change PIN</div>
+        <div className="label mb-8" >Change PIN</div>
         <div className="field">
           <label>Current PIN</label>
           <input className="input pin-input" inputMode="numeric" maxLength={4} type="password" placeholder="••••"
@@ -921,7 +921,7 @@ function Apply({ onBack, onApplied, onFixInSetup }: { onBack: () => void; onAppl
     return (
       <div className="screen screen-pad-top">
         <button className="back" onClick={onBack}>← Back</button>
-        <h1 className="h1" style={{ marginTop: 8 }}>Before you can borrow</h1>
+        <h1 className="h1 mt-8" >Before you can borrow</h1>
         <p className="sub">A few things need to be in place first</p>
         {err && <div className="err">{err}</div>}
         <div className="stack">
@@ -933,7 +933,7 @@ function Apply({ onBack, onApplied, onFixInSetup }: { onBack: () => void; onAppl
                 style={clickable ? { width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', border: '1px solid var(--line)' } : undefined}
                 onClick={clickable ? it.fix : undefined}>
                 <span className="ready-check">{it.done ? '✓' : i + 1}</span>
-                <div style={{ flex: 1 }}>
+                <div className="flex-1">
                   <div className="ready-label">{it.label}</div>
                   <div className="ready-hint">{it.hint}</div>
                 </div>
@@ -961,13 +961,13 @@ function Apply({ onBack, onApplied, onFixInSetup }: { onBack: () => void; onAppl
                   return (
                     <label key={side} style={{ flex: 1, cursor: already ? 'default' : 'pointer' }}>
                       {!already && (
-                        <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+                        <input type="file" accept="image/*" capture="environment" className="hidden"
                           onChange={(e) => uploadIdPhoto(side, e.target.files?.[0] ?? null)} />
                       )}
                       {state?.preview ? (
-                        <div style={{ position: 'relative' }}>
+                        <div className="rel">
                           <img src={state.preview} alt={`ID ${side}`} style={{ width: '100%', borderRadius: 9, display: 'block', opacity: state.uploading ? 0.5 : 1 }} />
-                          {state.uploading && <span className="spin" style={{ position: 'absolute', top: '50%', left: '50%', marginTop: -8, marginLeft: -8 }} />}
+                          {state.uploading && <span className="spin spinner-center"  />}
                         </div>
                       ) : already ? (
                         <div style={{ border: '1px solid var(--g)', background: 'var(--g-tint)', borderRadius: 9, padding: '14px 8px', textAlign: 'center' }}>
@@ -976,7 +976,7 @@ function Apply({ onBack, onApplied, onFixInSetup }: { onBack: () => void; onAppl
                       ) : (
                         <div style={{ border: '1px dashed var(--line)', borderRadius: 9, padding: '14px 8px', textAlign: 'center' }}>
                           <div className="muted tiny" style={{ textTransform: 'capitalize' }}>{side}</div>
-                          <div className="muted tiny" style={{ marginTop: 2 }}>Tap to add</div>
+                          <div className="muted tiny mt-2" >Tap to add</div>
                         </div>
                       )}
                     </label>
@@ -993,7 +993,7 @@ function Apply({ onBack, onApplied, onFixInSetup }: { onBack: () => void; onAppl
   return (
     <div className="screen screen-pad-top">
       <button className="back" onClick={onBack}>← Back</button>
-      <h1 className="h1" style={{ marginTop: 8 }}>Apply for a loan</h1>
+      <h1 className="h1 mt-8" >Apply for a loan</h1>
       <p className="sub">How much would you like from Grofunder?</p>
 
       {err && <div className="err">{err}</div>}
@@ -1010,7 +1010,7 @@ function Apply({ onBack, onApplied, onFixInSetup }: { onBack: () => void; onAppl
           <ellipse cx="100" cy="27" rx="10" ry="6" fill="#5DCAA5" />
           <circle cx="86" cy="60" r="4" fill="#E24B4A" /><circle cx="114" cy="58" r="4" fill="#E24B4A" /><circle cx="100" cy="40" r="4" fill="#E24B4A" />
         </svg>
-        <p className="tiny muted" style={{ marginTop: 2 }}>Tree stage {score?.tree_stage ?? 1} of 5</p>
+        <p className="tiny muted mt-2" >Tree stage {score?.tree_stage ?? 1} of 5</p>
       </div>
 
       <div className="card">
@@ -1023,7 +1023,7 @@ function Apply({ onBack, onApplied, onFixInSetup }: { onBack: () => void; onAppl
       </div>
 
       <div className="card">
-        <div className="label" style={{ marginBottom: 10 }}>Repayment term</div>
+        <div className="label mb-10" >Repayment term</div>
         <div className="pills">
           {[8, 12, 16].map((w) => (
             <button key={w} className={`pill ${weeks === w ? 'pill-active' : ''}`} onClick={() => setWeeks(w)}>
@@ -1064,7 +1064,7 @@ function Apply({ onBack, onApplied, onFixInSetup }: { onBack: () => void; onAppl
 function SummaryRow({ label, value, strong, last }: { label: string; value: string; strong?: boolean; last?: boolean }) {
   return (
     <div className="row" style={{ padding: '8px 0', borderBottom: last ? 'none' : '1px solid var(--line)' }}>
-      <span className="muted" style={{ fontSize: 18.5 }}>{label}</span>
+      <span className="muted text-base" >{label}</span>
       <span style={{ fontSize: strong ? 16 : 14, fontWeight: strong ? 700 : 500, color: strong ? 'var(--g-dark)' : 'inherit' }}>{value}</span>
     </div>
   );
@@ -1089,7 +1089,7 @@ function Schedule({ loanId, onBack }: { loanId: string; onBack: () => void }) {
     })();
   }, [loanId]);
 
-  if (loading) return <div className="screen center" style={{ paddingTop: 80 }}><span className="spin" /></div>;
+  if (loading) return <div className="screen center pt-80" ><span className="spin" /></div>;
 
   const statusText: Record<string, string> = {
     SUBMITTED: 'Sent to your cooperative for review',
@@ -1105,12 +1105,12 @@ function Schedule({ loanId, onBack }: { loanId: string; onBack: () => void }) {
   return (
     <div className="screen screen-pad-top">
       <button className="back" onClick={onBack}>← Back</button>
-      <h1 className="h1" style={{ marginTop: 8 }}>Your loan</h1>
-      <div className="ok" style={{ marginTop: 4 }}>{statusText[status] ?? status}</div>
+      <h1 className="h1 mt-8" >Your loan</h1>
+      <div className="ok mt-4" >{statusText[status] ?? status}</div>
 
       {instalments.length > 0 ? (
         <div className="card">
-          <div className="label" style={{ marginBottom: 10 }}>Repayment schedule</div>
+          <div className="label mb-10" >Repayment schedule</div>
           {instalments.filter((i) => i.seq_no < 1000).map((i) => (
             <div key={i.seq_no} className="row" style={{ padding: '9px 0', borderBottom: '1px solid var(--line)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1182,7 +1182,7 @@ function Messages({ onRead, onBack }: { onRead: () => void; onBack: () => void }
 
   return (
     <div className="screen">
-      <button className="back" onClick={onBack} style={{ marginBottom: 12 }}>← Back</button>
+      <button className="back mb-12" onClick={onBack} >← Back</button>
       <div className="screen-head">
         <h1>Messages</h1>
         {anyUnread && <button className="link-btn" onClick={markAll}>Mark all read</button>}
@@ -1191,9 +1191,9 @@ function Messages({ onRead, onBack }: { onRead: () => void; onBack: () => void }
       <button className="card" onClick={() => { setPendingAsk(undefined); setView('gro'); }}
         style={{ width: '100%', textAlign: 'left', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center', border: '1px solid var(--g)', background: 'var(--g-tint2)' }}>
         <Gro mood="happy" />
-        <div style={{ flex: 1 }}>
+        <div className="flex-1">
           <div style={{ fontWeight: 500, marginBottom: 2 }}>Chat with Gro</div>
-          <div className="muted" style={{ fontSize: 18.5 }}>Hi, I am Gro. Click hapa tuongee</div>
+          <div className="muted text-base" >Hi, I am Gro. Click hapa tuongee</div>
         </div>
         <span className="muted" aria-hidden style={{ fontSize: 26, lineHeight: 1 }}>›</span>
       </button>
@@ -1308,15 +1308,15 @@ function GroChat({ onBack, initialAskId }: { onBack: () => void; initialAskId?: 
       </div>
 
       {remaining.length > 0 && (
-        <div className="tick-wrap" style={{ marginBottom: 10 }}>
+        <div className="tick-wrap mb-10" >
           {remaining.map((q) => (
             <button key={q.id} className="tick-chip" onClick={() => ask(q)}>{q.label}</button>
           ))}
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 6 }}>
-        <input className="input" style={{ flex: 1 }} placeholder="Andika kitu kingine…"
+      <div className="flex-gap-6">
+        <input className="input flex-1"  placeholder="Andika kitu kingine…"
           value={text} onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') sendFree(); }} />
         <button className="btn btn-primary" style={{ width: 'auto', padding: '9px 16px' }}
@@ -1343,7 +1343,7 @@ function ComposeMessage({ onBack }: { onBack: () => void }) {
   return (
     <div className="screen">
       <button className="back" onClick={onBack}>← Back</button>
-      <h1 className="h1" style={{ marginTop: 8 }}>New message</h1>
+      <h1 className="h1 mt-8" >New message</h1>
       {err && <div className="err">{err}</div>}
       <div className="field">
         <label>Send to</label>
@@ -1404,9 +1404,9 @@ function Records({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="screen">
-      <button className="back" onClick={onBack} style={{ marginBottom: 8 }}>← Back</button>
+      <button className="back mb-8" onClick={onBack} >← Back</button>
       <div className="topbar"><span className="brand"><img src={logo} alt="grofunder" /></span></div>
-      <h1 className="h1" style={{ marginTop: 8 }}>My records</h1>
+      <h1 className="h1 mt-8" >My records</h1>
       <p className="sub">What your cooperative has recorded for you</p>
 
       {loading ? (
@@ -1415,15 +1415,15 @@ function Records({ onBack }: { onBack: () => void }) {
         <>
           {summary && summary.totalDeliveries > 0 && (
             <div className="card">
-              <div className="label" style={{ marginBottom: 8 }}>Your last delivery</div>
+              <div className="label mb-8" >Your last delivery</div>
               <table style={{ width: '100%', fontSize: 18 }}><tbody>
-                <tr><td className="muted" style={{ padding: '4px 0' }}>Last produce quantity</td><td style={{ textAlign: 'right' }}>{summary.lastDelivery?.quantityKg.toLocaleString()} kg {summary.lastDelivery?.product}</td></tr>
-                <tr><td className="muted" style={{ padding: '4px 0' }}>Last produce date</td><td style={{ textAlign: 'right' }}>{summary.lastDelivery && new Date(summary.lastDelivery.date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</td></tr>
-                <tr><td className="muted" style={{ padding: '4px 0' }}>Last produce amount</td><td style={{ textAlign: 'right' }}>{summary.lastDelivery && kes(summary.lastDelivery.earningsCents)}</td></tr>
-                <tr><td className="muted" style={{ padding: '4px 0' }}>Next produce date</td><td style={{ textAlign: 'right' }}>{summary.nextExpectedDate ? new Date(summary.nextExpectedDate).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td></tr>
+                <tr><td className="muted row-pad-4" >Last produce quantity</td><td className="text-right">{summary.lastDelivery?.quantityKg.toLocaleString()} kg {summary.lastDelivery?.product}</td></tr>
+                <tr><td className="muted row-pad-4" >Last produce date</td><td className="text-right">{summary.lastDelivery && new Date(summary.lastDelivery.date).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}</td></tr>
+                <tr><td className="muted row-pad-4" >Last produce amount</td><td className="text-right">{summary.lastDelivery && kes(summary.lastDelivery.earningsCents)}</td></tr>
+                <tr><td className="muted row-pad-4" >Next produce date</td><td className="text-right">{summary.nextExpectedDate ? new Date(summary.nextExpectedDate).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td></tr>
               </tbody></table>
               {summary.nextExpectedDate && (
-                <p className="tiny muted" style={{ marginTop: 4 }}>Estimated from your own delivery pattern — not confirmed by your cooperative.</p>
+                <p className="tiny muted mt-4" >Estimated from your own delivery pattern — not confirmed by your cooperative.</p>
               )}
 
               {flagged ? (
@@ -1434,10 +1434,10 @@ function Records({ onBack }: { onBack: () => void }) {
                 <div className="ok" style={{ marginTop: 10, fontSize: 17 }}>Thanks — confirmed.</div>
               ) : showFlag ? (
                 <div style={{ marginTop: 10 }}>
-                  <p className="tiny muted" style={{ marginBottom: 6 }}>What looks wrong? You can tell us what you think is correct.</p>
+                  <p className="tiny muted mb-6" >What looks wrong? You can tell us what you think is correct.</p>
                   <textarea className="input" rows={3} placeholder="What's not right? (optional)"
                     value={flagDetails} onChange={(e) => setFlagDetails(e.target.value)} />
-                  <p className="tiny muted" style={{ marginTop: 6 }}>Please note that your input will not override the input from your cooperative.</p>
+                  <p className="tiny muted mt-6" >Please note that your input will not override the input from your cooperative.</p>
                   <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
                     <button className="btn btn-ghost" style={{ flex: 1, fontSize: 18 }} onClick={() => setShowFlag(false)}>Cancel</button>
                     <button className="btn btn-primary" style={{ flex: 1, fontSize: 18, padding: 8 }} disabled={flagBusy} onClick={submitFlag}>
@@ -1460,15 +1460,15 @@ function Records({ onBack }: { onBack: () => void }) {
             </button>
           )}
           {showTotals && summary && (
-            <div className="card" style={{ marginBottom: 12 }}>
+            <div className="card mb-12" >
               <table style={{ width: '100%', fontSize: 18 }}><tbody>
-                <tr><td className="muted" style={{ padding: '4px 0' }}>Total deliveries to cooperative</td><td style={{ textAlign: 'right' }}>{summary.totalDeliveries}</td></tr>
-                <tr><td className="muted" style={{ padding: '4px 0' }}>Total amount received from cooperative</td><td style={{ textAlign: 'right' }}>{kes(summary.netReceivedCents)}</td></tr>
-                <tr><td className="muted" style={{ padding: '4px 0' }}>Total kg produced so far</td><td style={{ textAlign: 'right' }}>{summary.totalKg.toLocaleString()} kg</td></tr>
-                <tr><td className="muted" style={{ padding: '4px 0' }}>Average quantity per week</td><td style={{ textAlign: 'right' }}>{summary.avgKgPerWeek.toLocaleString(undefined, { maximumFractionDigits: 1 })} kg</td></tr>
-                <tr><td className="muted" style={{ padding: '4px 0' }}>Average income per week</td><td style={{ textAlign: 'right' }}>{kes(Math.round(summary.avgEarningsCentsPerWeek))}</td></tr>
+                <tr><td className="muted row-pad-4" >Total deliveries to cooperative</td><td className="text-right">{summary.totalDeliveries}</td></tr>
+                <tr><td className="muted row-pad-4" >Total amount received from cooperative</td><td className="text-right">{kes(summary.netReceivedCents)}</td></tr>
+                <tr><td className="muted row-pad-4" >Total kg produced so far</td><td className="text-right">{summary.totalKg.toLocaleString()} kg</td></tr>
+                <tr><td className="muted row-pad-4" >Average quantity per week</td><td className="text-right">{summary.avgKgPerWeek.toLocaleString(undefined, { maximumFractionDigits: 1 })} kg</td></tr>
+                <tr><td className="muted row-pad-4" >Average income per week</td><td className="text-right">{kes(Math.round(summary.avgEarningsCentsPerWeek))}</td></tr>
               </tbody></table>
-              <p className="tiny muted" style={{ marginTop: 6 }}>Amount received is earnings after any deductions. Averages are calculated across your full delivery history.</p>
+              <p className="tiny muted mt-6" >Amount received is earnings after any deductions. Averages are calculated across your full delivery history.</p>
             </div>
           )}
 
@@ -1533,12 +1533,12 @@ function Community({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="screen">
-      <button className="back" onClick={onBack} style={{ marginBottom: 8 }}>← Back</button>
+      <button className="back mb-8" onClick={onBack} >← Back</button>
       <div className="topbar">
         <span className="brand"><img src={logo} alt="grofunder" /></span>
         <button className="btn-share" onClick={() => setComposing(true)}>+ Share</button>
       </div>
-      <h1 className="h1" style={{ marginTop: 4 }}>Community</h1>
+      <h1 className="h1 mt-4" >Community</h1>
       <p className="sub">Photos from your cluster, circle and cooperative</p>
       {loading ? (
         <div className="loading"><span className="spin" /></div>
@@ -1614,7 +1614,7 @@ function Compose({ onDone, onCancel }: { onDone: () => void; onCancel: () => voi
   return (
     <div className="screen screen-pad-top">
       <button className="back" onClick={onCancel}>← Back</button>
-      <h1 className="h1" style={{ marginTop: 8 }}>Share a photo</h1>
+      <h1 className="h1 mt-8" >Share a photo</h1>
       <p className="sub">Circle meetups, farm activities — show your community</p>
       {err && <div className="err">{err}</div>}
 
@@ -1623,26 +1623,26 @@ function Compose({ onDone, onCancel }: { onDone: () => void; onCancel: () => voi
           {preview ? <img src={preview} alt="preview" className="photo-preview" /> : (
             <div className="photo-empty"><Icon name="community" /><span>Tap to add a photo</span></div>
           )}
-          <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+          <input type="file" accept="image/*" capture="environment" className="hidden"
             onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
         </label>
       </div>
 
       <div className="card">
-        <div className="label" style={{ marginBottom: 8 }}>Caption</div>
+        <div className="label mb-8" >Caption</div>
         <textarea className="input" rows={3} maxLength={600} value={caption} onChange={(e) => setCaption(e.target.value)}
           placeholder="Say something about this photo…" />
       </div>
 
       <div className="card">
-        <div className="label" style={{ marginBottom: 10 }}>Share with</div>
+        <div className="label mb-10" >Share with</div>
         <label className="share-opt"><input type="checkbox" checked={toCluster} onChange={(e) => setToCluster(e.target.checked)} /> My cluster</label>
         <label className="share-opt"><input type="checkbox" checked={toCircle} onChange={(e) => setToCircle(e.target.checked)} /> My circle</label>
         <label className="share-opt"><input type="checkbox" checked={toCooperative} onChange={(e) => setToCooperative(e.target.checked)} /> Whole cooperative</label>
       </div>
 
       <div className="card">
-        <div className="label" style={{ marginBottom: 6 }}>Grofunder website</div>
+        <div className="label mb-6" >Grofunder website</div>
         <p className="muted" style={{ fontSize: 18, marginBottom: 10 }}>
           Offer this photo for the Grofunder website. Reviewed before publishing.
         </p>
