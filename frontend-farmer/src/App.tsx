@@ -319,7 +319,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
         {mode === 'signin' ? <>New to <strong style={{ color: 'var(--ink)' }}>Grofunder</strong>? </> : 'Already registered? '}
         <button className="back" style={{ color: 'var(--g)', fontWeight: 700, fontSize: 18.5, textDecoration: 'underline' }}
           onClick={() => { setErr(''); setPin(''); setPinConfirm(''); setMode(mode === 'signin' ? 'register' : 'signin'); }}>
-          {mode === 'signin' ? 'Sign Up' : 'Sign in'}
+          {mode === 'signin' ? 'Register' : 'Sign in'}
         </button>
       </p>
     </div>
