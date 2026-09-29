@@ -263,7 +263,6 @@ function SignIn({ onDone }: { onDone: () => void }) {
         <label>Phone number:</label>
         <input className="input" inputMode="tel" placeholder="0722 000 000" value={phone}
           onChange={(e) => setPhone(e.target.value)} />
-        <span className="hint" style={{ fontSize: 16, marginTop: 4 }}>07.. or 01..</span>
       </div>
       {mode === 'register' && (
         <div className="field">
@@ -273,7 +272,15 @@ function SignIn({ onDone }: { onDone: () => void }) {
         </div>
       )}
       <div className="field">
-        <label>{mode === 'register' ? 'Create PIN' : 'Password:'}</label>
+        <div className="row" style={{ marginBottom: 6 }}>
+          <label style={{ marginBottom: 0 }}>{mode === 'register' ? 'Create PIN' : 'Password:'}</label>
+          {mode === 'signin' && (
+            <button type="button" onClick={() => { setErr(''); setForgotPin(true); }}
+              style={{ border: 'none', background: 'none', color: 'var(--mut)', fontSize: 15, textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>
+              Forgot PIN?
+            </button>
+          )}
+        </div>
         {mode === 'register' && (
           <span className="hint mb-6" >You will use this to sign in to this app.</span>
         )}
@@ -282,20 +289,15 @@ function SignIn({ onDone }: { onDone: () => void }) {
             type={showPin ? 'text' : 'password'}
             value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} />
           <button type="button" onClick={() => setShowPin((v) => !v)}
-            style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-                     background: 'var(--g-tint)', border: '1px solid var(--line)', borderRadius: 8,
-                     color: 'var(--g-dark)', fontSize: 17.5, fontWeight: 500, padding: '6px 10px',
-                     cursor: 'pointer', fontFamily: 'inherit' }}>
+            aria-label={showPin ? 'Hide PIN' : 'Show PIN'}
+            style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                     background: 'none', border: 'none',
+                     color: 'var(--mut)', fontSize: 14, fontWeight: 500,
+                     cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
             {showPin ? 'Hide' : 'Show'}
           </button>
         </div>
         {mode === 'register' && pinProblem && <span className="hint hint-warn">{pinProblem}</span>}
-        {mode === 'signin' && (
-          <button type="button" onClick={() => { setErr(''); setForgotPin(true); }}
-            style={{ border: 'none', background: 'none', color: 'var(--mut)', fontSize: 17, textDecoration: 'underline', cursor: 'pointer', padding: 0, marginTop: 6 }}>
-            Forgot PIN?
-          </button>
-        )}
       </div>
 
       {mode === 'register' && (
