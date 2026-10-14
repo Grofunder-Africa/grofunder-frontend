@@ -20,7 +20,15 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const res = await fetch(BASE + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
   const text = await res.text();
   const data = text ? JSON.parse(text) : {};
-  if (!res.ok) { const e = data?.error ?? {}; throw new ApiError(e.code ?? 'ERROR', e.message ?? 'Something went wrong', res.status); }
+  if (!res.ok) {
+    // A 401 on a signed-in request means the session ended or the account was disabled.
+    if (res.status === 401 && token) {
+      setToken(null);
+      window.dispatchEvent(new Event('gf:session-expired'));
+    }
+    const e = data?.error ?? {};
+    throw new ApiError(e.code ?? 'ERROR', e.message ?? 'Something went wrong', res.status);
+  }
   return data as T;
 }
 export const api = {
@@ -42,6 +50,15 @@ export interface Pipeline { stages: PipelineStage[]; loans: PipelineLoan[] }
 export interface Weights { repayment: number; delivery: number; circle: number; tenure_savings: number; declared: number }
 export interface AdminMe { id: string; email: string; full_name: string | null; admin_level: string; must_change_password: boolean }
 export interface AdminUser { id: string; email: string; full_name: string | null; admin_level: string; status: string; last_login_at: string | null; created_at: string }
+export interface ReportSummary {
+  asOf: string; farmers: number;
+  cooperatives: { total: number; active: number };
+  loans: { disbursed: number };
+  repayment: { active: number; late: number; delayed: number; defaulted: number };
+  pendingDisbursement: { total: number; approved: number; sentToPartner: number };
+}
+export interface RecoveryRequest { id: string; created_at: string; email: string; full_name: string | null; admin_level: string }
+export interface AuditEntry { id: string; created_at: string; method: string; path: string; status_code: number; body: unknown; actor_email: string | null }
 export interface LadderStep { step: number; limit_cents: number; min_score: number; min_loans_closed: number }
 export interface CustomFeature { key: string; label: string; weight: number; kind: 'COMPUTABLE' | 'EXTERNAL'; source: string; active: boolean }
 export interface Rules { version: number; weights: Weights; ladder: LadderStep[]; mismatch_discount_threshold_bps: number; custom_features?: CustomFeature[] }
@@ -87,9 +104,16 @@ export const adminApi = {
   deleteCoop: (id: string, reason?: string) =>
     api.del<{ ok: boolean; deleted: boolean }>(`/cooperatives/${id}`, { reason }),
 
+  reportSummary: () => api.get<ReportSummary>('/reports/summary'),
+
   me: () => api.get<AdminMe>('/account/me'),
   changePassword: (currentPassword: string, newPassword: string) =>
-    api.put<{ ok: boolean }>('/account/password', { currentPassword, newPassword }),
+    api.put<{ ok: boolean; token: string }>('/account/password', { currentPassword, newPassword }),
+  requestRecovery: (email: string) => api.post<{ ok: boolean }>('/auth/admin-recovery', { email }),
+  recoveryRequests: () => api.get<{ data: RecoveryRequest[] }>('/account/recovery-requests'),
+  approveRecovery: (id: string) =>
+    api.post<{ email: string; tempPassword: string }>(`/account/recovery-requests/${id}/approve`, {}),
+  denyRecovery: (id: string) => api.post<{ ok: boolean }>(`/account/recovery-requests/${id}/deny`, {}),
   changeEmail: (email: string) => api.put<{ ok: boolean }>('/account/email', { email }),
   listAdmins: () => api.get<{ data: AdminUser[] }>('/account/admins'),
   inviteAdmin: (email: string, fullName: string, level: string, tempPassword: string) =>
@@ -97,6 +121,9 @@ export const adminApi = {
   changeAdminLevel: (id: string, level: string) =>
     api.put<{ ok: boolean }>(`/account/admins/${id}/level`, { level }),
   revokeAdmin: (id: string) => api.post<{ ok: boolean }>(`/account/admins/${id}/revoke`, {}),
+  auditLog: () => api.get<{ data: AuditEntry[] }>('/account/audit-log'),
+  partnerMode: () => api.get<{ mode: 'MOCK' | 'LIVE' }>('/loans/system/partner-mode'),
+  smsMode: () => api.get<{ mode: 'MOCK' | 'LIVE' }>('/admin-messaging/mode'),
 
   suspensions: () => api.get<Suspensions>('/access/suspensions'),
   suspend: (level: string, id: string, reason: string) =>

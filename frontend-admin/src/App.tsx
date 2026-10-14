@@ -1,27 +1,74 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 import { adminApi, setToken, getToken, kes, ApiError } from './api';
 import logo from './assets/grofunder-logo.png';
-import type { Cooperative, Rules, Weights, ReconRow, Exception, Loan, LoanFlow, AdminMe, AdminUser, CoopChildren, CustomFeature, MessageCampaign, Pipeline, ImportPreview, ImportBody, WebsiteSubmission } from './api';
+import type { Cooperative, Rules, Weights, ReconRow, Exception, Loan, LoanFlow, AdminMe, AdminUser, RecoveryRequest, ReportSummary, CoopChildren, CustomFeature, MessageCampaign, Pipeline, ImportPreview, ImportBody, WebsiteSubmission, AuditEntry } from './api';
 
-type Tab = 'overview' | 'cooperatives' | 'loans' | 'pipeline' | 'credit' | 'reconciliation' | 'messaging' | 'photos' | 'import' | 'export' | 'account';
+type Tab = 'overview' | 'cooperatives' | 'loans' | 'pipeline' | 'reports' | 'credit' | 'reconciliation' | 'messaging' | 'photos' | 'import' | 'export' | 'account';
+// Permission level of the signed-in admin. The server enforces every rule; the UI
+// only hides or disables what the server would refuse anyway.
+type Level = 'OWNER' | 'FULL' | 'OPERATIONS' | 'VIEW_ONLY';
+const LevelCtx = createContext<Level | null>(null);
+function can(level: Level | null, ...allowed: Level[]): boolean { return !!level && allowed.includes(level); }
 
 export default function App() {
   const [authed, setAuthed] = useState(!!getToken());
+  useEffect(() => {
+    const expired = () => setAuthed(false);
+    window.addEventListener('gf:session-expired', expired);
+    return () => window.removeEventListener('gf:session-expired', expired);
+  }, []);
   if (!authed) return <Login onDone={() => setAuthed(true)} />;
   return <Portal onSignOut={() => { setToken(null); setAuthed(false); }} />;
 }
 
 function Login({ onDone }: { onDone: () => void }) {
+  const [mode, setMode] = useState<'signin' | 'forgot'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
   async function submit() {
     setErr(''); setBusy(true);
     try { const { token } = await adminApi.login(email, password); setToken(token); onDone(); }
     catch (e) { setErr(e instanceof ApiError ? e.message : 'Something went wrong'); }
     finally { setBusy(false); }
   }
+  async function askForReset() {
+    setErr(''); setBusy(true);
+    try { await adminApi.requestRecovery(email.trim()); setSent(true); }
+    catch (e) { setErr(e instanceof ApiError ? e.message : 'Something went wrong'); }
+    finally { setBusy(false); }
+  }
+  function back() { setMode('signin'); setSent(false); setErr(''); }
+
+  if (mode === 'forgot') {
+    return (
+      <div className="auth-wrap">
+        <div className="auth-card">
+          <div className="auth-brand"><img src={logo} alt="grofunder" /></div>
+          <p className="muted auth-sub">Reset your password</p>
+          {err && <div className="err">{err}</div>}
+          {sent ? (
+            <>
+              <div className="ok">Request sent. If that email belongs to an admin, an owner has been told. Once they approve it, they will give you a temporary password, and you will choose your own when you sign in.</div>
+              <button className="btn btn-ghost" style={{ width: '100%' }} onClick={back}>Back to sign in</button>
+            </>
+          ) : (
+            <>
+              <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>Enter your admin email. An owner has to approve the reset before anything changes.</p>
+              <div className="field"><label>Email</label>
+                <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@grofunder.co.ke" onKeyDown={(e) => e.key === 'Enter' && email.trim() && askForReset()} /></div>
+              <button className="btn btn-primary" style={{ width: '100%' }} disabled={busy || !email.trim()} onClick={askForReset}>
+                {busy ? <span className="spin" /> : 'Ask an owner to reset it'}</button>
+              <button className="link-btn" onClick={back}>Back to sign in</button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="auth-wrap">
       <div className="auth-card">
@@ -34,6 +81,41 @@ function Login({ onDone }: { onDone: () => void }) {
           <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" onKeyDown={(e) => e.key === 'Enter' && submit()} /></div>
         <button className="btn btn-primary" style={{ width: '100%' }} disabled={busy} onClick={submit}>
           {busy ? <span className="spin" /> : 'Sign in'}</button>
+        <button className="link-btn" onClick={() => { setMode('forgot'); setErr(''); }}>Forgot your password?</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Forced password change (temporary password) ---------- */
+function ForcePasswordChange({ onDone, onSignOut }: { onDone: () => void; onSignOut: () => void }) {
+  const [cur, setCur] = useState(''); const [nw, setNw] = useState(''); const [nw2, setNw2] = useState('');
+  const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  async function submit() {
+    setErr('');
+    if (nw.length < 8) { setErr('New password must be at least 8 characters'); return; }
+    if (nw !== nw2) { setErr('New passwords do not match'); return; }
+    setBusy(true);
+    try { const r = await adminApi.changePassword(cur, nw); setToken(r.token); onDone(); }
+    catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not change password'); }
+    finally { setBusy(false); }
+  }
+  return (
+    <div className="auth-wrap">
+      <div className="auth-card">
+        <div className="auth-brand"><img src={logo} alt="grofunder" /></div>
+        <p className="muted auth-sub">Choose your own password</p>
+        <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>You signed in with a temporary password. Set your own before you continue.</p>
+        {err && <div className="err">{err}</div>}
+        <div className="field"><label>Temporary password</label>
+          <input className="input" type="password" autoComplete="current-password" value={cur} onChange={(e) => setCur(e.target.value)} /></div>
+        <div className="field"><label>New password</label>
+          <input className="input" type="password" autoComplete="new-password" value={nw} onChange={(e) => setNw(e.target.value)} placeholder="at least 8 characters" /></div>
+        <div className="field"><label>Confirm new password</label>
+          <input className="input" type="password" autoComplete="new-password" value={nw2} onChange={(e) => setNw2(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && cur && nw && nw2 && submit()} /></div>
+        <button className="btn btn-primary" style={{ width: '100%' }} disabled={busy || !cur || !nw || !nw2} onClick={submit}>
+          {busy ? <span className="spin" /> : 'Save and continue'}</button>
+        <button className="link-btn" onClick={onSignOut}>Sign out</button>
       </div>
     </div>
   );
@@ -45,6 +127,7 @@ function NavIcon({ name }: { name: string }) {
     cooperatives: <><circle cx="9" cy="8" r="3" /><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" /><path d="M16 5.3A3 3 0 0 1 16 13" /><path d="M21 20c0-2.6-1.7-4.8-4-5.6" /></>,
     loans: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7v10M9.5 9.5c0-1.1 1.1-2 2.5-2s2.5.9 2.5 2-1.1 2-2.5 2-2.5.9-2.5 2 1.1 2 2.5 2 2.5-.9 2.5-2" /></>,
     pipeline: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>,
+    reports: <><path d="M6 3h9l4 4v14H6z" /><path d="M14 3v5h5" /><path d="M9 13h7M9 17h5" /></>,
     credit: <><path d="M12 3v18M5 8l7-5 7 5" /><circle cx="5" cy="12" r="2.5" /><circle cx="19" cy="12" r="2.5" /></>,
     reconciliation: <><path d="M8 7h8a4 4 0 0 1 0 8H8" /><path d="M11 4 8 7l3 3M13 12l3 3-3 3" /></>,
     messaging: <><path d="M4 5h16v12H8l-4 3z" /></>,
@@ -62,11 +145,31 @@ function NavIcon({ name }: { name: string }) {
 
 function Portal({ onSignOut }: { onSignOut: () => void }) {
   const [tab, setTab] = useState<Tab>('overview');
+  const [level, setLevel] = useState<Level | null>(null);
+  const [levelErr, setLevelErr] = useState('');
+  const [mustChange, setMustChange] = useState(false);
+  const [pending, setPending] = useState(0); // password-recovery requests waiting for an owner
+  useEffect(() => {
+    adminApi.me().then((m) => { setLevel(m.admin_level as Level); setMustChange(m.must_change_password); })
+      .catch((e) => setLevelErr(e instanceof ApiError ? e.message : 'Could not load your account. Refresh to try again.'));
+  }, []);
+  // Owners are told when an admin is waiting for a password reset. Checked once a minute.
+  useEffect(() => {
+    if (level !== 'OWNER' || mustChange) return;
+    let live = true;
+    const check = () => adminApi.recoveryRequests().then((r) => { if (live) setPending(r.data.length); }).catch(() => { /* the banner is a convenience; the Account page shows real errors */ });
+    check();
+    const timer = setInterval(check, 60_000);
+    return () => { live = false; clearInterval(timer); };
+  }, [level, mustChange]);
+  if (level && mustChange) return <ForcePasswordChange onDone={() => setMustChange(false)} onSignOut={onSignOut} />;
+  if (!level) return <div className="auth-wrap">{levelErr ? <div className="err">{levelErr}</div> : <div className="empty"><span className="spin" /></div>}</div>;
   const nav: [Tab, string, string][] = [
     ['overview', 'overview', 'Overview'],
     ['cooperatives', 'cooperatives', 'Cooperatives'],
     ['loans', 'loans', 'Loans'],
     ['pipeline', 'pipeline', 'Pipeline'],
+    ['reports', 'reports', 'Reports'],
     ['credit', 'credit', 'Credit model'],
     ['reconciliation', 'reconciliation', 'Reconciliation'],
     ['messaging', 'messaging', 'Messaging'],
@@ -76,6 +179,7 @@ function Portal({ onSignOut }: { onSignOut: () => void }) {
     ['account', 'account', 'Account'],
   ];
   return (
+    <LevelCtx.Provider value={level}>
     <div className="shell">
       <aside className="sidebar">
         <div className="brand"><img src={logo} alt="grofunder" /></div>
@@ -84,6 +188,7 @@ function Portal({ onSignOut }: { onSignOut: () => void }) {
           {nav.map(([t, ico, label]) => (
             <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>
               <span className="ico"><NavIcon name={ico} /></span><span>{label}</span>
+              {t === 'account' && pending > 0 && <span className="nav-badge">{pending}</span>}
             </button>
           ))}
         </nav>
@@ -93,19 +198,27 @@ function Portal({ onSignOut }: { onSignOut: () => void }) {
         </div>
       </aside>
       <main className="main">
+        {pending > 0 && tab !== 'account' && (
+          <div className="notice">
+            <span><strong>{pending}</strong> {pending === 1 ? 'admin is' : 'admins are'} waiting for a password reset.</span>
+            <button className="btn btn-ghost btn-sm" onClick={() => setTab('account')}>Review</button>
+          </div>
+        )}
         {tab === 'overview' && <Overview onGo={setTab} />}
         {tab === 'cooperatives' && <Cooperatives />}
         {tab === 'loans' && <Loans />}
         {tab === 'pipeline' && <PipelineView />}
+        {tab === 'reports' && <Reports onGo={setTab} />}
         {tab === 'credit' && <CreditModel />}
         {tab === 'reconciliation' && <Reconciliation />}
         {tab === 'messaging' && <Messaging />}
         {tab === 'photos' && <Photos />}
         {tab === 'import' && <ImportData />}
         {tab === 'export' && <ExportData />}
-        {tab === 'account' && <Account />}
+        {tab === 'account' && <Account onPending={setPending} />}
       </main>
     </div>
+    </LevelCtx.Provider>
   );
 }
 
@@ -115,11 +228,13 @@ function Overview({ onGo }: { onGo: (t: Tab) => void }) {
   const [rules, setRules] = useState<Rules | null>(null);
   const [exceptions, setExceptions] = useState<Exception[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState('');
 
   useEffect(() => {
     Promise.all([adminApi.listCoops(), adminApi.rules(), adminApi.reconExceptions()])
       .then(([c, r, e]) => { setCoops(c.data); setRules(r); setExceptions(e.data); })
-      .catch(() => {}).finally(() => setLoading(false));
+      .catch((e) => setFailed(e instanceof ApiError ? e.message : 'Could not load the dashboard. Check your connection and refresh.'))
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <div className="empty"><span className="spin" /></div>;
@@ -131,11 +246,12 @@ function Overview({ onGo }: { onGo: (t: Tab) => void }) {
         <div className="h1">Karibu, <span style={{ color: 'var(--g)' }}>Grofunder</span></div>
         <div className="sub">Your lending network at a glance — cooperatives, the credit model, and the books.</div>
       </div>
+      {failed && <div className="err">{failed}</div>}
       <div className="stat-grid">
-        <div className="stat stat-green"><div className="stat-label">Cooperatives &amp; agents</div><div className="stat-num">{coops.length}</div></div>
-        <div className="stat stat-blue"><div className="stat-label">Active</div><div className="stat-num">{active}</div></div>
-        <div className="stat stat-purple"><div className="stat-label">Credit model</div><div className="stat-num">v{rules?.version ?? '—'}</div></div>
-        <div className="stat stat-amber"><div className="stat-label">Open exceptions</div><div className="stat-num">{exceptions.length}</div></div>
+        <div className="stat stat-green"><div className="stat-label">Cooperatives &amp; agents</div><div className="stat-num">{failed ? '—' : coops.length}</div></div>
+        <div className="stat stat-blue"><div className="stat-label">Active</div><div className="stat-num">{failed ? '—' : active}</div></div>
+        <div className="stat stat-purple"><div className="stat-label">Credit model</div><div className="stat-num">v{failed ? '—' : (rules?.version ?? '—')}</div></div>
+        <div className="stat stat-amber"><div className="stat-label">Open exceptions</div><div className="stat-num">{failed ? '—' : exceptions.length}</div></div>
       </div>
       <div className="card">
         <div className="card-head"><h3>Quick actions</h3></div>
@@ -151,6 +267,82 @@ function Overview({ onGo }: { onGo: (t: Tab) => void }) {
   );
 }
 
+/* ---------- Reports ---------- */
+function Reports({ onGo }: { onGo: (t: Tab) => void }) {
+  const [data, setData] = useState<ReportSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState('');
+  const load = useCallback(() => {
+    setLoading(true); setErr('');
+    adminApi.reportSummary().then(setData)
+      .catch((e) => setErr(e instanceof ApiError ? e.message : 'Could not load the report. Check your connection and try again.'))
+      .finally(() => setLoading(false));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const num = (v: number | undefined) => (v === undefined ? '—' : v.toLocaleString());
+  const r = data?.repayment;
+  const pd = data?.pendingDisbursement;
+  const asOf = data ? new Date(`${data.asOf}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+
+  return (
+    <>
+      <div className="page-head">
+        <div className="h1">Reports</div>
+        <div className="sub">Where the network stands today{asOf ? `, ${asOf} (Kenya time)` : ''}</div>
+      </div>
+      <div className="row" style={{ justifyContent: 'flex-end', marginBottom: 14 }}>
+        <button className="btn btn-ghost btn-sm" disabled={loading} onClick={load}>{loading ? 'Refreshing…' : 'Refresh'}</button>
+      </div>
+      {err && <div className="err">{err}</div>}
+      {loading && !data ? <div className="empty"><span className="spin" /></div> : (
+        <>
+          <div className="stat-grid">
+            <div className="stat stat-green"><div className="stat-label">Farmers</div><div className="stat-num">{num(data?.farmers)}</div></div>
+            <div className="stat"><div className="stat-label">Cooperatives &amp; agents</div><div className="stat-num">{num(data?.cooperatives.total)}</div>
+              <div className="stat-sub">{data ? `${data.cooperatives.active} active` : ''}</div></div>
+            <div className="stat"><div className="stat-label">Loans disbursed</div><div className="stat-num">{num(data?.loans.disbursed)}</div>
+              <div className="stat-sub">including closed</div></div>
+            <div className="stat stat-amber"><div className="stat-label">Pending disbursement</div><div className="stat-num">{num(pd?.total)}</div>
+              <div className="stat-sub">{pd ? `${pd.approved} approved, ${pd.sentToPartner} sent to partner` : ''}</div></div>
+          </div>
+
+          <div className="card">
+            <div className="card-head"><h3>Repayment health</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => onGo('loans')}>Open loans</button></div>
+            <div className="card-body">
+              <div className="stat-grid" style={{ marginBottom: 0 }}>
+                <div className="stat stat-green"><div className="stat-label">Active</div><div className="stat-num">{num(r?.active)}</div><div className="stat-sub">repaying on schedule</div></div>
+                <div className="stat"><div className="stat-label">Late</div><div className="stat-num">{num(r?.late)}</div><div className="stat-sub">1 to 6 days past due</div></div>
+                <div className="stat stat-amber"><div className="stat-label">Delayed</div><div className="stat-num">{num(r?.delayed)}</div><div className="stat-sub">7 to 20 days past due</div></div>
+                <div className="stat stat-red"><div className="stat-label">Defaulted</div><div className="stat-num">{num(r?.defaulted)}</div><div className="stat-sub">21 or more days past due</div></div>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-head"><h3>How these are counted</h3></div>
+            <div className="card-body">
+              <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+                Each loan that is being repaid is counted once, by its oldest unpaid weekly instalment, counting days from that instalment's due date.
+                The groups are worked out from the repayment schedule every time this page loads, so they stay right even if a loan's stored status has not caught up.
+              </p>
+              <ul className="muted" style={{ fontSize: 13, margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
+                <li><strong>Active</strong>: nothing is past its due date.</li>
+                <li><strong>Late</strong>: unpaid for 1 to 6 days. Shown so the four groups add up to every loan being repaid.</li>
+                <li><strong>Delayed</strong>: unpaid for at least a week (7 to 20 days).</li>
+                <li><strong>Defaulted</strong>: unpaid for three weeks or more, or marked defaulted.</li>
+                <li><strong>Pending disbursement</strong>: approved by Grofunder and waiting for the money to go out, plus loans already sent to the lending partner and awaiting confirmation.</li>
+                <li><strong>Farmers and cooperatives</strong> leave out anything that has been deleted.</li>
+              </ul>
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
 /* ---------- Cooperatives ---------- */
 function Cooperatives() {
   const [coops, setCoops] = useState<Cooperative[]>([]);
@@ -159,9 +351,15 @@ function Cooperatives() {
   const [newCode, setNewCode] = useState<{ name: string; code: string } | null>(null);
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true);
   const [manageCoop, setManageCoop] = useState<Cooperative | null>(null);
+  const level = useContext(LevelCtx);
+  const isOwner = level === 'OWNER';
+  const canOnboard = can(level, 'OWNER', 'FULL', 'OPERATIONS');
+  const canDelete = can(level, 'OWNER', 'FULL');
 
   const load = useCallback(() => {
-    adminApi.listCoops().then((c) => setCoops(c.data)).catch(() => {}).finally(() => setLoading(false));
+    adminApi.listCoops().then((c) => setCoops(c.data))
+      .catch((e) => setErr(e instanceof ApiError ? e.message : 'Could not load cooperatives'))
+      .finally(() => setLoading(false));
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -207,7 +405,7 @@ function Cooperatives() {
         </div>
       )}
       <div className="card">
-        <div className="card-head"><h3>Onboard a new cooperative or agent</h3></div>
+        <div className="card-head"><h3>Onboard a new cooperative or agent</h3>{!canOnboard && <span className="muted" style={{ fontSize: 12.5, fontWeight: 400 }}>View only at your permission level</span>}</div>
         <div className="card-body">
           <div className="inline-form">
             <div className="field"><label>Type</label>
@@ -219,7 +417,7 @@ function Cooperatives() {
               <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={entityType === 'AGENT' ? 'Jane Wanjiru (agent)' : 'Orinde Farmers Cooperative Society'} /></div>
             <div className="field" style={{ flex: 1 }}><label>County (optional)</label>
               <input className="input" value={county} onChange={(e) => setCounty(e.target.value)} placeholder="Homa Bay" /></div>
-            <button className="btn btn-primary" disabled={busy || !name.trim()} onClick={onboard}>Onboard &amp; issue code</button>
+            <button className="btn btn-primary" disabled={busy || !name.trim() || !canOnboard} onClick={onboard}>Onboard &amp; issue code</button>
           </div>
         </div>
       </div>
@@ -245,7 +443,7 @@ function Cooperatives() {
                 <td><span className={`chip ${c.status === 'ACTIVE' ? 'chip-green' : c.status === 'AWAITING_ACTIVATION' ? 'chip-amber' : 'chip-grey'}`}>{c.status}</span></td>
                 <td>{c.lending_suspended ? <span className="chip chip-red">Paused</span> : <span className="chip chip-green">Open</span>}</td>
                 <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                  {c.status === 'ACTIVE' && (
+                  {c.status === 'ACTIVE' && isOwner && (
                     <>
                       <button className="btn btn-ghost btn-sm" style={{ marginRight: 6 }} onClick={() => setManageCoop(c)}>Clusters/circles</button>
                       <button className={`btn btn-sm ${c.lending_suspended ? 'btn-ghost' : 'btn-amber'}`} onClick={() => toggleLending(c)}>
@@ -253,7 +451,7 @@ function Cooperatives() {
                       </button>
                     </>
                   )}
-                  {c.status !== 'ACTIVE' && <button className="btn btn-danger btn-sm" onClick={() => remove(c.id, c.name)}>Delete</button>}
+                  {c.status !== 'ACTIVE' && canDelete && <button className="btn btn-danger btn-sm" onClick={() => remove(c.id, c.name)}>Delete</button>}
                 </td></tr>
             ))}</tbody>
           </table>
@@ -356,6 +554,7 @@ function CreditModel() {
     ['circle', 'Circle performance'], ['tenure_savings', 'Tenure & savings'], ['declared', 'Declared profile'],
   ];
   const sum = weights ? keys.reduce((s, [k]) => s + weights[k], 0) : 0;
+  const canEdit = can(useContext(LevelCtx), 'OWNER', 'FULL');
 
   async function publish() {
     if (!weights) return;
@@ -387,14 +586,14 @@ function CreditModel() {
           {weights && keys.map(([k, label]) => (
             <div className="weight-row" key={k}>
               <span className="wl">{label}</span>
-              <input type="range" min={0} max={100} value={weights[k]}
+              <input type="range" min={0} max={100} value={weights[k]} disabled={!canEdit}
                 onChange={(e) => setWeights({ ...weights, [k]: Number(e.target.value) })} />
               <span className="wv">{weights[k]}%</span>
             </div>
           ))}
           <div className="row" style={{ justifyContent: 'space-between', marginTop: 22 }}>
             <button className="btn btn-ghost" onClick={() => rules && setWeights(rules.weights)}>Reset</button>
-            <button className="btn btn-primary" disabled={busy || sum !== 100} onClick={publish}>
+            <button className="btn btn-primary" disabled={busy || sum !== 100 || !canEdit} onClick={publish}>
               {busy ? <span className="spin" /> : 'Publish new version'}</button>
           </div>
         </div>
@@ -405,7 +604,7 @@ function CreditModel() {
         <div className="card-body">
           <table>
             <thead><tr><th>Step</th><th>Limit</th><th>Min score</th><th>Loans closed</th></tr></thead>
-            <tbody>{rules?.ladder.sort((a, b) => a.step - b.step).map((s) => (
+            <tbody>{[...(rules?.ladder ?? [])].sort((a, b) => a.step - b.step).map((s) => (
               <tr key={s.step}><td>{s.step}</td><td style={{ fontWeight: 600 }}>{kes(s.limit_cents)}</td><td>{s.min_score || 'any'}</td><td>{s.min_loans_closed}</td></tr>
             ))}</tbody>
           </table>
@@ -556,6 +755,7 @@ function CustomFeatures() {
 
 /* ---------- Reconciliation ---------- */
 function Reconciliation() {
+  const canResolve = can(useContext(LevelCtx), 'OWNER', 'FULL', 'OPERATIONS');
   const [summary, setSummary] = useState<ReconRow[]>([]);
   const [exceptions, setExceptions] = useState<Exception[]>([]);
   const [err, setErr] = useState(''); const [ok, setOk] = useState('');
@@ -596,7 +796,7 @@ function Reconciliation() {
                 <td className="muted">{e.partner_ref}</td>
                 <td style={{ fontWeight: 600 }}>{kes(e.amount_cents)}</td>
                 <td><span className={`chip ${e.direction === 'DISBURSEMENT' ? 'chip-blue' : 'chip-amber'}`}>{e.direction}</span></td>
-                <td style={{ textAlign: 'right' }}><button className="btn btn-ghost btn-sm" onClick={() => resolve(e.id)}>Resolve</button></td>
+                <td style={{ textAlign: 'right' }}>{canResolve && <button className="btn btn-ghost btn-sm" onClick={() => resolve(e.id)}>Resolve</button>}</td>
               </tr>
             ))}</tbody>
           </table>
@@ -632,6 +832,7 @@ const LOAN_FILTERS: [string, string][] = [
   ['COOP_APPROVED', 'Coop approved'],
   ['GF_APPROVED', 'GF approved'],
   ['ACTIVE', 'Active'],
+  ['DISBURSING', 'Disbursing'],
   ['IN_ARREARS', 'In arrears'],
   ['CLOSED', 'Closed'],
 ];
@@ -644,6 +845,14 @@ function statusChip(status: string): string {
 }
 
 function Loans() {
+  const level = useContext(LevelCtx);
+  const canAct = can(level, 'OWNER', 'FULL', 'OPERATIONS');
+  const [partnerMode, setPartnerMode] = useState<'MOCK' | 'LIVE' | null>(null);
+  // Fail closed: disbursement stays disabled unless the server confirms a live partner.
+  const disburseBlocked = partnerMode !== 'LIVE';
+  useEffect(() => {
+    adminApi.partnerMode().then((m) => setPartnerMode(m.mode)).catch(() => setPartnerMode(null));
+  }, []);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [filter, setFilter] = useState('ALL');
   const [loading, setLoading] = useState(true);
@@ -667,6 +876,12 @@ function Loans() {
       <div className="page-head"><div className="h1">Loans</div><div className="sub">Approve, disburse, and track every loan through its full journey</div></div>
       {err && <div className="err">{err}</div>}{ok && <div className="ok">{ok}</div>}
 
+      {disburseBlocked && (
+        <div className="err">
+          {partnerMode === null ? 'Could not confirm the lending partner status. ' : 'The lending partner is not connected. '}
+          Disbursement is disabled, so no money will move from this screen.
+        </div>
+      )}
       <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
         {LOAN_FILTERS.map(([val, label]) => (
           <button key={val} className={`btn btn-sm ${filter === val ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setFilter(val)}>{label}</button>
@@ -690,11 +905,22 @@ function Loans() {
                 <td><span className={`chip ${statusChip(l.status)}`}>{l.status.replace(/_/g, ' ')}</span></td>
                 <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                   <button className="btn btn-ghost btn-sm" onClick={() => setOpenFlow(l.id)}>View flow</button>
-                  {l.status === 'COOP_APPROVED' && (
-                    <button className="btn btn-primary btn-sm" style={{ marginLeft: 6 }} onClick={() => act(() => adminApi.gfApprove(l.id), 'Loan approved by Grofunder')}>Approve</button>
+                  {canAct && l.status === 'COOP_APPROVED' && (
+                    <>
+                      <button className="btn btn-primary btn-sm" style={{ marginLeft: 6 }} onClick={() => {
+                        if (confirm(`Approve ${l.farmer_name}'s loan (${kes(l.principal_cents)}, ${l.weeks} weeks)? This is Grofunder's approval before disbursement.`)) act(() => adminApi.gfApprove(l.id), 'Loan approved by Grofunder');
+                      }}>Approve</button>
+                      <button className="btn btn-danger btn-sm" style={{ marginLeft: 6 }} onClick={() => {
+                        const reason = prompt(`Reason for rejecting ${l.farmer_name}'s loan (required, kept on the record):`);
+                        if (reason && reason.trim()) act(() => adminApi.gfReject(l.id, reason.trim()), 'Loan rejected');
+                      }}>Reject</button>
+                    </>
                   )}
-                  {l.status === 'GF_APPROVED' && (
-                    <button className="btn btn-blue btn-sm" style={{ marginLeft: 6 }} onClick={() => act(() => adminApi.disburse(l.id), 'Disbursement requested')}>Disburse</button>
+                  {canAct && l.status === 'GF_APPROVED' && (
+                    <button className="btn btn-blue btn-sm" style={{ marginLeft: 6 }} disabled={disburseBlocked}
+                      title={disburseBlocked ? 'Lending partner not connected' : undefined} onClick={() => {
+                        if (confirm(`Disburse ${kes(l.principal_cents)} to ${l.farmer_name}? This instructs the lending partner to send money.`)) act(() => adminApi.disburse(l.id), 'Disbursement requested. The partner will confirm.');
+                      }}>Disburse</button>
                   )}
                 </td>
               </tr>
@@ -766,12 +992,15 @@ const LEVEL_DESC: Record<string, string> = {
   VIEW_ONLY: 'Can see everything, change nothing',
 };
 
-function Account() {
+function Account({ onPending }: { onPending: (n: number) => void }) {
   const [me, setMe] = useState<AdminMe | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState('');
 
   useEffect(() => {
-    adminApi.me().then(setMe).catch(() => {}).finally(() => setLoading(false));
+    adminApi.me().then(setMe)
+      .catch((e) => setLoadErr(e instanceof ApiError ? e.message : 'Could not load your account'))
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <div className="empty"><span className="spin" /></div>;
@@ -780,8 +1009,11 @@ function Account() {
   return (
     <>
       <div className="page-head"><div className="h1">Account</div><div className="sub">Your login details{isOwner ? ' and your Grofunder admin team' : ''}</div></div>
+      {loadErr && <div className="err">{loadErr}</div>}
       <MyAccount me={me} onEmailChange={(e) => setMe((m) => m ? { ...m, email: e } : m)} />
+      {isOwner && <RecoveryRequests onPending={onPending} />}
       {isOwner && <AdminTeam />}
+      {isOwner && <AuditLog />}
     </>
   );
 }
@@ -799,7 +1031,7 @@ function MyAccount({ me, onEmailChange }: { me: AdminMe | null; onEmailChange: (
   async function savePassword() {
     setMsg(''); setErr('');
     if (nw !== nw2) { setErr('New passwords do not match'); return; }
-    try { await adminApi.changePassword(cur, nw); setCur(''); setNw(''); setNw2(''); setMsg('Password changed'); }
+    try { const r = await adminApi.changePassword(cur, nw); setToken(r.token); setCur(''); setNw(''); setNw2(''); setMsg('Password changed'); }
     catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not change password'); }
   }
 
@@ -822,6 +1054,85 @@ function MyAccount({ me, onEmailChange }: { me: AdminMe | null; onEmailChange: (
           <div className="field"><label>Confirm new password</label><input className="input" type="password" value={nw2} onChange={(e) => setNw2(e.target.value)} /></div>
           <button className="btn btn-primary" disabled={!cur || !nw || !nw2} onClick={savePassword}>Change password</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Password recovery requests (owner view) ---------- */
+function RecoveryRequests({ onPending }: { onPending: (n: number) => void }) {
+  const [rows, setRows] = useState<RecoveryRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState('');
+  const [busyId, setBusyId] = useState('');
+  const [issued, setIssued] = useState<{ email: string; temp: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const load = useCallback(() => {
+    adminApi.recoveryRequests()
+      .then((r) => { setRows(r.data); onPending(r.data.length); setErr(''); })
+      .catch((e) => setErr(e instanceof ApiError ? e.message : 'Could not load recovery requests'))
+      .finally(() => setLoading(false));
+  }, [onPending]);
+  useEffect(() => { load(); }, [load]);
+
+  async function approve(r: RecoveryRequest) {
+    if (!confirm(`Reset the password for ${r.email}? Their current password and any open sessions will stop working.`)) return;
+    setErr(''); setBusyId(r.id);
+    try {
+      const res = await adminApi.approveRecovery(r.id);
+      setIssued({ email: res.email, temp: res.tempPassword }); setCopied(false);
+    } catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not approve'); }
+    finally { setBusyId(''); load(); }
+  }
+  async function deny(r: RecoveryRequest) {
+    if (!confirm(`Deny the reset request from ${r.email}? Nothing about their account will change.`)) return;
+    setErr(''); setBusyId(r.id);
+    try { await adminApi.denyRecovery(r.id); }
+    catch (e) { setErr(e instanceof ApiError ? e.message : 'Could not deny'); }
+    finally { setBusyId(''); load(); }
+  }
+  async function copy(text: string) {
+    try { await navigator.clipboard.writeText(text); setCopied(true); } catch { setCopied(false); }
+  }
+
+  return (
+    <div className="card">
+      <div className="card-head">
+        <h3>Password recovery requests</h3>
+        {rows.length > 0 && <span className="chip chip-amber">{rows.length} waiting</span>}
+      </div>
+      <div className="card-body">
+        {err && <div className="err">{err}</div>}
+        {issued && (
+          <div className="ok">
+            <div><strong>{issued.email}</strong> can sign in with this temporary password:</div>
+            <div style={{ margin: '10px 0' }}>
+              <span className="code" style={{ fontSize: 15 }}>{issued.temp}</span>{' '}
+              <button className="btn btn-ghost btn-sm" onClick={() => copy(issued.temp)}>{copied ? 'Copied' : 'Copy'}</button>
+            </div>
+            <div style={{ fontSize: 12.5 }}>Pass it on yourself, by phone or in person. It is shown only now and cannot be retrieved later. They will be asked to choose their own password at sign-in.</div>
+            <button className="btn btn-primary btn-sm" style={{ marginTop: 10 }} onClick={() => setIssued(null)}>I have passed it on</button>
+          </div>
+        )}
+        {loading ? <div className="empty"><span className="spin" /></div> : rows.length === 0 ? (
+          <p className="muted" style={{ margin: 0 }}>No one is waiting for a reset. Requests appear here, and as a notice on every page, for 24 hours.</p>
+        ) : (
+          <table>
+            <thead><tr><th>Admin</th><th>Level</th><th>Asked</th><th style={{ textAlign: 'right' }}>Actions</th></tr></thead>
+            <tbody>{rows.map((r) => (
+              <tr key={r.id}>
+                <td><div style={{ fontWeight: 600 }}>{r.email}</div><div className="muted" style={{ fontSize: 12.5 }}>{r.full_name ?? ''}</div></td>
+                <td>{LEVEL_LABELS[r.admin_level] ?? r.admin_level}</td>
+                <td className="muted">{new Date(r.created_at).toLocaleString()}</td>
+                <td style={{ textAlign: 'right' }}>
+                  <button className="btn btn-primary btn-sm" disabled={busyId === r.id} onClick={() => approve(r)}>Approve</button>{' '}
+                  <button className="btn btn-ghost btn-sm" disabled={busyId === r.id} onClick={() => deny(r)}>Deny</button>
+                </td>
+              </tr>
+            ))}</tbody>
+          </table>
+        )}
       </div>
     </div>
   );
@@ -880,7 +1191,7 @@ function AdminTeam() {
                 {['FULL', 'OPERATIONS', 'VIEW_ONLY', 'OWNER'].map((l) => <option key={l} value={l}>{LEVEL_LABELS[l]}</option>)}
               </select>
             </div>
-            <div className="field"><label>Temporary password</label><input className="input" value={form.tempPassword} onChange={(e) => setForm({ ...form, tempPassword: e.target.value })} placeholder="at least 8 characters" /></div>
+            <div className="field"><label>Temporary password</label><input className="input" type="password" autoComplete="new-password" value={form.tempPassword} onChange={(e) => setForm({ ...form, tempPassword: e.target.value })} placeholder="at least 8 characters" /></div>
             <button className="btn btn-primary" disabled={!form.email.trim() || form.tempPassword.length < 8} onClick={invite}>Invite</button>
           </div>
           <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>{LEVEL_DESC[form.level]}</p>
@@ -915,6 +1226,39 @@ function AdminTeam() {
   );
 }
 
+/* ---------- Audit log (owner view) ---------- */
+function AuditLog() {
+  const [rows, setRows] = useState<AuditEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    adminApi.auditLog().then((r) => setRows(r.data))
+      .catch((e) => setErr(e instanceof ApiError ? e.message : 'Could not load the audit log'))
+      .finally(() => setLoading(false));
+  }, []);
+  return (
+    <div className="card">
+      <div className="card-head"><h3>Audit log</h3><span className="muted" style={{ fontSize: 13 }}>Last 200 admin actions, including refused ones</span></div>
+      {err && <div className="err" style={{ margin: '0 20px' }}>{err}</div>}
+      {loading ? <div className="empty"><span className="spin" /></div> : rows.length === 0 ? (
+        <div className="empty">No admin actions recorded yet.</div>
+      ) : (
+        <table>
+          <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Result</th></tr></thead>
+          <tbody>{rows.map((r) => (
+            <tr key={r.id}>
+              <td className="muted" style={{ whiteSpace: 'nowrap', fontSize: 13 }}>{new Date(r.created_at).toLocaleString('en-KE')}</td>
+              <td style={{ fontSize: 13 }}>{r.actor_email ?? '—'}</td>
+              <td style={{ fontSize: 13 }}><span className="chip chip-grey">{r.method}</span> <span className="muted">{r.path.replace('/api/v1/', '')}</span></td>
+              <td>{r.status_code < 400 ? <span className="chip chip-green">{r.status_code}</span> : <span className="chip chip-red">{r.status_code}</span>}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
 /* ---------- Messaging ---------- */
 const AUDIENCE_OPTIONS: { value: string; label: string; needs?: 'coop' }[] = [
   { value: 'ALL_FARMERS', label: 'All farmers' },
@@ -939,6 +1283,10 @@ function Messaging() {
 }
 
 function Compose() {
+  const level = useContext(LevelCtx);
+  const canSend = can(level, 'OWNER', 'FULL', 'OPERATIONS');
+  const [smsMode, setSmsMode] = useState<'MOCK' | 'LIVE' | null>(null);
+  const [coopsErr, setCoopsErr] = useState('');
   const [coops, setCoops] = useState<Cooperative[]>([]);
   const [audience, setAudience] = useState('ALL_FARMERS');
   const [coopRef, setCoopRef] = useState('');
@@ -947,7 +1295,9 @@ function Compose() {
   const [err, setErr] = useState(''); const [ok, setOk] = useState('');
 
   useEffect(() => {
-    adminApi.listCoops().then((r) => setCoops(r.data.filter((c) => c.status === 'ACTIVE'))).catch(() => {});
+    adminApi.listCoops().then((r) => setCoops(r.data.filter((c) => c.status === 'ACTIVE')))
+      .catch((e) => setCoopsErr(e instanceof ApiError ? e.message : 'Could not load cooperatives'));
+    adminApi.smsMode().then((m) => setSmsMode(m.mode)).catch(() => setSmsMode(null));
   }, []);
 
   const selected = AUDIENCE_OPTIONS.find((a) => a.value === audience);
@@ -971,6 +1321,13 @@ function Compose() {
       <div className="card-head"><h3>Compose a message</h3></div>
       <div className="card-body">
         {err && <div className="err">{err}</div>}{ok && <div className="ok">{ok}</div>}
+        {smsMode !== 'LIVE' && (
+          <div className="err">
+            {smsMode === null ? 'Could not confirm the SMS provider status. ' : 'SMS is not live yet. '}
+            Messages are recorded but not delivered to phones.
+          </div>
+        )}
+        {coopsErr && <div className="err">{coopsErr}</div>}
         <div className="field" style={{ maxWidth: 420 }}>
           <label>Send to</label>
           <select className="input" value={audience} onChange={(e) => setAudience(e.target.value)}>
@@ -993,7 +1350,11 @@ function Compose() {
         </div>
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <p className="muted" style={{ fontSize: 12.5, margin: 0 }}>Recipients without a phone number are skipped automatically.</p>
-          <button className="btn btn-primary" disabled={busy || !body.trim() || (needsCoop && !coopRef)} onClick={send}>
+          <button className="btn btn-primary" disabled={busy || !canSend || !body.trim() || (needsCoop && !coopRef)} onClick={() => {
+            const target = selected?.label ?? audience;
+            const coopName = needsCoop ? coops.find((c) => c.id === coopRef)?.name : undefined;
+            if (confirm(`Send this message to ${target}${coopName ? ` (${coopName})` : ''}? Every recipient with a phone number will get it, and it cannot be unsent.`)) send();
+          }}>
             {busy ? <span className="spin" /> : 'Send message'}</button>
         </div>
       </div>
@@ -1004,15 +1365,20 @@ function Compose() {
 function MessageLog() {
   const [log, setLog] = useState<MessageCampaign[]>([]);
   const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState('');
 
   useEffect(() => {
-    adminApi.messageLog().then((r) => setLog(r.data)).catch(() => {}).finally(() => setLoading(false));
+    adminApi.messageLog().then((r) => setLog(r.data))
+      .catch((e) => setErr(e instanceof ApiError ? e.message : 'Could not load message history'))
+      .finally(() => setLoading(false));
   }, []);
 
   const audLabel = (a: string) => AUDIENCE_OPTIONS.find((o) => o.value === a)?.label ?? a.replace(/_/g, ' ');
 
   if (loading) return <div className="empty"><span className="spin" /></div>;
   return (
+    <>
+    {err && <div className="err">{err}</div>}
     <div className="card">
       <div className="card-head"><h3>Message history</h3><span className="muted" style={{ fontSize: 13 }}>{log.length} sent</span></div>
       {log.length === 0 ? <div className="empty">No messages sent yet.</div> : (
@@ -1030,6 +1396,7 @@ function MessageLog() {
         </table>
       )}
     </div>
+    </>
   );
 }
 
@@ -1359,6 +1726,7 @@ function sizedImg(url: string, width = 600): string {
 
 /* ---------- Photos: farmer submissions for the Grofunder website ---------- */
 function Photos() {
+  const canReview = can(useContext(LevelCtx), 'OWNER', 'FULL', 'OPERATIONS');
   const [view, setView] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [items, setItems] = useState<WebsiteSubmission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1394,6 +1762,7 @@ function Photos() {
         </div>
       </div>
       {err && <div className="err">{err}</div>}{msg && <div className="ok">{msg}</div>}
+      {items.some((i) => i.image_url.startsWith('mock://')) && <div className="err">Image storage is not connected yet. Photos marked Photo are placeholders.</div>}
 
       <div className="tabs-inline">
         {(['PENDING', 'APPROVED', 'REJECTED'] as const).map((v) => (
@@ -1427,10 +1796,12 @@ function Photos() {
                   <>
                     <input className="input" style={{ marginTop: 10 }} placeholder="Note (optional)"
                       value={note[s.id] ?? ''} onChange={(e) => setNote({ ...note, [s.id]: e.target.value })} />
-                    <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                      <button className="btn btn-primary btn-sm" disabled={busyId === s.id} onClick={() => review(s.id, 'APPROVED')}>Approve</button>
-                      <button className="btn btn-ghost btn-sm" disabled={busyId === s.id} onClick={() => review(s.id, 'REJECTED')}>Reject</button>
-                    </div>
+                    {canReview && (
+                      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                        <button className="btn btn-primary btn-sm" disabled={busyId === s.id} onClick={() => review(s.id, 'APPROVED')}>Approve</button>
+                        <button className="btn btn-ghost btn-sm" disabled={busyId === s.id} onClick={() => review(s.id, 'REJECTED')}>Reject</button>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
